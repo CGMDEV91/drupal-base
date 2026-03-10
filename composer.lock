@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a0ee486fd70057835844cc8f370ff29f",
+    "content-hash": "da079e9dab15eaf29e65519adae8c525",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -1545,6 +1545,69 @@
             "description": "Core and its dependencies with known-compatible minor versions. Require this project INSTEAD OF drupal/core."
         },
         {
+            "name": "drupal/geofield",
+            "version": "10.3.4",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/geofield.git",
+                "reference": "10.3.4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/geofield-10.3.4.zip",
+                "reference": "10.3.4",
+                "shasum": "bd68709c400780504c01e126c21aabb88ddfcd57"
+            },
+            "require": {
+                "drupal/core": "^10.3 || ^11 || ^12",
+                "itamair/geophp": "^1.6"
+            },
+            "require-dev": {
+                "drupal/diff": "^1.3",
+                "drupal/feeds": "^3.2",
+                "drupal/jsonapi_extras": "^3.28"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "10.3.4",
+                    "datestamp": "1773079821",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "Italo Mairo",
+                    "homepage": "https://www.drupal.org/u/itamair",
+                    "role": "Drupal 8+ Maintainer"
+                },
+                {
+                    "name": "Brandon Morrison",
+                    "homepage": "https://www.drupal.org/u/brandonian",
+                    "role": "Drupal 7 Maintainer"
+                },
+                {
+                    "name": "Pablo López",
+                    "homepage": "https://www.drupal.org/u/plopesc",
+                    "role": "Drupal 7 Maintainer"
+                }
+            ],
+            "description": "Stores geographic and location data (points, lines, and polygons).",
+            "homepage": "https://www.drupal.org/project/geofield",
+            "support": {
+                "source": "https://git.drupalcode.org/project/geofield",
+                "issues": "https://www.drupal.org/project/issues/geofield",
+                "irc": "irc://irc.freenode.org/drupal-contribute"
+            }
+        },
+        {
             "name": "drupal/gin",
             "version": "5.0.12",
             "source": {
@@ -1672,6 +1735,68 @@
                     "url": "https://paypal.me/saschaeggi"
                 }
             ]
+        },
+        {
+            "name": "drupal/jsonapi_extras",
+            "version": "3.28.0",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/jsonapi_extras.git",
+                "reference": "8.x-3.28"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/jsonapi_extras-8.x-3.28.zip",
+                "reference": "8.x-3.28",
+                "shasum": "e46e47c2b0ef268f2080aabf89df3f71f22fc902"
+            },
+            "require": {
+                "drupal/core": "^9.5 || ^10 || ^11",
+                "e0ipso/shaper": "^1",
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "drupal/schemata": "dev-1.x"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "8.x-3.28",
+                    "datestamp": "1766134430",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Mateu Aguiló Bosch",
+                    "homepage": "https://www.drupal.org/user/3366066",
+                    "email": "mateu.aguilo.bosch@gmail.com"
+                },
+                {
+                    "name": "Martin Kolar",
+                    "homepage": "https://www.drupal.org/u/mkolar"
+                },
+                {
+                    "name": "Karel Majzlik",
+                    "homepage": "https://www.drupal.org/u/karlos007"
+                },
+                {
+                    "name": "Björn Brala",
+                    "homepage": "https://www.drupal.org/u/bbrala"
+                }
+            ],
+            "description": "JSON:API Extras provides a means to override and provide limited configurations to the default zero-configuration implementation provided by the JSON:API module.",
+            "homepage": "https://www.drupal.org/project/jsonapi_extras",
+            "support": {
+                "source": "https://git.drupalcode.org/project/jsonapi_extras"
+            }
         },
         {
             "name": "drush/drush",
@@ -1821,6 +1946,52 @@
                 }
             ],
             "time": "2026-01-28T22:21:17+00:00"
+        },
+        {
+            "name": "e0ipso/shaper",
+            "version": "1.2.7",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/e0ipso/shaper.git",
+                "reference": "1d9e726c98d3168d30c1180cd836d13267744fb7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/e0ipso/shaper/zipball/1d9e726c98d3168d30c1180cd836d13267744fb7",
+                "reference": "1d9e726c98d3168d30c1180cd836d13267744fb7",
+                "shasum": ""
+            },
+            "require": {
+                "justinrainbow/json-schema": "^5.2 || ^6.3"
+            },
+            "require-dev": {
+                "php-coveralls/php-coveralls": "^2.4",
+                "phpunit/phpcov": "^8.2",
+                "phpunit/phpunit": "^9.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Shaper\\": "src",
+                    "Shaper\\Tests\\": "tests/src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Mateu Aguiló Bosch",
+                    "email": "mateu.aguilo.bosch@gmail.com"
+                }
+            ],
+            "description": "Lightweight library to handle in and out transformations in PHP.",
+            "support": {
+                "issues": "https://github.com/e0ipso/shaper/issues",
+                "source": "https://github.com/e0ipso/shaper/tree/1.2.7"
+            },
+            "time": "2025-04-04T08:14:01+00:00"
         },
         {
             "name": "egulias/email-validator",
@@ -2323,6 +2494,128 @@
             "time": "2025-08-23T21:21:41+00:00"
         },
         {
+            "name": "itamair/geophp",
+            "version": "1.10",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/itamair/geoPHP.git",
+                "reference": "7403410f7252e4d0ce128a705ba8b40613195e16"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/itamair/geoPHP/zipball/7403410f7252e4d0ce128a705ba8b40613195e16",
+                "reference": "7403410f7252e4d0ce128a705ba8b40613195e16",
+                "shasum": ""
+            },
+            "require-dev": {
+                "phpunit/phpunit": "4.1.* || 9.5.*"
+            },
+            "type": "library",
+            "autoload": {
+                "classmap": [
+                    "geoPHP.inc"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "Italo Mairo",
+                    "homepage": "https://www.linkedin.com/in/italomairo/",
+                    "role": "Maintanier of this Library Repo"
+                },
+                {
+                    "name": "Patrick Hayes",
+                    "homepage": "https://www.linkedin.com/in/patrickdhayes/",
+                    "role": "Maintanier of original Repositary/Library (https://github.com/phayes/geoPHP)"
+                }
+            ],
+            "description": "GeoPHP is a open-source native PHP library for doing geometry operations. It is written entirely in PHP and can therefore run on shared hosts. It can read and write a wide variety of formats: WKT (including EWKT), WKB (including EWKB), GeoJSON, KML, GPX, GeoRSS). It works with all Simple-Feature geometries (Point, LineString, Polygon, GeometryCollection etc.) and can be used to get centroids, bounding-boxes, area, and a wide variety of other useful information.",
+            "homepage": "https://github.com/itamair/geoPHP",
+            "support": {
+                "issues": "https://github.com/itamair/geoPHP/issues",
+                "source": "https://github.com/itamair/geoPHP/tree/1.10"
+            },
+            "time": "2026-03-09T17:22:59+00:00"
+        },
+        {
+            "name": "justinrainbow/json-schema",
+            "version": "v6.7.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/jsonrainbow/json-schema.git",
+                "reference": "6fea66c7204683af437864e7c4e7abf383d14bc0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/jsonrainbow/json-schema/zipball/6fea66c7204683af437864e7c4e7abf383d14bc0",
+                "reference": "6fea66c7204683af437864e7c4e7abf383d14bc0",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "marc-mabe/php-enum": "^4.4",
+                "php": "^7.2 || ^8.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "3.3.0",
+                "json-schema/json-schema-test-suite": "^23.2",
+                "marc-mabe/php-enum-phpstan": "^2.0",
+                "phpspec/prophecy": "^1.19",
+                "phpstan/phpstan": "^1.12",
+                "phpunit/phpunit": "^8.5"
+            },
+            "bin": [
+                "bin/validate-json"
+            ],
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "6.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "JsonSchema\\": "src/JsonSchema/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Bruno Prieto Reis",
+                    "email": "bruno.p.reis@gmail.com"
+                },
+                {
+                    "name": "Justin Rainbow",
+                    "email": "justin.rainbow@gmail.com"
+                },
+                {
+                    "name": "Igor Wiedler",
+                    "email": "igor@wiedler.ch"
+                },
+                {
+                    "name": "Robert Schönthal",
+                    "email": "seroscho@googlemail.com"
+                }
+            ],
+            "description": "A library to validate a json schema.",
+            "homepage": "https://github.com/jsonrainbow/json-schema",
+            "keywords": [
+                "json",
+                "schema"
+            ],
+            "support": {
+                "issues": "https://github.com/jsonrainbow/json-schema/issues",
+                "source": "https://github.com/jsonrainbow/json-schema/tree/v6.7.2"
+            },
+            "time": "2026-02-15T15:06:22+00:00"
+        },
+        {
             "name": "laravel/prompts",
             "version": "v0.3.13",
             "source": {
@@ -2462,6 +2755,79 @@
                 }
             ],
             "time": "2025-05-20T12:55:37+00:00"
+        },
+        {
+            "name": "marc-mabe/php-enum",
+            "version": "v4.7.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/marc-mabe/php-enum.git",
+                "reference": "bb426fcdd65c60fb3638ef741e8782508fda7eef"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/marc-mabe/php-enum/zipball/bb426fcdd65c60fb3638ef741e8782508fda7eef",
+                "reference": "bb426fcdd65c60fb3638ef741e8782508fda7eef",
+                "shasum": ""
+            },
+            "require": {
+                "ext-reflection": "*",
+                "php": "^7.1 | ^8.0"
+            },
+            "require-dev": {
+                "phpbench/phpbench": "^0.16.10 || ^1.0.4",
+                "phpstan/phpstan": "^1.3.1",
+                "phpunit/phpunit": "^7.5.20 | ^8.5.22 | ^9.5.11",
+                "vimeo/psalm": "^4.17.0 | ^5.26.1"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-3.x": "3.2-dev",
+                    "dev-master": "4.7-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MabeEnum\\": "src/"
+                },
+                "classmap": [
+                    "stubs/Stringable.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Marc Bennewitz",
+                    "email": "dev@mabe.berlin",
+                    "homepage": "https://mabe.berlin/",
+                    "role": "Lead"
+                }
+            ],
+            "description": "Simple and fast implementation of enumerations with native PHP",
+            "homepage": "https://github.com/marc-mabe/php-enum",
+            "keywords": [
+                "enum",
+                "enum-map",
+                "enum-set",
+                "enumeration",
+                "enumerator",
+                "enummap",
+                "enumset",
+                "map",
+                "set",
+                "type",
+                "type-hint",
+                "typehint"
+            ],
+            "support": {
+                "issues": "https://github.com/marc-mabe/php-enum/issues",
+                "source": "https://github.com/marc-mabe/php-enum/tree/v4.7.2"
+            },
+            "time": "2025-09-14T11:18:39+00:00"
         },
         {
             "name": "masterminds/html5",

@@ -652,6 +652,8 @@ $settings['update_free_access'] = FALSE;
 #   '@count min' => '@count minutes',
 # ];
 
+$config['language.negotiation']['language_interface']['enabled']['language-url'] = 1;
+
 /**
  * A custom theme for the offline page:
  *
