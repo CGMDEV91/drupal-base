@@ -1,0 +1,90 @@
+uuid: 7f8dec96-e354-4227-a4b5-0c4dc143f75d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.taxonomy_term.currency.field_currency_code
+    - field.field.taxonomy_term.currency.field_guide_revenue
+    - field.field.taxonomy_term.currency.field_payment_reference
+    - field.field.taxonomy_term.currency.field_platform_revenue
+    - taxonomy.vocabulary.currency
+  module:
+    - path
+    - text
+id: taxonomy_term.currency.default
+targetEntityType: taxonomy_term
+bundle: currency
+mode: default
+content:
+  description:
+    type: text_textfield
+    weight: 0
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_currency_code:
+    type: string_textfield
+    weight: 101
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_guide_revenue:
+    type: number
+    weight: 103
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_payment_reference:
+    type: string_textfield
+    weight: 102
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_platform_revenue:
+    type: number
+    weight: 104
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  name:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  path:
+    type: path
+    weight: 30
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 100
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  translation:
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+hidden: {  }

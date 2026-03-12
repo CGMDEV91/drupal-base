@@ -1,0 +1,21 @@
+uuid: 7fe9f3ec-6d64-421a-a056-336d66922e9d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_billing_cycle
+    - node.type.subscription_plan
+  module:
+    - options
+id: node.subscription_plan.field_billing_cycle
+field_name: field_billing_cycle
+entity_type: node
+bundle: subscription_plan
+label: 'Billing Cycle'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

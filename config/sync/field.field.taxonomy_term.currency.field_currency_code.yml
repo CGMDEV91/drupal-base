@@ -1,0 +1,19 @@
+uuid: fc45bb4b-326b-4ca7-930c-732314a9f3f6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.taxonomy_term.field_currency_code
+    - taxonomy.vocabulary.currency
+id: taxonomy_term.currency.field_currency_code
+field_name: field_currency_code
+entity_type: taxonomy_term
+bundle: currency
+label: 'Currency Code'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

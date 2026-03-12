@@ -1,0 +1,23 @@
+uuid: df2f6f7f-5e39-487e-81bc-cc07f155aba4
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_price
+    - node.type.subscription_plan
+id: node.subscription_plan.field_price
+field_name: field_price
+entity_type: node
+bundle: subscription_plan
+label: Price
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

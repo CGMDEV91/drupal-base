@@ -1,0 +1,23 @@
+uuid: d409d3f5-80c1-4a74-9758-c0d880f317dd
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_revenue_percentage
+    - node.type.professional_profile
+id: node.professional_profile.field_revenue_percentage
+field_name: field_revenue_percentage
+entity_type: node
+bundle: professional_profile
+label: 'Revenue Percentage'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

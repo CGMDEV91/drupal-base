@@ -1,0 +1,23 @@
+uuid: aff4307b-736a-457e-a849-8115f2e21732
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_total_completed
+    - node.type.tour_step
+id: node.tour_step.field_total_completed
+field_name: field_total_completed
+entity_type: node
+bundle: tour_step
+label: 'Total Completed'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

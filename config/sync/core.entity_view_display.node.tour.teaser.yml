@@ -1,0 +1,57 @@
+uuid: d4d48897-b96e-4740-9ad0-96da981bf6a0
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.node.teaser
+    - field.field.node.tour.field_average_rate
+    - field.field.node.tour.field_city
+    - field.field.node.tour.field_country
+    - field.field.node.tour.field_description
+    - field.field.node.tour.field_donation_count
+    - field.field.node.tour.field_donation_total
+    - field.field.node.tour.field_duration
+    - field.field.node.tour.field_featured_business_1
+    - field.field.node.tour.field_featured_business_2
+    - field.field.node.tour.field_featured_business_3
+    - field.field.node.tour.field_image
+    - field.field.node.tour.field_location
+    - image.style.medium
+    - node.type.tour
+  module:
+    - image
+    - user
+id: node.tour.teaser
+targetEntityType: node
+bundle: tour
+mode: teaser
+content:
+  field_image:
+    type: image
+    label: hidden
+    settings:
+      image_link: content
+      image_style: medium
+      image_loading:
+        attribute: lazy
+    third_party_settings: {  }
+    weight: -1
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  field_average_rate: true
+  field_city: true
+  field_country: true
+  field_description: true
+  field_donation_count: true
+  field_donation_total: true
+  field_duration: true
+  field_featured_business_1: true
+  field_featured_business_2: true
+  field_featured_business_3: true
+  field_location: true
+  langcode: true

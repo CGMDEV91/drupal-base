@@ -1,0 +1,23 @@
+uuid: 03d45ec9-c80e-4af9-ae52-187ab5347339
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_duration
+    - node.type.tour
+id: node.tour.field_duration
+field_name: field_duration
+entity_type: node
+bundle: tour
+label: Duration
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

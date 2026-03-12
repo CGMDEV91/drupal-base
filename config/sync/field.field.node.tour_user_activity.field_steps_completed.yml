@@ -1,0 +1,29 @@
+uuid: eeb31a5f-b693-4b00-9c38-e53be88e9718
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_steps_completed
+    - node.type.tour_step
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_steps_completed
+field_name: field_steps_completed
+entity_type: node
+bundle: tour_user_activity
+label: 'Steps Completed'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      tour_step: tour_step
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

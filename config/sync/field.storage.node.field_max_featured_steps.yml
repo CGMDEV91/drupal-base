@@ -1,0 +1,20 @@
+uuid: 17de4e7f-b42b-4fdb-85e7-21104ed02764
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_max_featured_steps
+field_name: field_max_featured_steps
+entity_type: node
+type: integer
+settings:
+  unsigned: false
+  size: normal
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

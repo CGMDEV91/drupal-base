@@ -1,0 +1,19 @@
+uuid: 2fbafdaf-0a5f-4868-befe-ce0887920051
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_completed_at
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_completed_at
+field_name: field_completed_at
+entity_type: node
+bundle: tour_user_activity
+label: 'Completed At'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

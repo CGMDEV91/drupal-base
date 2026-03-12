@@ -1,0 +1,21 @@
+uuid: 1c77542d-3686-4889-b469-70333b1d3f35
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_active
+    - node.type.subscription_plan
+id: node.subscription_plan.field_active
+field_name: field_active
+entity_type: node
+bundle: subscription_plan
+label: Active
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

@@ -1,0 +1,25 @@
+uuid: 92e797d1-65cc-419e-b30f-b91faed2c2ea
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_address
+    - node.type.professional_profile
+  module:
+    - address
+id: node.professional_profile.field_address
+field_name: field_address
+entity_type: node
+bundle: professional_profile
+label: Address
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  available_countries: {  }
+  langcode_override: ''
+  field_overrides: {  }
+  fields: {  }
+field_type: address

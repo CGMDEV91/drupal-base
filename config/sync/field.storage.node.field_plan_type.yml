@@ -1,0 +1,27 @@
+uuid: 9c4ba15c-c09d-4012-912b-8a97d2d6baaa
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+    - options
+id: node.field_plan_type
+field_name: field_plan_type
+entity_type: node
+type: list_string
+settings:
+  allowed_values:
+    -
+      value: free
+      label: free
+    -
+      value: premium
+      label: premium
+  allowed_values_function: ''
+module: options
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

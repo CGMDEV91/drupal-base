@@ -1,0 +1,20 @@
+uuid: c8bcdd1d-6dff-4665-a2e3-b411819e95b2
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.user.field_public_name
+  module:
+    - user
+id: user.user.field_public_name
+field_name: field_public_name
+entity_type: user
+bundle: user
+label: 'Public name'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

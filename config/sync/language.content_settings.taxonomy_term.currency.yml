@@ -1,0 +1,16 @@
+uuid: 230e3a57-50f5-4978-926c-98cc03ac0b41
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.currency
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+id: taxonomy_term.currency
+target_entity_type_id: taxonomy_term
+target_bundle: currency
+default_langcode: site_default
+language_alterable: false

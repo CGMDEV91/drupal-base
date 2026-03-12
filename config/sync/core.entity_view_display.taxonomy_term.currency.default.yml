@@ -1,0 +1,64 @@
+uuid: 9a087cb1-47d4-4c6a-9199-8277aecef06b
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.taxonomy_term.currency.field_currency_code
+    - field.field.taxonomy_term.currency.field_guide_revenue
+    - field.field.taxonomy_term.currency.field_payment_reference
+    - field.field.taxonomy_term.currency.field_platform_revenue
+    - taxonomy.vocabulary.currency
+  module:
+    - text
+id: taxonomy_term.currency.default
+targetEntityType: taxonomy_term
+bundle: currency
+mode: default
+content:
+  description:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_currency_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_guide_revenue:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_payment_reference:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_platform_revenue:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+hidden:
+  langcode: true

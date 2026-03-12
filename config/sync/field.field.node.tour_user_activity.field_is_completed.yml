@@ -1,0 +1,21 @@
+uuid: df65ce30-0e45-417a-86c9-4944360d3e1d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_is_completed
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_is_completed
+field_name: field_is_completed
+entity_type: node
+bundle: tour_user_activity
+label: 'Is Completed'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

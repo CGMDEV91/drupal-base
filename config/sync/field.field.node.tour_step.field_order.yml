@@ -1,0 +1,23 @@
+uuid: a0fb718d-768e-44a6-a725-aa5da79a24d6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_order
+    - node.type.tour_step
+id: node.tour_step.field_order
+field_name: field_order
+entity_type: node
+bundle: tour_step
+label: Order
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

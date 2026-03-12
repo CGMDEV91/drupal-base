@@ -1,0 +1,24 @@
+uuid: de011c72-d8c5-4120-b89b-b9492fd301d1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_description
+    - filter.format.full_html
+    - node.type.business
+  module:
+    - text
+id: node.business.field_description
+field_name: field_description
+entity_type: node
+bundle: business
+label: Description
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats:
+    - full_html
+field_type: text_long

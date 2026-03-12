@@ -1,0 +1,24 @@
+uuid: d7699ede-3b90-49b7-93d3-a4681c4ed760
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_description
+    - filter.format.full_html
+    - node.type.tour_step
+  module:
+    - text
+id: node.tour_step.field_description
+field_name: field_description
+entity_type: node
+bundle: tour_step
+label: Description
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats:
+    - full_html
+field_type: text_long

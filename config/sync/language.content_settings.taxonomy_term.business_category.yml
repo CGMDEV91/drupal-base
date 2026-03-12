@@ -1,0 +1,16 @@
+uuid: b36ffd0b-c0e6-4d1c-829a-d15e77dcd184
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.business_category
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+id: taxonomy_term.business_category
+target_entity_type_id: taxonomy_term
+target_bundle: business_category
+default_langcode: site_default
+language_alterable: false

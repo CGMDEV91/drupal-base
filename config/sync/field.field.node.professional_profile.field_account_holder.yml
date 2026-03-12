@@ -1,0 +1,19 @@
+uuid: 005920bc-47ae-47e6-b149-3ebdaffef807
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_account_holder
+    - node.type.professional_profile
+id: node.professional_profile.field_account_holder
+field_name: field_account_holder
+entity_type: node
+bundle: professional_profile
+label: 'Account Holder'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

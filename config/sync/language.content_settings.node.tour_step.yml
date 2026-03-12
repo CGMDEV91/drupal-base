@@ -1,0 +1,11 @@
+uuid: 939626ac-2245-45c2-bed3-d0f102fb0f0d
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_step
+id: node.tour_step
+target_entity_type_id: node
+target_bundle: tour_step
+default_langcode: site_default
+language_alterable: false

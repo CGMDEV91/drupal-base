@@ -1,0 +1,21 @@
+uuid: 720025bf-329b-4209-8a37-417bdc95a3fd
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_auto_renewal
+    - node.type.subscription
+id: node.subscription.field_auto_renewal
+field_name: field_auto_renewal
+entity_type: node
+bundle: subscription
+label: 'Auto Renewal'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

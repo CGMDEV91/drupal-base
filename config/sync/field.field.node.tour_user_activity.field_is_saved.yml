@@ -1,0 +1,21 @@
+uuid: 810c78d6-2c80-4d49-83bf-3b5a45652268
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_is_saved
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_is_saved
+field_name: field_is_saved
+entity_type: node
+bundle: tour_user_activity
+label: 'Is Saved'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

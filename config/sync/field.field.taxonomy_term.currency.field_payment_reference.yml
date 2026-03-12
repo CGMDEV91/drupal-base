@@ -1,0 +1,19 @@
+uuid: 5ebe4b1f-67e8-4b10-be11-255157dd1337
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.taxonomy_term.field_payment_reference
+    - taxonomy.vocabulary.currency
+id: taxonomy_term.currency.field_payment_reference
+field_name: field_payment_reference
+entity_type: taxonomy_term
+bundle: currency
+label: 'Payment Reference'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

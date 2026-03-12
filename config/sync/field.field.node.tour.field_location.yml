@@ -1,0 +1,21 @@
+uuid: 618e37ab-dab6-44b6-83bd-c0e62335cc3c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_location
+    - node.type.tour
+  module:
+    - geofield
+id: node.tour.field_location
+field_name: field_location
+entity_type: node
+bundle: tour
+label: Location
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: geofield

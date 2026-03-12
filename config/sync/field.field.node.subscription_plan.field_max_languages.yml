@@ -1,0 +1,23 @@
+uuid: a6f2d79c-1acb-46e7-ac0f-2d21596e65ff
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_max_languages
+    - node.type.subscription_plan
+id: node.subscription_plan.field_max_languages
+field_name: field_max_languages
+entity_type: node
+bundle: subscription_plan
+label: 'Max Languages'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

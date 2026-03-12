@@ -1,0 +1,11 @@
+uuid: c7715056-60c9-456c-a468-a9952aea2f14
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity
+target_entity_type_id: node
+target_bundle: tour_user_activity
+default_langcode: site_default
+language_alterable: false

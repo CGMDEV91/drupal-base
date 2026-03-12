@@ -1,0 +1,78 @@
+uuid: e863d111-52d6-4c61-b721-a6c37f95acd2
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.tour_step.field_description
+    - field.field.node.tour_step.field_featured_business
+    - field.field.node.tour_step.field_location
+    - field.field.node.tour_step.field_order
+    - field.field.node.tour_step.field_total_completed
+    - field.field.node.tour_step.field_tour
+    - node.type.tour_step
+  module:
+    - geofield
+    - text
+    - user
+id: node.tour_step.default
+targetEntityType: node
+bundle: tour_step
+mode: default
+content:
+  field_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 101
+    region: content
+  field_featured_business:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 107
+    region: content
+  field_location:
+    type: geofield_default
+    label: above
+    settings:
+      output_format: wkt
+      output_escape: true
+    third_party_settings: {  }
+    weight: 105
+    region: content
+  field_order:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 102
+    region: content
+  field_total_completed:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 106
+    region: content
+  field_tour:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 103
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

@@ -1,0 +1,23 @@
+uuid: a3c6454a-64db-477a-ad76-c6f5ce4abdd7
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_max_featured_steps
+    - node.type.subscription_plan
+id: node.subscription_plan.field_max_featured_steps
+field_name: field_max_featured_steps
+entity_type: node
+bundle: subscription_plan
+label: 'Max Featured Steps'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

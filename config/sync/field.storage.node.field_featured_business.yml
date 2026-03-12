@@ -1,0 +1,19 @@
+uuid: 4f6bb502-9254-4b79-aebc-f434f11bd576
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_featured_business
+field_name: field_featured_business
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

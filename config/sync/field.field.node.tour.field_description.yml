@@ -1,0 +1,22 @@
+uuid: 7b92b998-0316-47c7-8ce6-d561adec1713
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_description
+    - node.type.tour
+  module:
+    - text
+id: node.tour.field_description
+field_name: field_description
+entity_type: node
+bundle: tour
+label: Description
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

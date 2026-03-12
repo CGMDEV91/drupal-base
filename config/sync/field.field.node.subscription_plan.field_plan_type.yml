@@ -1,0 +1,21 @@
+uuid: 28e6a97b-dd18-494c-a285-d7135aeccc9e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_plan_type
+    - node.type.subscription_plan
+  module:
+    - options
+id: node.subscription_plan.field_plan_type
+field_name: field_plan_type
+entity_type: node
+bundle: subscription_plan
+label: 'Plan Type'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

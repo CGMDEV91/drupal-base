@@ -1,0 +1,21 @@
+uuid: 1d322292-7a2a-4f77-aeda-5171ef45c0d6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_is_favorite
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_is_favorite
+field_name: field_is_favorite
+entity_type: node
+bundle: tour_user_activity
+label: 'Is Favorite'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

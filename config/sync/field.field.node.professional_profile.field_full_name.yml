@@ -1,0 +1,19 @@
+uuid: 05abfc3f-f71e-4ac4-bf04-818860f7c8ab
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_full_name
+    - node.type.professional_profile
+id: node.professional_profile.field_full_name
+field_name: field_full_name
+entity_type: node
+bundle: professional_profile
+label: 'Full Name'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

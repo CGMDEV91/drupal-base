@@ -1,0 +1,23 @@
+uuid: 28497960-1cbe-477b-ad3f-471b25019c4c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_user_rating
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_user_rating
+field_name: field_user_rating
+entity_type: node
+bundle: tour_user_activity
+label: 'User Rating'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

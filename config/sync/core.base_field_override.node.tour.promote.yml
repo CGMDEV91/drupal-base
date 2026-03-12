@@ -1,0 +1,22 @@
+uuid: d9c31dc8-6f83-496f-836c-347d5e2e8960
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour
+id: node.tour.promote
+field_name: promote
+entity_type: node
+bundle: tour
+label: 'Promoted to front page'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

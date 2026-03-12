@@ -1,0 +1,23 @@
+uuid: 2457b72e-5af1-4ca2-86b5-5662f0a2a8be
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_max_featured_detail
+    - node.type.subscription_plan
+id: node.subscription_plan.field_max_featured_detail
+field_name: field_max_featured_detail
+entity_type: node
+bundle: subscription_plan
+label: 'Max Featured Detail'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

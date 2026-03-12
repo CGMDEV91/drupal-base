@@ -1,0 +1,29 @@
+uuid: 08f5babc-39aa-4936-b998-9888482a625b
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_featured_business
+    - node.type.business
+    - node.type.tour_step
+id: node.tour_step.field_featured_business
+field_name: field_featured_business
+entity_type: node
+bundle: tour_step
+label: 'Featured Business'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      business: business
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

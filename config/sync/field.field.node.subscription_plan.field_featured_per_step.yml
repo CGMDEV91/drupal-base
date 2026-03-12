@@ -1,0 +1,21 @@
+uuid: 03d3ce06-3d46-423a-85f2-fcd5439bd8f8
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_featured_per_step
+    - node.type.subscription_plan
+id: node.subscription_plan.field_featured_per_step
+field_name: field_featured_per_step
+entity_type: node
+bundle: subscription_plan
+label: 'Featured Per Step'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

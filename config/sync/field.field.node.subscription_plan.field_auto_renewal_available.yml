@@ -1,0 +1,21 @@
+uuid: c7899f1a-9e48-4491-abbf-db908e74ffcf
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_auto_renewal_available
+    - node.type.subscription_plan
+id: node.subscription_plan.field_auto_renewal_available
+field_name: field_auto_renewal_available
+entity_type: node
+bundle: subscription_plan
+label: 'Auto Renewal Available'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

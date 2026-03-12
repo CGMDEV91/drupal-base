@@ -1,0 +1,18 @@
+uuid: f864275d-27dd-45ef-bc4a-4c9e80b78df7
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.business
+id: node.business.created
+field_name: created
+entity_type: node
+bundle: business
+label: 'Authored on'
+description: 'The date and time that the content was created.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: created

@@ -1,0 +1,29 @@
+uuid: 4a99e1ca-df3e-4da6-a760-e7e04d3f90d9
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_tour
+    - node.type.donation
+    - node.type.tour
+id: node.donation.field_tour
+field_name: field_tour
+entity_type: node
+bundle: donation
+label: Tour
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      tour: tour
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference
