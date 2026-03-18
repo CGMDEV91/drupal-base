@@ -12,6 +12,7 @@ dependencies:
     - field.field.node.tour_user_activity.field_tour
     - field.field.node.tour_user_activity.field_user
     - field.field.node.tour_user_activity.field_user_rating
+    - field.field.node.tour_user_activity.field_xp_awarded
     - node.type.tour_user_activity
   module:
     - path
@@ -95,6 +96,13 @@ content:
     region: content
     settings:
       placeholder: ''
+    third_party_settings: {  }
+  field_xp_awarded:
+    type: boolean_checkbox
+    weight: 131
+    region: content
+    settings:
+      display_label: true
     third_party_settings: {  }
   langcode:
     type: language_select

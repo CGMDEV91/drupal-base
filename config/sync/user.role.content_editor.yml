@@ -45,3 +45,4 @@ permissions:
   - 'view all revisions'
   - 'view own unpublished content'
   - 'view the administration theme'
+  - 'view user email addresses'

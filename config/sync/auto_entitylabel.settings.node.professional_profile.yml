@@ -1,0 +1,10 @@
+status: 1
+pattern: 'Profile — [node:field_user]'
+escape: false
+preserve_titles: false
+save: false
+chunk: 50
+dependencies:
+  config:
+    - node.type.professional_profile
+new_content_behavior: 0

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree -L 3 -I node_modules //wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)"
+    ]
+  }
+}

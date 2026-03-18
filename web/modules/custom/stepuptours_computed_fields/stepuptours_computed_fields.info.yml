@@ -1,0 +1,7 @@
+name: 'StepUp Tours — Computed Fields'
+type: module
+description: 'Hooks para campos calculados: average rate, donation totals, revenue split, XP, step counters y validaciones de negocio.'
+package: StepUp Tours
+core_version_requirement: ^11
+dependencies:
+  - drupal:node

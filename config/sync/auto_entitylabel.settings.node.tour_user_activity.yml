@@ -1,0 +1,10 @@
+status: 1
+pattern: '[node:field_user] — [node:field_tour]'
+escape: false
+preserve_titles: false
+save: false
+chunk: 50
+dependencies:
+  config:
+    - node.type.tour_user_activity
+new_content_behavior: 0

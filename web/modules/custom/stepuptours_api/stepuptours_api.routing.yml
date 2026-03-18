@@ -1,0 +1,19 @@
+stepuptours_api.ranking:
+  path: '/api/ranking'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\RankingController::ranking'
+  methods: [GET, OPTIONS]
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+stepuptours_api.user_register:
+  path: '/api/user/register'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\UserRegisterController::register'
+  methods: [POST, OPTIONS]
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE

@@ -1,0 +1,21 @@
+uuid: 1ad9ea8c-a3f9-485b-997f-dc4531e3c684
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_xp_awarded
+    - node.type.tour_user_activity
+id: node.tour_user_activity.field_xp_awarded
+field_name: field_xp_awarded
+entity_type: node
+bundle: tour_user_activity
+label: 'XP Awarded'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

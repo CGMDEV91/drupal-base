@@ -1,0 +1,612 @@
+<?php
+
+/**
+ * @file
+ * StepUp Tours — Computed Fields.
+ *
+ * Hooks para campos calculados y validaciones de negocio:
+ *
+ * 1. tour_user_activity — Unique constraint (user + tour)
+ * 2. tour_user_activity — Completar tour: campo completed_at, XP al usuario
+ * 3. tour_user_activity — Valoración: recalcular average rate en tour, rated_at
+ * 4. tour_user_activity — Steps completados: incrementar field_total_completed en tour_step
+ * 5. donation           — Completada: incrementar donation_count/total en tour, calcular revenue split
+ * 6. tour_step          — Validar límite de negocios según plan del guía
+ * 7. tour               — Validar límite de slots de negocio en detalle según plan del guía
+ * 8. user               — Registro de professional: crear suscripción Free automáticamente
+ */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+use Drupal\user\UserInterface;
+
+// ============================================================================
+// HELPERS PRIVADOS
+// ============================================================================
+
+/**
+ * Obtiene la suscripción activa de un usuario profesional.
+ */
+function _stepuptours_get_active_subscription(int $uid): ?NodeInterface {
+  $nids = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription')
+    ->condition('field_user', $uid)
+    ->condition('field_status', 'active')
+    ->accessCheck(FALSE)
+    ->range(0, 1)
+    ->execute();
+
+  if (empty($nids)) {
+    return NULL;
+  }
+
+  return \Drupal::entityTypeManager()->getStorage('node')->load(reset($nids));
+}
+
+/**
+ * Obtiene el plan de suscripción activo de un usuario.
+ * Devuelve el nodo subscription_plan o NULL si no tiene suscripción activa.
+ */
+function _stepuptours_get_active_plan(int $uid): ?NodeInterface {
+  $subscription = _stepuptours_get_active_subscription($uid);
+  if (!$subscription) {
+    return NULL;
+  }
+
+  $plan_id = $subscription->get('field_plan')->target_id;
+  if (!$plan_id) {
+    return NULL;
+  }
+
+  return \Drupal::entityTypeManager()->getStorage('node')->load($plan_id);
+}
+
+/**
+ * Comprueba si un usuario tiene el rol administrator.
+ */
+function _stepuptours_is_admin(int $uid): bool {
+  $user = \Drupal::entityTypeManager()->getStorage('user')->load($uid);
+  if (!$user) {
+    return FALSE;
+  }
+  return in_array('administrator', $user->getRoles());
+}
+
+/**
+ * Comprueba si un plan es Free.
+ */
+function _stepuptours_plan_is_free(?NodeInterface $plan): bool {
+  if (!$plan) {
+    return TRUE;
+  }
+  return $plan->get('field_plan_type')->value === 'free';
+}
+
+// ============================================================================
+// HOOK 1 — tour_user_activity: UNIQUE CONSTRAINT (user + tour)
+// ============================================================================
+
+/**
+ * Implements hook_node_presave().
+ */
+function stepuptours_computed_fields_node_presave(NodeInterface $node): void {
+
+  // ── 1. UNIQUE CONSTRAINT user + tour ──────────────────────────────────────
+  if ($node->bundle() === 'tour_user_activity' && $node->isNew()) {
+    $user_id = $node->get('field_user')->target_id;
+    $tour_id = $node->get('field_tour')->target_id;
+
+    if ($user_id && $tour_id) {
+      $existing = \Drupal::entityQuery('node')
+        ->condition('type', 'tour_user_activity')
+        ->condition('field_user', $user_id)
+        ->condition('field_tour', $tour_id)
+        ->accessCheck(FALSE)
+        ->range(0, 1)
+        ->execute();
+
+      if (!empty($existing)) {
+        throw new \RuntimeException(
+          sprintf('Ya existe un tour_user_activity para el usuario %d y el tour %d.', $user_id, $tour_id)
+        );
+      }
+    }
+  }
+
+  // ── 2. tour_user_activity: completed_at + XP ──────────────────────────────
+  if ($node->bundle() === 'tour_user_activity') {
+    _stepuptours_handle_tour_completion($node);
+  }
+
+  // ── 3. tour_user_activity: rated_at ───────────────────────────────────────
+  if ($node->bundle() === 'tour_user_activity') {
+    _stepuptours_handle_rating_timestamp($node);
+  }
+
+  // ── 4. tour_step: validar límite de negocios ──────────────────────────────
+  if ($node->bundle() === 'tour_step') {
+    _stepuptours_validate_step_business($node);
+  }
+
+  // ── 5. tour: validar slots de negocio en detalle ──────────────────────────
+  if ($node->bundle() === 'tour') {
+    _stepuptours_validate_tour_business_slots($node);
+  }
+
+  // ── 6. professional_profile: unique constraint ────────────────────────────
+  if ($node->bundle() === 'professional_profile' && $node->isNew()) {
+    $user_id = $node->get('field_user')->target_id;
+    if ($user_id) {
+      $existing = \Drupal::entityQuery('node')
+        ->condition('type', 'professional_profile')
+        ->condition('field_user', $user_id)
+        ->accessCheck(FALSE)
+        ->range(0, 1)
+        ->execute();
+
+      if (!empty($existing)) {
+        throw new \RuntimeException(
+          sprintf('Ya existe un professional_profile para el usuario %d.', $user_id)
+        );
+      }
+    }
+  }
+}
+
+// ============================================================================
+// HOOK 2 — tour_user_activity: POSTSAVE
+// ============================================================================
+
+/**
+ * Implements hook_node_insert().
+ */
+function stepuptours_computed_fields_node_insert(NodeInterface $node): void {
+  _stepuptours_postsave($node);
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function stepuptours_computed_fields_node_update(NodeInterface $node): void {
+  _stepuptours_postsave($node);
+}
+
+/**
+ * Lógica compartida para insert y update.
+ */
+function _stepuptours_postsave(NodeInterface $node): void {
+
+  // ── tour_user_activity: recalcular average rate + step counters ───────────
+  if ($node->bundle() === 'tour_user_activity') {
+    _stepuptours_recalculate_average_rate($node);
+    _stepuptours_update_step_completed_count($node);
+  }
+
+  // ── donation: actualizar contadores del tour + revenue split ──────────────
+  if ($node->bundle() === 'donation') {
+    _stepuptours_handle_donation_completed($node);
+  }
+}
+
+// ============================================================================
+// LÓGICA INTERNA
+// ============================================================================
+
+/**
+ * 2. Gestiona el campo completed_at y XP cuando is_completed pasa a TRUE.
+ */
+function _stepuptours_handle_tour_completion(NodeInterface $node): void {
+  $is_completed = (bool) $node->get('field_is_completed')->value;
+  $xp_awarded = (bool) $node->get('field_xp_awarded')->value;
+
+  if (!$is_completed) {
+    return;
+  }
+
+  // Establecer completed_at la primera vez
+  if ($node->get('field_completed_at')->isEmpty()) {
+    $node->set('field_completed_at', date('Y-m-d\TH:i:s'));
+  }
+
+  // XP: solo si no se han otorgado ya
+  if ($xp_awarded) {
+    return;
+  }
+
+  $tour_id = $node->get('field_tour')->target_id;
+  if (!$tour_id) {
+    return;
+  }
+
+  // Contar steps del tour
+  $steps_count = (int) \Drupal::entityQuery('node')
+    ->condition('type', 'tour_step')
+    ->condition('field_tour', $tour_id)
+    ->accessCheck(FALSE)
+    ->count()
+    ->execute();
+
+  // XP = 20 base + 10 por cada step
+  $xp = 20 + (10 * $steps_count);
+
+  // Sumar XP al usuario
+  $user_id = $node->get('field_user')->target_id;
+  if ($user_id) {
+    $user = \Drupal::entityTypeManager()->getStorage('user')->load($user_id);
+    if ($user) {
+      $current_xp = (int) $user->get('field_experience_points')->value;
+      $user->set('field_experience_points', $current_xp + $xp);
+      $user->save();
+
+      \Drupal::logger('stepuptours_computed_fields')->info(
+        'XP otorgados: @xp al usuario @uid por completar el tour @tour_id. Total XP: @total',
+        [
+          '@xp' => $xp,
+          '@uid' => $user_id,
+          '@tour_id' => $tour_id,
+          '@total' => $current_xp + $xp,
+        ]
+      );
+    }
+  }
+
+  // Marcar XP como otorgados para no repetir
+  $node->set('field_xp_awarded', TRUE);
+}
+
+/**
+ * 3. Establece rated_at la primera vez que se guarda field_user_rating.
+ */
+function _stepuptours_handle_rating_timestamp(NodeInterface $node): void {
+  $rating = $node->get('field_user_rating')->value;
+
+  if (empty($rating)) {
+    return;
+  }
+
+  // Solo establecer la primera vez
+  if ($node->get('field_rated_at')->isEmpty()) {
+    $node->set('field_rated_at', date('Y-m-d\TH:i:s'));
+  }
+}
+
+/**
+ * 4. Recalcula field_average_rate en el tour tras guardar una valoración.
+ */
+function _stepuptours_recalculate_average_rate(NodeInterface $node): void {
+  $rating = $node->get('field_user_rating')->value;
+  $tour_id = $node->get('field_tour')->target_id;
+
+  if (!$tour_id) {
+    return;
+  }
+
+  // Obtener todos los tour_user_activity con rating para este tour
+  $nids = \Drupal::entityQuery('node')
+    ->condition('type', 'tour_user_activity')
+    ->condition('field_tour', $tour_id)
+    ->condition('field_user_rating', NULL, 'IS NOT NULL')
+    ->accessCheck(FALSE)
+    ->execute();
+
+  if (empty($nids)) {
+    return;
+  }
+
+  $activities = \Drupal::entityTypeManager()->getStorage('node')->loadMultiple($nids);
+  $ratings = [];
+
+  foreach ($activities as $activity) {
+    $r = $activity->get('field_user_rating')->value;
+    if (!is_null($r)) {
+      $ratings[] = (float) $r;
+    }
+  }
+
+  if (empty($ratings)) {
+    return;
+  }
+
+  $average = array_sum($ratings) / count($ratings);
+
+  $tour = \Drupal::entityTypeManager()->getStorage('node')->load($tour_id);
+  if ($tour) {
+    $tour->set('field_average_rate', round($average, 2));
+    $tour->save();
+
+    \Drupal::logger('stepuptours_computed_fields')->info(
+      'Average rate recalculado: @avg para el tour @tour_id (@count valoraciones)',
+      ['@avg' => round($average, 2), '@tour_id' => $tour_id, '@count' => count($ratings)]
+    );
+  }
+}
+
+/**
+ * 5. Incrementa field_total_completed en los tour_steps recién completados.
+ */
+function _stepuptours_update_step_completed_count(NodeInterface $node): void {
+  $steps_completed = $node->get('field_steps_completed')->referencedEntities();
+
+  if (empty($steps_completed)) {
+    return;
+  }
+
+  // Comparar con la versión anterior para detectar steps recién añadidos
+  $original = $node->original ?? NULL;
+  $previous_step_ids = [];
+
+  if ($original) {
+    foreach ($original->get('field_steps_completed')->referencedEntities() as $step) {
+      $previous_step_ids[] = $step->id();
+    }
+  }
+
+  foreach ($steps_completed as $step) {
+    // Solo incrementar si el step es nuevo en esta actualización
+    if (in_array($step->id(), $previous_step_ids)) {
+      continue;
+    }
+
+    $current_count = (int) $step->get('field_total_completed')->value;
+    $step->set('field_total_completed', $current_count + 1);
+    $step->save();
+
+    \Drupal::logger('stepuptours_computed_fields')->info(
+      'field_total_completed incrementado a @count en tour_step @step_id',
+      ['@count' => $current_count + 1, '@step_id' => $step->id()]
+    );
+  }
+}
+
+/**
+ * 6. Gestiona donation completada: contadores del tour + revenue split.
+ */
+function _stepuptours_handle_donation_completed(NodeInterface $node): void {
+  $status = $node->get('field_status')->value;
+
+  if ($status !== 'completed') {
+    return;
+  }
+
+  // Evitar doble procesamiento en updates
+  $original = $node->original ?? NULL;
+  if ($original && $original->get('field_status')->value === 'completed') {
+    return;
+  }
+
+  $tour_id = $node->get('field_tour')->target_id;
+  $amount = (float) $node->get('field_amount')->value;
+
+  if (!$tour_id || $amount <= 0) {
+    return;
+  }
+
+  $tour = \Drupal::entityTypeManager()->getStorage('node')->load($tour_id);
+  if (!$tour) {
+    return;
+  }
+
+  // Incrementar donation_count y donation_total en el tour
+  $current_count = (int) $tour->get('field_donation_count')->value;
+  $current_total = (float) $tour->get('field_donation_total')->value;
+
+  $tour->set('field_donation_count', $current_count + 1);
+  $tour->set('field_donation_total', round($current_total + $amount, 2));
+  $tour->save();
+
+  // Calcular revenue split
+  $tour_author_id = $tour->getOwnerId();
+  $guide_revenue = 0;
+  $platform_revenue = $amount;
+
+  if (!_stepuptours_is_admin($tour_author_id)) {
+    // Obtener el % del guía desde su professional_profile
+    $profile_nids = \Drupal::entityQuery('node')
+      ->condition('type', 'professional_profile')
+      ->condition('field_user', $tour_author_id)
+      ->accessCheck(FALSE)
+      ->range(0, 1)
+      ->execute();
+
+    if (!empty($profile_nids)) {
+      $profile = \Drupal::entityTypeManager()->getStorage('node')->load(reset($profile_nids));
+      $revenue_pct = (float) $profile->get('field_revenue_percentage')->value;
+
+      $guide_revenue = round($amount * ($revenue_pct / 100), 2);
+      $platform_revenue = round($amount - $guide_revenue, 2);
+    }
+  }
+
+  $node->set('field_guide_revenue', $guide_revenue);
+  $node->set('field_platform_revenue', $platform_revenue);
+  $node->save();
+
+  \Drupal::logger('stepuptours_computed_fields')->info(
+    'Donación @nid procesada: @amount EUR — guía: @guide EUR, plataforma: @platform EUR',
+    [
+      '@nid' => $node->id(),
+      '@amount' => $amount,
+      '@guide' => $guide_revenue,
+      '@platform' => $platform_revenue,
+    ]
+  );
+}
+
+/**
+ * 7. Valida límite de negocios en tour_step según plan del guía.
+ */
+function _stepuptours_validate_step_business(NodeInterface $node): void {
+  $business_id = $node->get('field_featured_business')->target_id;
+
+  if (!$business_id) {
+    return;
+  }
+
+  $tour_id = $node->get('field_tour')->target_id;
+  if (!$tour_id) {
+    return;
+  }
+
+  $tour = \Drupal::entityTypeManager()->getStorage('node')->load($tour_id);
+  if (!$tour) {
+    return;
+  }
+
+  $author_id = $tour->getOwnerId();
+
+  // Admin: sin restricción
+  if (_stepuptours_is_admin($author_id)) {
+    return;
+  }
+
+  $plan = _stepuptours_get_active_plan($author_id);
+
+  // Plan premium: 1 negocio por step sin límite total
+  if (!_stepuptours_plan_is_free($plan)) {
+    return;
+  }
+
+  // Plan free: máximo 3 negocios en total en todos los steps del tour
+  // Si el step ya tenía negocio antes, no contamos este como nuevo
+  $original = $node->original ?? NULL;
+  $had_business_before = $original && !$original->get('field_featured_business')->isEmpty();
+
+  if ($had_business_before) {
+    return;
+  }
+
+  // Contar steps del tour que ya tienen negocio asignado
+  $steps_with_business = \Drupal::entityQuery('node')
+    ->condition('type', 'tour_step')
+    ->condition('field_tour', $tour_id)
+    ->condition('field_featured_business', NULL, 'IS NOT NULL')
+    ->accessCheck(FALSE)
+    ->count()
+    ->execute();
+
+  $max = (int) ($plan ? $plan->get('field_max_featured_steps')->value : 3);
+
+  if ($steps_with_business >= $max) {
+    throw new \RuntimeException(
+      sprintf(
+        'El plan Free permite un máximo de %d negocios en los steps de un tour. Ya tienes %d.',
+        $max,
+        $steps_with_business
+      )
+    );
+  }
+}
+
+/**
+ * 8. Valida slots de negocio en página de detalle del tour según plan del guía.
+ */
+function _stepuptours_validate_tour_business_slots(NodeInterface $node): void {
+  $author_id = $node->getOwnerId();
+
+  // Admin: sin restricción
+  if (_stepuptours_is_admin($author_id)) {
+    return;
+  }
+
+  $plan = _stepuptours_get_active_plan($author_id);
+  $max_slots = $plan ? (int) $plan->get('field_max_featured_detail')->value : 1;
+
+  // Contar cuántos slots está intentando rellenar
+  $slots_used = 0;
+  foreach (['field_featured_business_1', 'field_featured_business_2', 'field_featured_business_3'] as $field) {
+    if (!$node->get($field)->isEmpty()) {
+      $slots_used++;
+    }
+  }
+
+  if ($slots_used > $max_slots) {
+    throw new \RuntimeException(
+      sprintf(
+        'Tu plan permite un máximo de %d negocio(s) en la página de detalle del tour. Estás intentando añadir %d.',
+        $max_slots,
+        $slots_used
+      )
+    );
+  }
+}
+
+// ============================================================================
+// HOOK 3 — user: crear suscripción Free al registrarse como professional
+// ============================================================================
+
+/**
+ * Implements hook_user_insert().
+ */
+function stepuptours_computed_fields_user_insert(UserInterface $user): void {
+  if (!in_array('professional', $user->getRoles())) {
+    return;
+  }
+
+  _stepuptours_create_free_subscription($user);
+}
+
+/**
+ * Implements hook_user_update().
+ */
+function stepuptours_computed_fields_user_update(UserInterface $user): void {
+  $original = $user->original ?? NULL;
+
+  // Solo actuar si el rol professional se acaba de añadir
+  $had_role = $original && in_array('professional', $original->getRoles());
+  $has_role = in_array('professional', $user->getRoles());
+
+  if ($had_role || !$has_role) {
+    return;
+  }
+
+  // Verificar que no tiene ya suscripción
+  $existing = _stepuptours_get_active_subscription($user->id());
+  if ($existing) {
+    return;
+  }
+
+  _stepuptours_create_free_subscription($user);
+}
+
+/**
+ * Crea una suscripción Free para un usuario profesional.
+ */
+function _stepuptours_create_free_subscription(UserInterface $user): void {
+  // Buscar el plan Free
+  $plan_nids = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription_plan')
+    ->condition('field_plan_type', 'free')
+    ->condition('field_active', 1)
+    ->accessCheck(FALSE)
+    ->range(0, 1)
+    ->execute();
+
+  if (empty($plan_nids)) {
+    \Drupal::logger('stepuptours_computed_fields')->warning(
+      'No se encontró un plan Free activo al registrar al usuario @uid como professional.',
+      ['@uid' => $user->id()]
+    );
+    return;
+  }
+
+  $plan_id = reset($plan_nids);
+
+  $subscription = \Drupal::entityTypeManager()->getStorage('node')->create([
+    'type' => 'subscription',
+    'title' => 'Autogenerado',
+    'field_user' => ['target_id' => $user->id()],
+    'field_plan' => ['target_id' => $plan_id],
+    'field_status' => 'active',
+    'field_start_date' => date('Y-m-d\TH:i:s'),
+    'field_auto_renewal' => FALSE,
+    'status' => 1,
+  ]);
+
+  $subscription->save();
+
+  \Drupal::logger('stepuptours_computed_fields')->info(
+    'Suscripción Free creada automáticamente para el usuario @uid.',
+    ['@uid' => $user->id()]
+  );
+}

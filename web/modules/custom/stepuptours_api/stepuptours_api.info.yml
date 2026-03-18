@@ -1,0 +1,8 @@
+name: 'StepUp Tours — API'
+type: module
+description: 'Custom API endpoints for the StepUp Tours decoupled frontend.'
+package: 'StepUp Tours'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:serialization
+  - drupal:user

@@ -1,0 +1,10 @@
+status: 1
+pattern: 'Donation — [node:field_user] — [node:field_tour]'
+escape: false
+preserve_titles: false
+save: false
+chunk: 50
+dependencies:
+  config:
+    - node.type.donation
+new_content_behavior: 0
