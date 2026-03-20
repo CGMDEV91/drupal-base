@@ -5,7 +5,23 @@
       "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)",
       "Bash(wsl bash:*)",
       "Bash(find /wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend -name *.tsx -type f)",
-      "Bash(find /wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend -type f -name *id*tsx)"
+      "Bash(find /wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend -type f -name *id*tsx)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours -name field.field.user*.yml)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours -name *.yml)",
+      "Bash(xargs grep:*)",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush php-eval \"\"\\\\$user = \\\\Drupal\\\\user\\\\Entity\\\\User::load\\(1\\); \\\\$fields = array_keys\\(\\\\$user->getFields\\(\\)\\); foreach\\(\\\\$fields as \\\\$f\\) { if\\(str_contains\\(\\\\$f, ''country''\\) || str_contains\\(\\\\$f, ''language''\\) || str_contains\\(\\\\$f, ''preferred''\\)\\) echo \\\\$f.\"\"\\\\n\"\"; }\"\"\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush php-eval ''foreach\\(array_keys\\(\\\\Drupal\\\\user\\\\Entity\\\\User::load\\(1\\)->getFields\\(\\)\\) as $f\\) { if\\(strpos\\($f,\"\"country\"\"\\)!==false||strpos\\($f,\"\"preferred\"\"\\)!==false\\) echo $f.PHP_EOL; }''\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush php-eval ''$u=\\\\Drupal\\\\user\\\\Entity\\\\User::load\\(1\\); $f=$u->get\\(\"\"field_country\"\"\\); echo get_class\\($f->getFieldDefinition\\(\\)->getFieldStorageDefinition\\(\\)\\).PHP_EOL; if\\(!$f->isEmpty\\(\\)\\) echo $f->value.PHP_EOL;''\")",
+      "Bash(wsl -e bash -c 'cd /home/carlos/devel/test-sites/stepuptours && ddev drush php-eval \"\"echo get_class\\(\\\\\\\\Drupal\\\\\\\\user\\\\\\\\Entity\\\\\\\\User::load\\(1\\)->get\\('\"''\"'field_country'\"''\"'\\)->getFieldDefinition\\(\\)->getFieldStorageDefinition\\(\\)\\);\"\"')",
+      "Bash(wsl -e bash -c 'cd /home/carlos/devel/test-sites/stepuptours && ddev drush php-script web/modules/custom/stepuptours_api/populate_country_codes.php')",
+      "Bash(wsl -e bash -c 'cd /home/carlos/devel/test-sites/stepuptours && ddev drush cr')",
+      "Bash(wsl -e bash -c 'rm /home/carlos/devel/test-sites/stepuptours/web/modules/custom/stepuptours_api/populate_country_codes.php')",
+      "Bash(wsl -e bash -c 'cat /home/carlos/devel/test-sites/stepuptours/web/modules/custom/stepuptours_api/stepuptours_api.routing.yml')",
+      "Bash(wsl -e bash -c 'ls /home/carlos/devel/test-sites/stepuptours/web/modules/custom/stepuptours_api/src/Controller/')",
+      "Bash(ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app/[langcode]/)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/**)",
+      "Read(///wsl.localhost/Ubuntu/home/**)"
     ]
   }
 }

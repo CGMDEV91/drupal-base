@@ -78,9 +78,7 @@ export function MyToursTab({ userId }: MyToursTabProps) {
       <TouchableOpacity
         style={styles.createBtn}
         activeOpacity={0.85}
-        onPress={() => {
-          // Navigation to tour creation will be wired up in a future phase
-        }}
+        onPress={() => router.push(`/${langcode}/dashboard/create-tour` as any)}
       >
         <Ionicons name="add" size={18} color="#FFFFFF" style={styles.createBtnIcon} />
         <Text style={styles.createBtnText}>{t('dashboard.tours.create')}</Text>

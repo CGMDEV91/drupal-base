@@ -1,7 +1,5 @@
 // components/tour/StarRating.tsx
 // Reusable star rating component — display and interactive modes
-//
-// NOTE: The translation key `tour.noRating` must exist in your i18n locale files.
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -9,30 +7,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 const AMBER = '#F59E0B';
-const GRAY = '#D1D5DB';
+const STAR_EMPTY = '#D1D5DB';
+const COUNT_GRAY = '#9CA3AF';
 
 interface StarRatingProps {
-  value: number;         // 0-5
-  count?: number;        // number of reviews
+  rating: number;        // 0-5
+  ratingCount?: number;  // number of reviews
   interactive?: boolean; // if true, stars are tappable
   onRate?: (rating: number) => void;
-  size?: number;         // star icon size, default 13
+  size?: number;         // star icon size, default 14
 }
 
 export function StarRating({
-  value,
-  count,
+  rating,
+  ratingCount,
   interactive = false,
   onRate,
-  size = 13,
+  size = 14,
 }: StarRatingProps) {
   const { t } = useTranslation();
 
   const stars = Array.from({ length: 5 }, (_, i) => {
     const starIndex = i + 1;
-    const filled = starIndex <= Math.round(value);
-    const iconName = filled ? 'star' : 'star-outline';
-    const color = filled ? AMBER : GRAY;
+    const filled = starIndex <= Math.round(rating);
+    const iconName: any = filled ? 'star' : 'star-outline';
+    const color = filled ? AMBER : STAR_EMPTY;
 
     if (interactive) {
       return (
@@ -50,22 +49,29 @@ export function StarRating({
     return <Ionicons key={starIndex} name={iconName} size={size} color={color} />;
   });
 
-  const hasRating = value > 0;
+  const hasRating = rating > 0;
 
   return (
     <View style={styles.container}>
       <View style={styles.starsRow}>{stars}</View>
       {!interactive && (
-        <Text style={[styles.label, { fontSize: size - 1 }]}>
-          {hasRating ? (
-            <>
-              <Text style={styles.ratingValue}>{value.toFixed(1)}</Text>
-              {count !== undefined ? ` (${count})` : ''}
-            </>
-          ) : count !== undefined
-            ? `(${count})`
-            : t('tour.noRating')}
-        </Text>
+        <>
+          {hasRating && (
+            <Text style={[styles.ratingValue, { fontSize: size - 1 }]}>
+              {rating.toFixed(1)}
+            </Text>
+          )}
+          {ratingCount !== undefined && (
+            <Text style={[styles.ratingCount, { fontSize: size - 2 }]}>
+              ({ratingCount})
+            </Text>
+          )}
+          {!hasRating && ratingCount === undefined && (
+            <Text style={[styles.noRating, { fontSize: size - 1 }]}>
+              {t('tour.noRating')}
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -75,19 +81,23 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-  },
-  label: {
-    color: '#6B7280',
-    fontWeight: '500',
+    gap: 1,
   },
   ratingValue: {
-    color: '#374151',
-    fontWeight: '700',
+    color: AMBER,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  ratingCount: {
+    color: COUNT_GRAY,
+    marginLeft: 2,
+  },
+  noRating: {
+    color: COUNT_GRAY,
+    marginLeft: 4,
   },
 });

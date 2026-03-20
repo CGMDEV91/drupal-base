@@ -15,6 +15,7 @@ export async function getRanking(): Promise<RankingEntry[]> {
     username: item.username ?? '',
     publicName: item.publicName ?? item.username ?? '',
     avatar: item.avatar ?? null,
+    countryCode: item.countryCode ?? null,
     toursCompleted: item.toursCompleted ?? item.tours_completed ?? 0,
     totalXp: item.totalXp ?? item.total_xp ?? 0,
   }));

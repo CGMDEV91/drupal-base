@@ -114,12 +114,15 @@ export default function FavouritesScreen() {
       numColumns={cols}
       key={`fav-grid-${cols}`}
       ListHeaderComponent={
-        <PageBanner
-          icon="heart"
-          iconBgColor="#EC4899"
-          title={t('nav.favourites')}
-          subtitle={t('favourites.subtitle')}
-        />
+        <View>
+          <PageBanner
+            icon="heart"
+            iconBgColor="#EC4899"
+            title={t('nav.favourites')}
+            subtitle={t('favourites.subtitle')}
+          />
+          <View style={{ height: 24 }} />
+        </View>
       }
       columnWrapperStyle={
         cols > 1
@@ -128,7 +131,8 @@ export default function FavouritesScreen() {
               alignSelf: 'center',
               width: '100%',
               paddingHorizontal: PADDING,
-              justifyContent: 'space-between',
+              justifyContent: 'flex-start',
+              gap: GAP,
             }
           : undefined
       }
@@ -194,7 +198,6 @@ const styles = StyleSheet.create({
 
   // ── List ───────────────────────────────────────────────────────────────────
   listContent: {
-    paddingTop: 16,
     paddingBottom: 40,
   },
   listContentEmpty: {

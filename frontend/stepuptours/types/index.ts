@@ -106,23 +106,35 @@ export interface Subscription {
   lastPaymentAt: string | null;
 }
 
+export interface BillingAddress {
+  addressLine1: string;
+  addressLine2: string;
+  locality: string;       // city
+  postalCode: string;
+  countryCode: string;    // ISO 2-letter, e.g. "ES"
+  administrativeArea: string; // state / province
+}
+
 export interface ProfessionalProfile {
   id: string;
   userId: string;
   fullName: string;
   taxId: string;
-  address: object | null;
+  address: BillingAddress | null;
   accountHolder: string;
+  iban: string;
+  bic: string;
   revenuePercentage: number;
 }
 
 export interface Donation {
   id: string;
   tourId: string;
+  tourTitle: string;
   userId: string;
+  donorName: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed';
   guideRevenue: number;
   platformRevenue: number;
   createdAt: string;
@@ -166,6 +178,7 @@ export interface RankingEntry {
   username: string;
   publicName: string;
   avatar: string | null;
+  countryCode: string | null;
   toursCompleted: number;
   totalXp: number;
 }

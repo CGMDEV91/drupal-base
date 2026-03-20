@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
@@ -14,32 +14,60 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import CountryFlag from 'react-native-country-flag';
 import { getRanking } from '../../services/ranking.service';
 import PageBanner from '../../components/layout/PageBanner';
 import type { RankingEntry } from '../../types';
 
 const AMBER = '#F59E0B';
-const GOLD = '#F59E0B';
 const SILVER = '#9CA3AF';
-const BRONZE = '#B45309';
+const BRONZE = '#CD7C2F';
 
-// ── Position indicator colour ────────────────────────────────────────────────
-function positionColor(position: number): string {
-  if (position === 1) return GOLD;
-  if (position === 2) return SILVER;
-  if (position === 3) return BRONZE;
-  return '#6B7280';
+const DESKTOP_MAX_WIDTH = 900;
+const H_PAD_DESKTOP = 32;
+
+// ── Position icon ─────────────────────────────────────────────────────────────
+function PositionIcon({ position }: { position: number }) {
+  if (position === 1) {
+    return (
+      <View style={styles.positionCell}>
+        <Ionicons name="trophy" size={26} color={AMBER} />
+      </View>
+    );
+  }
+  if (position === 2) {
+    return (
+      <View style={styles.positionCell}>
+        <Ionicons name="ribbon" size={24} color={SILVER} />
+      </View>
+    );
+  }
+  if (position === 3) {
+    return (
+      <View style={styles.positionCell}>
+        <Ionicons name="ribbon" size={24} color={BRONZE} />
+      </View>
+    );
+  }
+  return (
+    <View style={styles.positionCell}>
+      <View style={styles.positionNumberWrap}>
+        <Text style={styles.positionNumber}>{position}</Text>
+      </View>
+    </View>
+  );
 }
 
-// ── Avatar with fallback initials ────────────────────────────────────────────
-function Avatar({ uri, name, size }: { uri: string | null; name: string; size: number }) {
-  const initials = name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
+// ── Avatar with country flag or globe fallback ────────────────────────────────
+function Avatar({
+  uri,
+  countryCode,
+  size,
+}: {
+  uri: string | null;
+  countryCode: string | null;
+  size: number;
+}) {
   if (uri) {
     return (
       <Image
@@ -50,132 +78,71 @@ function Avatar({ uri, name, size }: { uri: string | null; name: string; size: n
     );
   }
 
+  if (countryCode) {
+    return <CountryFlag isoCode={countryCode} size={16} />;
+  }
+
+  // Fallback: globe icon
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#FEF3C7',
+        backgroundColor: '#F3F4F6',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontSize: size * 0.38, fontWeight: '700', color: AMBER }}>
-        {initials || '?'}
-      </Text>
+      <Ionicons name="earth" size={size * 0.62} color="#9CA3AF" />
     </View>
   );
 }
 
-// ── XP pill badge ────────────────────────────────────────────────────────────
-function XpBadge({ xp, compact }: { xp: number; compact?: boolean }) {
+// ── XP badge ──────────────────────────────────────────────────────────────────
+function XpBadge({ xp }: { xp: number }) {
   return (
     <View style={styles.xpBadge}>
-      <Text style={[styles.xpBadgeText, compact ? styles.xpBadgeTextCompact : null]}>
-        {xp.toLocaleString()} XP
-      </Text>
+      <Text style={styles.xpBadgeText}>{xp.toLocaleString()} XP</Text>
     </View>
   );
 }
 
-// ── Position indicator: trophy icon for top 3, numbered circle for others ────
-function PositionIndicator({
-  position,
-  isDesktop,
-}: {
-  position: number;
-  isDesktop: boolean;
-}) {
-  const color = positionColor(position);
-  const isTop3 = position <= 3;
-
-  if (isTop3) {
-    return (
-      <View style={styles.positionTrophyWrap}>
-        <Ionicons name="trophy" size={isDesktop ? 22 : 20} color={color} />
-        <Text style={[styles.positionTrophyNumber, { color }]}>{position}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.positionNumberWrap}>
-      <Text style={styles.positionNumber}>{position}</Text>
-    </View>
-  );
+// ── Row colors by position ────────────────────────────────────────────────────
+function rowBgStyle(position: number) {
+  if (position === 1) return { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' };
+  if (position === 2) return { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' };
+  if (position === 3) return { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' };
+  return { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' };
 }
 
-// ── Row component ────────────────────────────────────────────────────────────
-function RankingRow({
-  entry,
-  isDesktop,
-}: {
-  entry: RankingEntry;
-  isDesktop: boolean;
-}) {
-  const isTop3 = entry.position <= 3;
+// ── Single ranking row ────────────────────────────────────────────────────────
+function RankingRow({ entry, isLast }: { entry: RankingEntry; isLast: boolean }) {
   const displayName = entry.publicName || entry.username;
 
-  if (isDesktop) {
-    return (
-      <View style={[styles.rowCard, isTop3 && styles.rowCardTop3]}>
-        {/* Position */}
-        <View style={styles.positionCell}>
-          <PositionIndicator position={entry.position} isDesktop={isDesktop} />
-        </View>
-
-        {/* Avatar + name */}
-        <View style={styles.nameCell}>
-          <Avatar uri={entry.avatar} name={displayName} size={40} />
-          <Text style={styles.nameText} numberOfLines={1}>
-            {displayName}
-          </Text>
-        </View>
-
-        {/* Tours count */}
-        <View style={styles.toursCell}>
-          <Text style={styles.toursValue}>{entry.toursCompleted}</Text>
-          <Text style={styles.toursLabel}>tours</Text>
-        </View>
-
-        {/* XP pill */}
-        <View style={styles.xpCell}>
-          <XpBadge xp={entry.totalXp} />
-        </View>
-      </View>
-    );
-  }
-
-  // Mobile compact row
   return (
-    <View style={[styles.rowCard, isTop3 && styles.rowCardTop3]}>
-      {/* Position */}
-      <View style={styles.positionCell}>
-        <PositionIndicator position={entry.position} isDesktop={isDesktop} />
+    <View
+      style={[
+        styles.rowCard,
+        rowBgStyle(entry.position),
+        isLast && styles.rowCardLast,
+      ]}
+    >
+      <PositionIcon position={entry.position} />
+      <Avatar uri={entry.avatar} countryCode={entry.countryCode} size={40} />
+      <Text style={styles.nameText} numberOfLines={1}>
+        {displayName}
+      </Text>
+      <View style={styles.toursBlock}>
+        <Text style={styles.toursValue}>{entry.toursCompleted}</Text>
+        <Text style={styles.toursLabel}>tours</Text>
       </View>
-
-      {/* Avatar */}
-      <Avatar uri={entry.avatar} name={displayName} size={40} />
-
-      {/* Name + tours block */}
-      <View style={styles.mobileNameBlock}>
-        <Text style={styles.nameText} numberOfLines={1}>
-          {displayName}
-        </Text>
-        <View style={styles.mobileStatsRow}>
-          <Ionicons name="map-outline" size={12} color="#6B7280" />
-          <Text style={styles.mobileToursText}>{entry.toursCompleted} tours</Text>
-        </View>
-      </View>
-
-      {/* XP pill */}
-      <XpBadge xp={entry.totalXp} compact />
+      <XpBadge xp={entry.totalXp} />
     </View>
   );
 }
 
-// ── Main screen ──────────────────────────────────────────────────────────────
+// ── Main screen ───────────────────────────────────────────────────────────────
 export default function RankingScreen() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -191,111 +158,101 @@ export default function RankingScreen() {
     setIsLoading(true);
     setError(null);
     getRanking()
-      .then((data) => {
-        if (!cancelled) setEntries(data);
-      })
-      .catch((err: any) => {
-        if (!cancelled) setError(err.message ?? 'Error loading ranking');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((data) => { if (!cancelled) setEntries(data); })
+      .catch((err: any) => { if (!cancelled) setError(err.message ?? 'Error loading ranking'); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  // ── Header (managed by another agent — PageBanner) ──────────────────────────
-  const Header = () => (
-    <PageBanner
-      icon="trophy"
-      iconBgColor="#F59E0B"
-      title={t('ranking.title')}
-      subtitle={t('ranking.subtitle')}
-    />
-  );
+  const cardStyle = isDesktop
+    ? {
+        maxWidth: DESKTOP_MAX_WIDTH,
+        alignSelf: 'center' as const,
+        width: width - H_PAD_DESKTOP * 2,
+        marginHorizontal: H_PAD_DESKTOP,
+      }
+    : { marginHorizontal: 16 };
 
-  // ── Section title card ───────────────────────────────────────────────────────
-  const SectionTitle = () => (
-    <View style={styles.sectionTitleCard}>
-      <Ionicons name="star" size={20} color={AMBER} />
-      <Text style={styles.sectionTitleText}>Top Exploradores</Text>
-    </View>
-  );
-
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <View style={styles.root}>
-        <Header />
+  const renderContent = () => {
+    if (isLoading) {
+      return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={AMBER} />
         </View>
-      </View>
-    );
-  }
+      );
+    }
 
-  // ── Error ──────────────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <View style={styles.root}>
-        <Header />
+    if (error) {
+      return (
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={styles.errorText}>{error}</Text>
         </View>
-      </View>
-    );
-  }
+      );
+    }
 
-  // ── Main render ────────────────────────────────────────────────────────────
-  return (
-    <View style={styles.root}>
-      <Header />
+    if (entries.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="trophy-outline" size={56} color="#D1D5DB" />
+          <Text style={styles.emptyTitle}>{t('ranking.empty')}</Text>
+        </View>
+      );
+    }
 
-      <FlatList
-        data={entries}
-        keyExtractor={(item) => String(item.userId || item.position)}
-        contentContainerStyle={[
-          styles.listContent,
-          entries.length === 0 && styles.listContentEmpty,
-        ]}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={[styles.containerCard, styles.sectionTitleCardWrap]}>
-            <SectionTitle />
-          </View>
-        }
-        renderItem={({ item }) => (
-          <RankingRow entry={item} isDesktop={isDesktop} />
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="trophy-outline" size={56} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>{t('ranking.empty')}</Text>
-          </View>
-        }
+    return entries.map((entry, index) => (
+      <RankingRow
+        key={String(entry.userId || entry.position)}
+        entry={entry}
+        isLast={index === entries.length - 1}
       />
-    </View>
+    ));
+  };
+
+  return (
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <PageBanner
+        icon="trophy"
+        iconBgColor={AMBER}
+        title={t('ranking.title')}
+        subtitle={t('ranking.subtitle')}
+        showBack={false}
+      />
+
+      {/* Main card: section title + all rows */}
+      <View style={[styles.mainCard, cardStyle]}>
+        {/* Section title */}
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="star" size={18} color={AMBER} />
+          <Text style={styles.sectionTitleText}>Top Exploradores</Text>
+        </View>
+
+        {/* Rows */}
+        {renderContent()}
+      </View>
+    </ScrollView>
   );
 }
 
-// ── Shadow helper ────────────────────────────────────────────────────────────
 const cardShadow = Platform.select({
+  web: { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' } as any,
   ios: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowRadius: 8,
   },
-  android: {
-    elevation: 3,
-  },
+  android: { elevation: 3 },
   default: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });
 
@@ -304,13 +261,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
 
-  // ── Centered states ─────────────────────────────────────────────────────────
+  // ── Centered / error / empty ──────────────────────────────────────────────────
   centered: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+    paddingVertical: 48,
   },
   errorText: {
     fontSize: 15,
@@ -318,77 +278,67 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 32,
   },
-
-  // ── List ───────────────────────────────────────────────────────────────────
-  listContent: {
-    paddingTop: 20,
-    paddingBottom: 40,
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 48,
+    paddingHorizontal: 32,
   },
-  listContentEmpty: {
-    flex: 1,
+  emptyTitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
-  // ── Section title container card ─────────────────────────────────────────────
-  containerCard: {
+  // ── Main card (outer container) ───────────────────────────────────────────────
+  mainCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginHorizontal: 20,
-    maxWidth: 900,
-    alignSelf: 'center',
-    width: undefined,
+    marginTop: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
     ...cardShadow,
   },
-  sectionTitleCardWrap: {
-    marginBottom: 12,
-  },
-  sectionTitleCard: {
+
+  // ── Section title ─────────────────────────────────────────────────────────────
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 16,
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 12,
   },
   sectionTitleText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
   },
 
-  // ── Individual row card ───────────────────────────────────────────────────────
+  // ── Ranking row sub-card ──────────────────────────────────────────────────────
   rowCard: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    gap: 12,
     borderRadius: 12,
-    marginHorizontal: 20,
+    borderWidth: 1,
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
-    maxWidth: 900,
-    alignSelf: 'center',
-    width: undefined,
-    ...cardShadow,
   },
-  rowCardTop3: {
-    backgroundColor: '#FFFBEB',
+  rowCardLast: {
+    marginBottom: 0,
   },
 
-  // ── Position indicators ──────────────────────────────────────────────────────
+  // ── Position indicators ───────────────────────────────────────────────────────
   positionCell: {
-    width: 44,
+    width: 36,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  positionTrophyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  positionTrophyNumber: {
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 13,
   },
   positionNumberWrap: {
     width: 28,
@@ -404,91 +354,42 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // ── Name cell ────────────────────────────────────────────────────────────────
-  nameCell: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginLeft: 8,
-    marginRight: 8,
-  },
+  // ── Name ─────────────────────────────────────────────────────────────────────
   nameText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    flex: 1,
   },
 
-  // ── Tours cell (desktop) ─────────────────────────────────────────────────────
-  toursCell: {
+  // ── Tours block ───────────────────────────────────────────────────────────────
+  toursBlock: {
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 56,
-    marginRight: 12,
+    minWidth: 44,
   },
   toursValue: {
     fontSize: 15,
     fontWeight: '700',
     color: '#374151',
+    lineHeight: 18,
   },
   toursLabel: {
     fontSize: 11,
     fontWeight: '500',
     color: '#9CA3AF',
+    lineHeight: 14,
   },
 
-  // ── XP cell (desktop alignment) ──────────────────────────────────────────────
-  xpCell: {
-    alignItems: 'flex-end',
-  },
-
-  // ── XP pill badge ────────────────────────────────────────────────────────────
+  // ── XP badge ──────────────────────────────────────────────────────────────────
   xpBadge: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: AMBER,
+    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 5,
   },
   xpBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#D97706',
-  },
-  xpBadgeTextCompact: {
-    fontSize: 11,
-  },
-
-  // ── Mobile name block ────────────────────────────────────────────────────────
-  mobileNameBlock: {
-    flex: 1,
-    marginLeft: 10,
-    gap: 4,
-  },
-  mobileStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mobileToursText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-
-  // ── Empty state ────────────────────────────────────────────────────────────
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 80,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
-    textAlign: 'center',
+    color: '#FFFFFF',
   },
 });

@@ -28,6 +28,10 @@ export default function LangcodeLayout() {
   const contactModalOpen = useAuthStore((s) => s.contactModalOpen);
   const closeContactModal = useAuthStore((s) => s.closeContactModal);
 
+  // Auth state for logout redirect
+  const user = useAuthStore((s) => s.user);
+  const isAuthLoading = useAuthStore((s) => s.isLoading);
+
   // Validar y sincronizar langcode
   useEffect(() => {
     if (!langcode || languages.length === 0) return;
@@ -43,6 +47,17 @@ export default function LangcodeLayout() {
       setLanguageByCode(langcode);
     }
   }, [langcode, languages]);
+
+  // Redirect to home after logout from protected pages
+  useEffect(() => {
+    if (!isAuthLoading && !user && langcode) {
+      const protectedSegments = ['profile', 'favourites', 'completed', 'dashboard'];
+      const currentSegment = segments[segments.length - 1];
+      if (protectedSegments.includes(currentSegment)) {
+        router.replace(`/${langcode}` as any);
+      }
+    }
+  }, [user, isAuthLoading, langcode, segments]);
 
   return (
     <View style={{ flex: 1 }}>

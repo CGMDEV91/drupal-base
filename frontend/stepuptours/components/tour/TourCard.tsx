@@ -100,7 +100,7 @@ export function TourCard({
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
-              size={20}
+              size={18}
               color={isFavorite ? '#EF4444' : '#9CA3AF'}
             />
           </TouchableOpacity>
@@ -139,7 +139,7 @@ export function TourCard({
         </View>
         {/* Row 2: star rating */}
         <View style={styles.ratingRow}>
-          <StarRating value={tour.averageRate} count={tour.ratingCount} size={13} />
+          <StarRating rating={tour.averageRate} ratingCount={tour.ratingCount} size={14} />
         </View>
       </View>
     </TouchableOpacity>
@@ -208,8 +208,8 @@ const styles = StyleSheet.create({
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.15,
-          shadowRadius: 6,
-          elevation: 3,
+          shadowRadius: 4,
+          elevation: 4,
         }),
   },
   completedPill: {

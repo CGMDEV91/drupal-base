@@ -88,21 +88,64 @@ export async function deleteTourStep(stepId: string): Promise<void> {
 // ── Professional Profile ──────────────────────────────────────────────────────
 
 export async function getProfessionalProfile(userId: string): Promise<ProfessionalProfile | null> {
-  const params = `filter[field_user.id]=${userId}`;
+  const params = [
+    `filter[field_user.id]=${userId}`,
+    'fields[node--professional_profile]=id,field_full_name,field_tax_id,field_address,field_account_holder,field_bank_iban,field_bank_bic,field_revenue_percentage,field_user',
+  ].join('&');
   const raw = await drupalGet<any[]>('/node/professional_profile', params);
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
   return list.length > 0 ? mapDrupalProfessionalProfile(list[0]) : null;
 }
 
+export interface ProfileUpdates {
+  fullName: string;
+  taxId: string;
+  accountHolder: string;
+  iban: string;
+  bic: string;
+  addressLine1: string;
+  addressLine2: string;
+  locality: string;
+  postalCode: string;
+  countryCode: string;
+  administrativeArea: string;
+}
+
+export async function createProfessionalProfile(
+  userId: string,
+  updates: ProfileUpdates
+): Promise<void> {
+  await drupalPost('/node/professional_profile', {
+    data: {
+      type: 'node--professional_profile',
+      attributes: {
+        title: `Professional Profile - ${userId}`,
+        field_full_name: updates.fullName,
+        field_tax_id: updates.taxId,
+        field_account_holder: updates.accountHolder,
+        field_bank_iban: updates.iban,
+        field_bank_bic: updates.bic,
+        field_address: {
+          country_code: updates.countryCode || 'ES',
+          address_line1: updates.addressLine1,
+          address_line2: updates.addressLine2,
+          locality: updates.locality,
+          postal_code: updates.postalCode,
+          administrative_area: updates.administrativeArea,
+        },
+      },
+      relationships: {
+        field_user: {
+          data: { type: 'user--user', id: userId },
+        },
+      },
+    },
+  });
+}
+
 export async function updateProfessionalProfile(
   profileId: string,
-  updates: Partial<{
-    fullName: string;
-    taxId: string;
-    accountHolder: string;
-    iban: string;
-    bic: string;
-  }>
+  updates: Partial<ProfileUpdates>
 ): Promise<void> {
   const attributes: Record<string, any> = {};
   if (updates.fullName !== undefined) attributes.field_full_name = updates.fullName;
@@ -110,6 +153,21 @@ export async function updateProfessionalProfile(
   if (updates.accountHolder !== undefined) attributes.field_account_holder = updates.accountHolder;
   if (updates.iban !== undefined) attributes.field_bank_iban = updates.iban;
   if (updates.bic !== undefined) attributes.field_bank_bic = updates.bic;
+  if (
+    updates.addressLine1 !== undefined ||
+    updates.locality !== undefined ||
+    updates.postalCode !== undefined ||
+    updates.countryCode !== undefined
+  ) {
+    attributes.field_address = {
+      country_code: updates.countryCode || 'ES',
+      address_line1: updates.addressLine1 ?? '',
+      address_line2: updates.addressLine2 ?? '',
+      locality: updates.locality ?? '',
+      postal_code: updates.postalCode ?? '',
+      administrative_area: updates.administrativeArea ?? '',
+    };
+  }
 
   await drupalPatch(`/node/professional_profile/${profileId}`, {
     data: {
@@ -160,7 +218,6 @@ export async function getDonationsForAuthor(
   for (const tour of tours) {
     const params = [
       `filter[field_tour.id]=${tour.id}`,
-      `filter[field_status]=completed`,
       buildInclude(['field_user', 'field_tour']),
       'sort=-created',
     ].join('&');
@@ -169,6 +226,6 @@ export async function getDonationsForAuthor(
     allDonations.push(...list.map(mapDrupalDonation));
   }
 
-  const total = allDonations.reduce((sum, d) => sum + d.guideRevenue, 0);
+  const total = allDonations.reduce((sum, d) => sum + d.amount, 0);
   return { donations: allDonations, total };
 }

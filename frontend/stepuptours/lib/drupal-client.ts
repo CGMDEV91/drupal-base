@@ -209,8 +209,8 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
     image: resolveImageUrl(raw.field_image),
     duration: raw.field_duration ?? 0,
     averageRate: parseFloat(raw.field_average_rate ?? '0'),
-    ratingCount: 0,
-    stopsCount: 0,
+    ratingCount: raw.field_rating_count ?? 0,
+    stopsCount: raw.field_steps_count ?? 0,
     donationCount: raw.field_donation_count ?? 0,
     donationTotal: parseFloat(raw.field_donation_total ?? '0'),
     city: raw.field_city ? { id: raw.field_city.id, name: raw.field_city.name } : null,
@@ -314,10 +314,11 @@ export function mapDrupalDonation(raw: any): import('../types').Donation {
   return {
     id: raw.id,
     tourId: raw.field_tour?.id ?? '',
+    tourTitle: raw.field_tour?.title ?? '',
     userId: raw.field_user?.id ?? '',
+    donorName: raw.field_user?.field_public_name ?? raw.field_user?.name ?? 'Anónimo',
     amount: parseFloat(raw.field_amount ?? '0'),
     currency: raw.field_currency?.name ?? 'EUR',
-    status: raw.field_status ?? 'pending',
     guideRevenue: parseFloat(raw.field_guide_revenue ?? '0'),
     platformRevenue: parseFloat(raw.field_platform_revenue ?? '0'),
     createdAt: raw.created ?? '',
@@ -325,13 +326,25 @@ export function mapDrupalDonation(raw: any): import('../types').Donation {
 }
 
 export function mapDrupalProfessionalProfile(raw: any): import('../types').ProfessionalProfile {
+  const addr = raw.field_address ?? null;
   return {
     id: raw.id,
     userId: raw.field_user?.id ?? '',
     fullName: raw.field_full_name ?? '',
     taxId: raw.field_tax_id ?? '',
-    address: raw.field_address ?? null,
+    address: addr
+      ? {
+          addressLine1: addr.address_line1 ?? '',
+          addressLine2: addr.address_line2 ?? '',
+          locality: addr.locality ?? '',
+          postalCode: addr.postal_code ?? '',
+          countryCode: addr.country_code ?? '',
+          administrativeArea: addr.administrative_area ?? '',
+        }
+      : null,
     accountHolder: raw.field_account_holder ?? '',
+    iban: raw.field_bank_iban ?? '',
+    bic: raw.field_bank_bic ?? '',
     revenuePercentage: parseFloat(raw.field_revenue_percentage ?? '75'),
   };
 }

@@ -72,12 +72,21 @@ class RankingController extends ControllerBase {
           }
         }
 
+        $countryCode = NULL;
+        if ($user->hasField('field_country') && !$user->get('field_country')->isEmpty()) {
+          $countryTerm = $user->get('field_country')->entity;
+          if ($countryTerm && $countryTerm->hasField('field_country_code') && !$countryTerm->get('field_country_code')->isEmpty()) {
+            $countryCode = $countryTerm->get('field_country_code')->value;
+          }
+        }
+
         $ranking[] = [
           'position'       => $position,
           'userId'         => (string) $uid,
           'username'       => $user->getAccountName(),
           'publicName'     => $publicName,
           'avatar'         => $avatar,
+          'countryCode'    => $countryCode,
           'toursCompleted' => (int) $row->tours_completed,
           'totalXp'        => (int) ($row->total_xp ?? 0),
         ];

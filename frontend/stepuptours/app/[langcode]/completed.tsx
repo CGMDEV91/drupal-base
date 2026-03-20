@@ -119,12 +119,15 @@ export default function CompletedScreen() {
       numColumns={cols}
       key={`completed-grid-${cols}`}
       ListHeaderComponent={
-        <PageBanner
-          icon="trophy"
-          iconBgColor="#22C55E"
-          title={t('nav.completed')}
-          subtitle={t('completed.subtitle')}
-        />
+        <View>
+          <PageBanner
+            icon="trophy"
+            iconBgColor="#22C55E"
+            title={t('nav.completed')}
+            subtitle={t('completed.subtitle')}
+          />
+          <View style={{ height: 24 }} />
+        </View>
       }
       columnWrapperStyle={
         cols > 1
@@ -133,7 +136,8 @@ export default function CompletedScreen() {
               alignSelf: 'center',
               width: '100%',
               paddingHorizontal: PADDING,
-              justifyContent: 'space-between',
+              justifyContent: 'flex-start',
+              gap: GAP,
             }
           : undefined
       }
@@ -199,7 +203,6 @@ const styles = StyleSheet.create({
 
   // ── List ───────────────────────────────────────────────────────────────────
   listContent: {
-    paddingTop: 16,
     paddingBottom: 40,
   },
   listContentEmpty: {

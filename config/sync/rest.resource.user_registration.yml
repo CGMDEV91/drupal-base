@@ -1,3 +1,4 @@
+uuid: e725dab4-8c89-4263-91f7-99c0873ebd14
 langcode: en
 status: true
 dependencies:
@@ -6,7 +7,7 @@ dependencies:
     - serialization
     - user
 id: user_registration
-plugin_id: 'user_registration'
+plugin_id: user_registration
 granularity: resource
 configuration:
   methods:

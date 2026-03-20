@@ -126,15 +126,14 @@ export default function DashboardScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
-      <PageBanner icon="briefcase" iconBgColor="#F59E0B" title={t('dashboard.title')} />
-
       {isMobile ? (
-        // ── Mobile: columna de tabs + contenido en scroll único ──────────
+        // ── Mobile: banner + tabs + contenido en scroll único ────────────
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
         >
+          <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
           {mobileTabBar}
           <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
             {activeTab === 'tours' && <MyToursTab userId={user.id} />}
@@ -152,6 +151,7 @@ export default function DashboardScreen() {
             contentContainerStyle={{ paddingBottom: 48 }}
             showsVerticalScrollIndicator={false}
           >
+            <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
             <View style={{ maxWidth: CONTENT_MAX_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20 }}>
               {activeTab === 'tours' && <MyToursTab userId={user.id} />}
               {activeTab === 'subscription' && <SubscriptionTab userId={user.id} />}

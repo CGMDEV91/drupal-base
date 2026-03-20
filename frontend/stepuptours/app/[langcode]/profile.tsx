@@ -142,7 +142,7 @@ export default function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedLangCode, setSelectedLangCode] = useState(user?.preferredLanguage ?? 'en');
   const [selectedLangLabel, setSelectedLangLabel] = useState(
-    languages.find((l) => l.id === (user?.preferredLanguage ?? 'en'))?.name ?? (user?.preferredLanguage ?? 'en')
+    languages.find((l) => l.id === (user?.preferredLanguage ?? 'en'))?.label ?? (user?.preferredLanguage ?? 'en')
   );
   const [selectedCountryId, setSelectedCountryId] = useState(user?.country?.id ?? '');
   const [selectedCountryLabel, setSelectedCountryLabel] = useState(user?.country?.name ?? '');
@@ -190,7 +190,7 @@ export default function ProfileScreen() {
       const langCode = user.preferredLanguage ?? 'en';
       setSelectedLangCode(langCode);
       setSelectedLangLabel(
-        languages.find((l) => l.id === langCode)?.name ?? langCode
+        languages.find((l) => l.id === langCode)?.label ?? langCode
       );
       setSelectedCountryId(user.country?.id ?? '');
       setSelectedCountryLabel(user.country?.name ?? '');
@@ -264,7 +264,7 @@ export default function ProfileScreen() {
 
   const langItems: PickerItem[] = languages.map((l) => ({
     id: l.id,
-    label: l.name,
+    label: l.label,
   }));
 
   // ── Auth loading or redirecting ──────────────────────────────────────────

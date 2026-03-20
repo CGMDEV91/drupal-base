@@ -48,6 +48,7 @@ module:
   search: 0
   serialization: 0
   shortcut: 0
+  stepuptours_api: 0
   stepuptours_computed_fields: 0
   system: 0
   taxonomy: 0

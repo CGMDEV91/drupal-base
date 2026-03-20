@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
-  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,9 +16,19 @@ import type { Donation } from '../../types';
 
 const AMBER = '#F59E0B';
 const AMBER_DARK = '#D97706';
+const GREEN = '#16A34A';
 
 interface DonationsTabProps {
   userId: string;
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export function DonationsTab({ userId }: DonationsTabProps) {
@@ -72,14 +81,12 @@ export function DonationsTab({ userId }: DonationsTabProps) {
       {/* Total revenue card */}
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>{t('dashboard.donations.total')}</Text>
-        <Text style={styles.totalAmount}>
-          {total.toFixed(2)} €
-        </Text>
+        <Text style={styles.totalAmount}>{total.toFixed(2)} €</Text>
       </View>
 
       {donations.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="heart-outline" size={56} color="#D1D5DB" />
+          <Ionicons name="cash-outline" size={56} color="#D1D5DB" />
           <Text style={styles.emptyText}>{t('dashboard.donations.empty')}</Text>
         </View>
       ) : isDesktop ? (
@@ -96,10 +103,12 @@ export function DonationsTab({ userId }: DonationsTabProps) {
 function DonationsTable({ donations, t }: { donations: Donation[]; t: (key: string) => string }) {
   return (
     <View style={styles.table}>
-      {/* Header */}
       <View style={[styles.tableRow, styles.tableHeaderRow]}>
         <Text style={[styles.tableCell, styles.tableHeader, styles.cellDate]}>
           {t('dashboard.donations.date')}
+        </Text>
+        <Text style={[styles.tableCell, styles.tableHeader, styles.cellTour]}>
+          Tour
         </Text>
         <Text style={[styles.tableCell, styles.tableHeader, styles.cellDonor]}>
           {t('dashboard.donations.donor')}
@@ -109,7 +118,6 @@ function DonationsTable({ donations, t }: { donations: Donation[]; t: (key: stri
         </Text>
       </View>
 
-      {/* Rows */}
       {donations.map((donation, index) => (
         <View
           key={donation.id}
@@ -118,11 +126,14 @@ function DonationsTable({ donations, t }: { donations: Donation[]; t: (key: stri
           <Text style={[styles.tableCell, styles.cellDate]}>
             {formatDate(donation.createdAt)}
           </Text>
-          <Text style={[styles.tableCell, styles.cellDonor]}>
-            {donation.userId ? `#${donation.userId.slice(0, 8)}` : '—'}
+          <Text style={[styles.tableCell, styles.cellTour]} numberOfLines={1}>
+            {donation.tourTitle || '—'}
+          </Text>
+          <Text style={[styles.tableCell, styles.cellDonor]} numberOfLines={1}>
+            {donation.donorName || 'Anónimo'}
           </Text>
           <Text style={[styles.tableCell, styles.cellAmount, styles.amountText]}>
-            {donation.guideRevenue.toFixed(2)} {donation.currency}
+            {donation.amount.toFixed(2)} {donation.currency}
           </Text>
         </View>
       ))}
@@ -139,29 +150,20 @@ function DonationCards({ donations, t }: { donations: Donation[]; t: (key: strin
         <View key={donation.id} style={styles.donationCard}>
           <View style={styles.donationCardLeft}>
             <Text style={styles.donationDate}>{formatDate(donation.createdAt)}</Text>
+            <Text style={styles.donationTour} numberOfLines={1}>
+              {donation.tourTitle || '—'}
+            </Text>
             <Text style={styles.donationDonor}>
-              {t('dashboard.donations.donor')}:{' '}
-              {donation.userId ? `#${donation.userId.slice(0, 8)}` : '—'}
+              {donation.donorName || 'Anónimo'}
             </Text>
           </View>
           <Text style={styles.donationAmount}>
-            {donation.guideRevenue.toFixed(2)} {donation.currency}
+            {donation.amount.toFixed(2)} {donation.currency}
           </Text>
         </View>
       ))}
     </View>
   );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -186,27 +188,22 @@ const styles = StyleSheet.create({
 
   // Total card
   totalCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    padding: 24,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
   totalLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#92400E',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
     marginBottom: 6,
   },
   totalAmount: {
-    fontSize: 36,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: '700',
     color: AMBER_DARK,
-    letterSpacing: -1,
   },
 
   // Empty state
@@ -258,19 +255,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  cellDate: {
-    flex: 2,
-  },
-  cellDonor: {
-    flex: 2,
-  },
-  cellAmount: {
-    flex: 1,
-    textAlign: 'right',
-  },
+  cellDate: { flex: 1.5 },
+  cellTour: { flex: 2 },
+  cellDonor: { flex: 2 },
+  cellAmount: { flex: 1, textAlign: 'right' },
   amountText: {
-    fontWeight: '700',
-    color: AMBER_DARK,
+    fontWeight: '600',
+    color: GREEN,
   },
 
   // Mobile cards
@@ -289,22 +280,26 @@ const styles = StyleSheet.create({
   },
   donationCardLeft: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   donationDate: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
   },
-  donationDonor: {
-    fontSize: 14,
+  donationTour: {
+    fontSize: 13,
     color: '#374151',
     fontWeight: '600',
   },
+  donationDonor: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
   donationAmount: {
     fontSize: 16,
-    fontWeight: '800',
-    color: AMBER_DARK,
+    fontWeight: '700',
+    color: GREEN,
     marginLeft: 12,
   },
 });
