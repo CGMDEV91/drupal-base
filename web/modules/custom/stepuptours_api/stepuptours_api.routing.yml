@@ -1,3 +1,13 @@
+stepuptours_api.site_settings:
+  path: '/api/site-settings'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\SiteSettingsController::get'
+  methods: [GET, OPTIONS]
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
 stepuptours_api.ranking:
   path: '/api/ranking'
   defaults:
@@ -17,3 +27,15 @@ stepuptours_api.user_register:
     _access: 'TRUE'
   options:
     no_cache: TRUE
+    
+stepuptours_api.me:
+  path: '/api/me'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\MeController::get'
+    _format: 'json'
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    _auth:
+      - basic_auth
+      - cookie

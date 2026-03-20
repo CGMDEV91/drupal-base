@@ -1,5 +1,5 @@
 // components/layout/Navbar.tsx
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { LanguageSelector } from './LanguageSelector';
 
@@ -53,7 +54,8 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
   const handleSignOut = useCallback(async () => {
     setUserMenuOpen(false);
     await signOut();
-  }, [signOut]);
+    router.replace(`/${lang}` as any);
+  }, [signOut, router, lang]);
 
   const handleLogoPress = useCallback(() => {
     router.push(`/${lang}` as any);
@@ -66,7 +68,9 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
       activeOpacity={0.7}
       style={styles.logoContainer}
     >
-      <Text style={styles.logoEmoji}>🧭</Text>
+      <View style={styles.logoIcon}>
+        <Ionicons name="compass-outline" size={20} color="#FFFFFF" />
+      </View>
       <Text style={styles.logoText}>StepUp Tours</Text>
     </TouchableOpacity>
   );
@@ -111,20 +115,14 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
       <Pressable style={styles.dropdownBackdrop} onPress={() => setMobileMenuOpen(false)} />
       <View style={[styles.dropdown, styles.dropdownRight]}>
         <TouchableOpacity
-          onPress={() => {
-            setMobileMenuOpen(false);
-            onOpenAuth('login');
-          }}
+          onPress={() => { setMobileMenuOpen(false); onOpenAuth('login'); }}
           activeOpacity={0.7}
           style={styles.dropdownItem}
         >
           <Text style={styles.dropdownItemText}>{t('nav.signin')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => {
-            setMobileMenuOpen(false);
-            onOpenAuth('register');
-          }}
+          onPress={() => { setMobileMenuOpen(false); onOpenAuth('register'); }}
           activeOpacity={0.7}
           style={styles.dropdownItem}
         >
@@ -151,60 +149,87 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
     </View>
   );
 
+  // ── Dropdown items (compartidos mobile/desktop) ────────
+  const dropdownItems = (
+    <>
+      <TouchableOpacity
+        onPress={() => handleNavigate(`/${lang}/profile`)}
+        activeOpacity={0.7}
+        style={styles.dropdownItem}
+      >
+        <Ionicons name="person-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+        <Text style={styles.dropdownItemText}>{t('nav.profile')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => handleNavigate(`/${lang}/favourites`)}
+        activeOpacity={0.7}
+        style={styles.dropdownItem}
+      >
+        <Ionicons name="heart-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+        <Text style={styles.dropdownItemText}>{t('nav.favourites')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => handleNavigate(`/${lang}/completed`)}
+        activeOpacity={0.7}
+        style={styles.dropdownItem}
+      >
+        <Ionicons name="checkmark-circle-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+        <Text style={styles.dropdownItemText}>{t('nav.completed')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => handleNavigate(`/${lang}/ranking`)}
+        activeOpacity={0.7}
+        style={styles.dropdownItem}
+      >
+        <Ionicons name="trophy-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+        <Text style={styles.dropdownItemText}>{t('nav.ranking')}</Text>
+      </TouchableOpacity>
+      {roles.includes('administrator') && (
+        <TouchableOpacity
+          onPress={() => handleNavigate(`/${lang}/admin`)}
+          activeOpacity={0.7}
+          style={styles.dropdownItem}
+        >
+          <Ionicons name="settings-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+          <Text style={styles.dropdownItemText}>{t('nav.administration')}</Text>
+        </TouchableOpacity>
+      )}
+      {roles.includes('professional') && (
+        <TouchableOpacity
+          onPress={() => handleNavigate(`/${lang}/dashboard`)}
+          activeOpacity={0.7}
+          style={styles.dropdownItem}
+        >
+          <Ionicons name="briefcase-outline" size={16} color="#6B7280" style={styles.dropdownIcon} />
+          <Text style={styles.dropdownItemText}>{t('nav.dashboard')}</Text>
+        </TouchableOpacity>
+      )}
+      <View style={styles.dropdownDivider} />
+      <TouchableOpacity
+        onPress={handleSignOut}
+        activeOpacity={0.7}
+        style={styles.dropdownItem}
+      >
+        <Ionicons name="log-out-outline" size={16} color="#DC2626" style={styles.dropdownIcon} />
+        <Text style={[styles.dropdownItemText, styles.signOutText]}>{t('nav.signout')}</Text>
+      </TouchableOpacity>
+    </>
+  );
+
   const userDropdown = userMenuOpen && (
     <View style={styles.dropdownOverlay}>
       <Pressable style={styles.dropdownBackdrop} onPress={() => setUserMenuOpen(false)} />
-      <View style={[styles.dropdown, styles.dropdownRight]}>
-        <TouchableOpacity
-          onPress={() => handleNavigate(`/${lang}/favourites`)}
-          activeOpacity={0.7}
-          style={styles.dropdownItem}
-        >
-          <Text style={styles.dropdownItemText}>{t('nav.favourites')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleNavigate(`/${lang}/completed`)}
-          activeOpacity={0.7}
-          style={styles.dropdownItem}
-        >
-          <Text style={styles.dropdownItemText}>{t('nav.completed')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleNavigate(`/${lang}/ranking`)}
-          activeOpacity={0.7}
-          style={styles.dropdownItem}
-        >
-          <Text style={styles.dropdownItemText}>{t('nav.ranking')}</Text>
-        </TouchableOpacity>
-        {roles.includes('administrator') && (
-          <TouchableOpacity
-            onPress={() => handleNavigate(`/${lang}/admin`)}
-            activeOpacity={0.7}
-            style={styles.dropdownItem}
-          >
-            <Text style={styles.dropdownItemText}>{t('nav.administration')}</Text>
-          </TouchableOpacity>
-        )}
-        {roles.includes('professional') && (
-          <TouchableOpacity
-            onPress={() => handleNavigate(`/${lang}/dashboard`)}
-            activeOpacity={0.7}
-            style={styles.dropdownItem}
-          >
-            <Text style={styles.dropdownItemText}>{t('nav.dashboard')}</Text>
-          </TouchableOpacity>
-        )}
-        <View style={styles.dropdownDivider} />
-        <TouchableOpacity
-          onPress={handleSignOut}
-          activeOpacity={0.7}
-          style={styles.dropdownItem}
-        >
-          <Text style={[styles.dropdownItemText, styles.signOutText]}>
-            {t('nav.signout')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {isDesktop ? (
+        // ── Desktop: dropdown flotante a la derecha ──
+        <View style={[styles.dropdown, styles.dropdownRight]}>
+          {dropdownItems}
+        </View>
+      ) : (
+        // ── Mobile: panel full width debajo del navbar ──
+        <View style={styles.mobileUserMenu}>
+          {dropdownItems}
+        </View>
+      )}
     </View>
   );
 
@@ -243,8 +268,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  logoEmoji: {
-    fontSize: 24,
+  logoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoText: {
     fontSize: 18,
@@ -252,7 +282,6 @@ const styles = StyleSheet.create({
     color: '#D97706',
   },
 
-  // Shared row for right-side items
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,13 +343,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Dropdown overlay (positioned absolutely below the header)
+  // Dropdown overlay
   dropdownOverlay: {
     position: 'absolute',
     top: 56,
     left: 0,
     right: 0,
-    bottom: 0,
     zIndex: 200,
     ...(Platform.OS === 'web'
       ? { position: 'absolute' as any, height: '100vh' as any }
@@ -330,6 +358,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.15)',
   },
+
+  // Desktop dropdown flotante
   dropdown: {
     position: 'absolute',
     top: 4,
@@ -347,10 +377,29 @@ const styles = StyleSheet.create({
     right: 16,
   },
 
+  // Mobile user menu — full width
+  mobileUserMenu: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
   // Dropdown items
   dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownIcon: {
+    marginRight: 12,
   },
   dropdownItemText: {
     fontSize: 14,

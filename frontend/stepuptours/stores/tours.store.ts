@@ -8,6 +8,7 @@ import {
   getTourSteps,
   getTourActivity,
   upsertTourActivity,
+  getUserTourActivities,
   getCountries,
   getCitiesByCountry,
 } from '../services/tours.service';
@@ -34,6 +35,9 @@ interface ToursState {
   currentActivity: TourActivity | null;
   isLoadingDetail: boolean;
 
+  // Actividades del usuario (keyed by tourId)
+  userActivities: Record<string, TourActivity>;
+
   // Filtros
   countries: { id: string; name: string }[];
   cities: { id: string; name: string }[];
@@ -46,6 +50,8 @@ interface ToursState {
     tourId: string,
     updates: Partial<Pick<TourActivity, 'isFavorite' | 'isSaved' | 'isCompleted' | 'userRating' | 'stepsCompleted'>>
   ) => Promise<void>;
+  fetchUserActivities: (userId: string) => Promise<void>;
+  toggleFavorite: (userId: string, tourId: string) => Promise<void>;
   fetchCountries: () => Promise<void>;
   fetchCities: (country: string) => Promise<void>;
   setFilters: (filters: Partial<TourFilters>) => void;
@@ -70,6 +76,8 @@ export const useToursStore = create<ToursState>((set, get) => ({
   currentSteps: [],
   currentActivity: null,
   isLoadingDetail: false,
+
+  userActivities: {},
 
   countries: [],
   cities: [],
@@ -117,6 +125,62 @@ export const useToursStore = create<ToursState>((set, get) => ({
       set({ currentActivity: activity });
     } catch (err: any) {
       set({ error: err.message ?? 'Error al actualizar actividad' });
+    }
+  },
+
+  fetchUserActivities: async (userId) => {
+    try {
+      const activities = await getUserTourActivities(userId);
+      const map: Record<string, TourActivity> = {};
+      for (const activity of activities) {
+        map[activity.tourId] = activity;
+      }
+      set({ userActivities: map });
+    } catch {
+      // No crítico — el usuario simplemente no verá favoritos/completados
+    }
+  },
+
+  toggleFavorite: async (userId, tourId) => {
+    const previous = get().userActivities[tourId] ?? null;
+    const currentIsFavorite = previous?.isFavorite ?? false;
+    const optimistic: TourActivity = previous
+      ? { ...previous, isFavorite: !currentIsFavorite }
+      : {
+          id: '',
+          tourId,
+          userId,
+          isFavorite: true,
+          isSaved: false,
+          isCompleted: false,
+          userRating: null,
+          stepsCompleted: [],
+          completedAt: null,
+          ratedAt: null,
+          xpAwarded: false,
+        };
+
+    // Optimistic update
+    set((state) => ({
+      userActivities: { ...state.userActivities, [tourId]: optimistic },
+    }));
+
+    try {
+      const updated = await upsertTourActivity(userId, tourId, { isFavorite: !currentIsFavorite });
+      set((state) => ({
+        userActivities: { ...state.userActivities, [tourId]: updated },
+      }));
+    } catch {
+      // Revert on error
+      set((state) => {
+        const reverted = { ...state.userActivities };
+        if (previous) {
+          reverted[tourId] = previous;
+        } else {
+          delete reverted[tourId];
+        }
+        return { userActivities: reverted };
+      });
     }
   },
 

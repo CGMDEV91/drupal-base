@@ -1,14 +1,15 @@
 // app/[langcode]/_layout.tsx
-// Valida el langcode de la URL, sincroniza stores, renderiza Navbar + Footer
+// Valida el langcode de la URL, sincroniza stores, renderiza Navbar
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Slot, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useLanguageStore } from '../../stores/language.store';
+import { useAuthStore } from '../../stores/auth.store';
 import { AuthModals } from '../../components/layout/AuthModals';
 import { Navbar } from '../../components/layout/Navbar';
-import Footer from '../../components/layout/Footer';
 import ContactModal from '../../components/layout/ContactModal';
+import CookieBanner from '../../components/layout/CookieBanner';
 
 export default function LangcodeLayout() {
   const { langcode } = useLocalSearchParams<{ langcode: string }>();
@@ -18,10 +19,14 @@ export default function LangcodeLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  // Auth modal state
-  const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
-  // Contact modal state
-  const [contactVisible, setContactVisible] = useState(false);
+  // Auth modal state — driven by Zustand so any page can trigger it
+  const pendingAuthModal = useAuthStore((s) => s.pendingAuthModal);
+  const openAuthModal = useAuthStore((s) => s.openAuthModal);
+  const closeAuthModal = useAuthStore((s) => s.closeAuthModal);
+
+  // Contact modal state — driven by Zustand so Footer (in pages) can trigger it
+  const contactModalOpen = useAuthStore((s) => s.contactModalOpen);
+  const closeContactModal = useAuthStore((s) => s.closeContactModal);
 
   // Validar y sincronizar langcode
   useEffect(() => {
@@ -41,23 +46,24 @@ export default function LangcodeLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Navbar onOpenAuth={(mode) => setAuthModal(mode)} />
+      <Navbar onOpenAuth={(mode) => openAuthModal(mode)} />
 
       <View style={{ flex: 1 }}>
         <Slot />
       </View>
 
-      <Footer onOpenContact={() => setContactVisible(true)} />
-
       <AuthModals
-        visible={authModal}
-        onClose={() => setAuthModal(null)}
-        onSwitch={(mode) => setAuthModal(mode)}
+        visible={pendingAuthModal}
+        onClose={closeAuthModal}
+        onSwitch={(mode) => openAuthModal(mode)}
       />
       <ContactModal
-        visible={contactVisible}
-        onClose={() => setContactVisible(false)}
+        visible={contactModalOpen}
+        onClose={closeContactModal}
       />
+
+      {/* Cookie consent banner — position: absolute, renders above content */}
+      <CookieBanner />
     </View>
   );
 }

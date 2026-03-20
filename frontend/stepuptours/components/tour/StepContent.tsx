@@ -76,24 +76,12 @@ export function StepContent({
 
       {/* "I'm Here" button */}
       <TouchableOpacity
-        style={[
-          styles.imHereButton,
-          showDescription && styles.imHereButtonActive,
-        ]}
+        style={styles.imHereButton}
         onPress={() => setShowDescription((prev) => !prev)}
         activeOpacity={0.7}
       >
-        <Ionicons
-          name="location"
-          size={18}
-          color={showDescription ? '#FFFFFF' : AMBER}
-        />
-        <Text
-          style={[
-            styles.imHereText,
-            showDescription && styles.imHereTextActive,
-          ]}
-        >
+        <Ionicons name="location" size={18} color="#FFFFFF" />
+        <Text style={styles.imHereText}>
           {t('step.imHere')}
         </Text>
       </TouchableOpacity>
@@ -196,22 +184,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    borderWidth: 1.5,
-    borderColor: AMBER,
+    paddingVertical: 14,
+    backgroundColor: '#F59E0B',
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  imHereButtonActive: {
-    backgroundColor: AMBER,
-    borderColor: AMBER,
+    borderWidth: 0,
   },
   imHereText: {
     fontSize: 15,
     fontWeight: '700',
-    color: AMBER,
-  },
-  imHereTextActive: {
     color: '#FFFFFF',
   },
   descriptionContainer: {

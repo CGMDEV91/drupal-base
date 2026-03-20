@@ -12,6 +12,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +26,9 @@ interface ContactModalProps {
 
 export default function ContactModal({ visible, onClose }: ContactModalProps) {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -32,7 +36,6 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Auto-close after success
   useEffect(() => {
     if (!success) return;
     const timer = setTimeout(() => {
@@ -42,7 +45,6 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
     return () => clearTimeout(timer);
   }, [success, onClose]);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (visible) {
       setEmail('');
@@ -75,28 +77,37 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={isMobile ? 'slide' : 'fade'}
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      {isMobile ? (
+        // ── Mobile: sheet desde abajo, ancho completo ──────────────────────
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.centeredView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.mobileWrapper}
         >
-          <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Title */}
+          <Pressable style={styles.mobileBackdrop} onPress={onClose} />
+          <Pressable style={styles.mobileSheet} onPress={(e) => e.stopPropagation()}>
+            {/* Handle */}
+            <View style={styles.handle} />
+
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Close */}
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+
               <Text style={styles.title}>{t('contact.title')}</Text>
 
               {success ? (
                 <View style={styles.successBox}>
-                  <Text style={styles.successText}>
-                    {t('contact.success')}
-                  </Text>
+                  <Text style={styles.successText}>{t('contact.success')}</Text>
                 </View>
               ) : (
                 <>
-                  {/* Email */}
                   <Text style={styles.label}>{t('contact.email')}</Text>
                   <TextInput
                     style={styles.input}
@@ -108,7 +119,6 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
                     placeholderTextColor="#9CA3AF"
                   />
 
-                  {/* Subject */}
                   <Text style={styles.label}>{t('contact.subject')}</Text>
                   <TextInput
                     style={styles.input}
@@ -118,7 +128,6 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
                     placeholderTextColor="#9CA3AF"
                   />
 
-                  {/* Message */}
                   <Text style={styles.label}>{t('contact.message')}</Text>
                   <TextInput
                     style={[styles.input, styles.textArea]}
@@ -131,43 +140,103 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
                     textAlignVertical="top"
                   />
 
-                  {error ? (
-                    <Text style={styles.errorText}>{error}</Text>
-                  ) : null}
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                  {/* Send button */}
                   <TouchableOpacity
-                    style={[
-                      styles.sendButton,
-                      loading && styles.sendButtonDisabled,
-                    ]}
+                    style={[styles.sendButton, loading && styles.sendButtonDisabled]}
                     onPress={handleSend}
                     disabled={loading}
                   >
                     {loading ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text style={styles.sendButtonText}>
-                        {t('contact.send')}
-                      </Text>
+                      <Text style={styles.sendButtonText}>{t('contact.send')}</Text>
                     )}
                   </TouchableOpacity>
                 </>
               )}
-
-              {/* Close button */}
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
             </ScrollView>
           </Pressable>
         </KeyboardAvoidingView>
-      </Pressable>
+      ) : (
+        // ── Desktop: modal centrado ────────────────────────────────────────
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.centeredView}
+          >
+            <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.title}>{t('contact.title')}</Text>
+
+                {success ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>{t('contact.success')}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.label}>{t('contact.email')}</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      placeholder={t('contact.email')}
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.label}>{t('contact.subject')}</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={subject}
+                      onChangeText={setSubject}
+                      placeholder={t('contact.subject')}
+                      placeholderTextColor="#9CA3AF"
+                    />
+
+                    <Text style={styles.label}>{t('contact.message')}</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={message}
+                      onChangeText={setMessage}
+                      placeholder={t('contact.message')}
+                      placeholderTextColor="#9CA3AF"
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                    />
+
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                    <TouchableOpacity
+                      style={[styles.sendButton, loading && styles.sendButtonDisabled]}
+                      onPress={handleSend}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.sendButtonText}>{t('contact.send')}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </ScrollView>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      )}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  // ── Desktop ───────────────────────────────────────────────────────────────
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -186,6 +255,37 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     position: 'relative',
   },
+
+  // ── Mobile ────────────────────────────────────────────────────────────────
+  mobileWrapper: {
+    flex: 1,
+    justifyContent: 'flex-start', // ← cambia flex-end
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  mobileBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent', // el color ya está en mobileWrapper
+  },
+  mobileSheet: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20, // ← todos los bordes redondeados
+    margin: 16,       // ← margen lateral y separa del nav
+    marginTop: 56 + 16, // ← altura navbar + espacio
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    width: undefined, // ← quita width 100% para que respete el margin
+    maxHeight: '85%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+
+  // ── Shared ────────────────────────────────────────────────────────────────
   title: {
     fontSize: 20,
     fontWeight: '700',
@@ -249,6 +349,7 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     padding: 8,
+    zIndex: 1,
   },
   closeButtonText: {
     fontSize: 18,

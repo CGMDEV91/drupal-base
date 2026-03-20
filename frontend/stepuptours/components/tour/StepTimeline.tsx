@@ -1,7 +1,7 @@
 // components/tour/StepTimeline.tsx
 // Vertical timeline with step circles and expandable content
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -29,24 +29,24 @@ export function StepTimeline({
 }: StepTimelineProps) {
   const { t } = useTranslation();
 
+  const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
+
   const getStepState = (step: TourStep, index: number): StepState => {
     if (stepsCompleted.includes(step.id)) return 'completed';
-    // Active = first step not in stepsCompleted
+
+    if (manualActiveIndex !== null) {
+      return index === manualActiveIndex ? 'active' : 'pending';
+    }
+
+    // Auto-detect: first non-completed step
     const firstIncompleteIndex = steps.findIndex(
       (s) => !stepsCompleted.includes(s.id),
     );
-    if (index === firstIncompleteIndex) return 'active';
-    return 'pending';
+    return index === firstIncompleteIndex ? 'active' : 'pending';
   };
 
-  // Find the active step index to auto-expand it
-  const activeIndex = steps.findIndex((s) => !stepsCompleted.includes(s.id));
-
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(() => {
-    const initial = new Set<number>();
-    if (activeIndex >= 0) initial.add(activeIndex);
-    return initial;
-  });
+  // All steps start collapsed
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
 
   const toggleStep = (index: number) => {
     setExpandedSteps((prev) => {
@@ -58,7 +58,32 @@ export function StepTimeline({
       }
       return next;
     });
+
+    // If step is not completed, make it the active step
+    if (!stepsCompleted.includes(steps[index].id)) {
+      setManualActiveIndex(index);
+    }
   };
+
+  // Collapse a step when it is completed, then reset to auto-detect for next
+  const prevCompletedCount = useRef(stepsCompleted.length);
+
+  useEffect(() => {
+    if (stepsCompleted.length > prevCompletedCount.current) {
+      const justCompletedId = stepsCompleted[stepsCompleted.length - 1];
+      const justCompletedIndex = steps.findIndex((s) => s.id === justCompletedId);
+      if (justCompletedIndex >= 0) {
+        setExpandedSteps((prev) => {
+          const next = new Set(prev);
+          next.delete(justCompletedIndex);
+          return next;
+        });
+      }
+      // Reset manual active so next incomplete step is auto-detected
+      setManualActiveIndex(null);
+    }
+    prevCompletedCount.current = stepsCompleted.length;
+  }, [stepsCompleted.length]);
 
   const getStateColor = (state: StepState): string => {
     switch (state) {
@@ -133,37 +158,43 @@ export function StepTimeline({
 
             {/* Content column */}
             <View style={[styles.contentCol, !isLast && styles.contentColSpacing]}>
-              <TouchableOpacity
-                style={styles.stepHeader}
-                onPress={() => toggleStep(index)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.stepHeaderLeft}>
-                  <Text style={styles.stepTitle} numberOfLines={isExpanded ? undefined : 1}>
-                    {step.title}
-                  </Text>
-                  <View style={[styles.pill, { backgroundColor: pill.bg }]}>
-                    <Text style={[styles.pillText, { color: pill.text }]}>
-                      {pill.label}
+              <View style={[
+                styles.stepCard,
+                state === 'completed' && styles.stepCardCompleted,
+                state === 'active' && styles.stepCardActive,
+              ]}>
+                <TouchableOpacity
+                  style={styles.stepHeader}
+                  onPress={() => toggleStep(index)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.stepHeaderLeft}>
+                    <Text style={styles.stepTitle} numberOfLines={isExpanded ? undefined : 1}>
+                      {step.title}
                     </Text>
+                    <View style={[styles.pill, { backgroundColor: pill.bg }]}>
+                      <Text style={[styles.pillText, { color: pill.text }]}>
+                        {pill.label}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <Ionicons
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#9CA3AF"
-                />
-              </TouchableOpacity>
+                  <Ionicons
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
 
-              {isExpanded && (
-                <StepContent
-                  step={step}
-                  isCompleted={state === 'completed'}
-                  isActive={state === 'active'}
-                  onComplete={() => onCompleteStep(step.id)}
-                  langcode={langcode}
-                />
-              )}
+                {isExpanded && (
+                  <StepContent
+                    step={step}
+                    isCompleted={state === 'completed'}
+                    isActive={state === 'active'}
+                    onComplete={() => onCompleteStep(step.id)}
+                    langcode={langcode}
+                  />
+                )}
+              </View>
             </View>
           </View>
         );
@@ -207,6 +238,23 @@ const styles = StyleSheet.create({
   },
   contentColSpacing: {
     paddingBottom: 16,
+  },
+  stepCard: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 4,
+  },
+  stepCardCompleted: {
+    backgroundColor: '#F0FFF4',
+    borderColor: '#BBF7D0',
+  },
+  stepCardActive: {
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
   },
   stepHeader: {
     flexDirection: 'row',

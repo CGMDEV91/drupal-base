@@ -162,3 +162,35 @@ Antes de implementar algo complejo, consulta la skill correspondiente:
 - **Diseño responsive, NativeWind** → `skills/responsive-design.md`
 - **Reglas de negocio del site** → `skills/stepuptours-business-rules.md`
 - **Modelo de contenido completo** → `skills/stepuptours-content-model.md`
+
+---
+
+## Registro de Conversaciones (MEMORY.md)
+
+Al inicio de cada conversación, el agente debe comprobar si existe el fichero `MEMORY.md` en la raíz del proyecto. Si no existe, debe crearlo.
+
+Al finalizar cada conversación (o cuando se detecte que está próxima a cerrarse por límite de contexto), el agente debe añadir una nueva entrada en `MEMORY.md` con el resumen de lo trabajado en esa sesión.
+
+### Formato de cada entrada
+
+```markdown
+## Sesión YYYY-MM-DD HH:MM
+
+**Resumen**: Breve descripción de los objetivos de la sesión.
+
+**Trabajo realizado**:
+- Punto 1
+- Punto 2
+- ...
+
+**Archivos modificados**: lista de ficheros clave creados o editados.
+
+**Pendiente / Próximos pasos**: qué quedó sin terminar o qué debe hacerse en la siguiente sesión.
+```
+
+### Reglas
+
+- Cada sesión ocupa una entrada propia encabezada con fecha y hora aproximada de inicio.
+- Las entradas se añaden en orden cronológico (la más reciente al final).
+- El resumen debe ser suficientemente detallado para que en la siguiente conversación el agente pueda retomar el trabajo sin pérdida de contexto.
+- No borrar entradas anteriores; solo añadir.

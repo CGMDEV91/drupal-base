@@ -13,6 +13,7 @@ import {
   mapDrupalTour,
   mapDrupalTourStep,
   mapDrupalActivity,
+  extractTourFromActivity,
 } from '../lib/drupal-client';
 import type {
   Tour,
@@ -74,19 +75,69 @@ const TOUR_CARD_FIELDS = {
 
 const TOUR_CARD_INCLUDE = ['field_image', 'field_city', 'field_country'];
 
+// ── Batch step count helper ───────────────────────────────────────────────────
+
+/**
+ * Fetches step counts for a list of tour IDs in a single JSON:API request.
+ * Uses drupalGetRaw which deserializes via Jsona, so step.field_tour.id is
+ * the UUID of the parent tour.
+ * Returns a map of tourId -> stepCount.
+ */
+async function batchGetStepCounts(tourIds: string[]): Promise<Record<string, number>> {
+  if (tourIds.length === 0) return {};
+
+  // Build IN filter — Drupal JSON:API format for multiple values
+  const filterParts = tourIds.map(
+    (id, i) =>
+      `filter[tid][condition][path]=field_tour.id` +
+      `&filter[tid][condition][operator]=IN` +
+      `&filter[tid][condition][value][${i}]=${id}`
+  );
+
+  const params = [
+    filterParts.join('&'),
+    'filter[status]=1',
+    'fields[node--tour_step]=field_tour',
+    'page[limit]=500',
+  ].join('&');
+
+  try {
+    const { data } = await drupalGetRaw('/node/tour_step', params);
+    const steps = Array.isArray(data) ? data : data ? [data] : [];
+
+    const counts: Record<string, number> = {};
+    for (const step of steps) {
+      // drupalGetRaw uses Jsona, so field_tour is already deserialized as an object
+      const tourId = (step as any).field_tour?.id;
+      if (tourId) {
+        counts[tourId] = (counts[tourId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  } catch {
+    return {};
+  }
+}
+
 // ── Obtener listado de tours ───────────────────────────────────────────────────
 
 export async function getTours(filters: TourFilters = {}): Promise<PaginatedResult<Tour>> {
-  const { page = 1, limit = 20, country, city, minRating, search } = filters;
+  const { page = 1, limit = 20, country, city, minRating, search, sort } = filters;
 
   const drupalFilters: Record<string, any> = { status: 1 };
   if (country) drupalFilters['field_country.name'] = country;
   if (city) drupalFilters['field_city.name'] = city;
 
+  // Build sort param
+  let sortParam = 'sort=-field_average_rate'; // default: best rating
+  if (sort === 'alphabetical') sortParam = 'sort=title';
+  else if (sort === 'popular') sortParam = 'sort=-field_donation_count';
+
   const params = [
     buildFilters(drupalFilters),
     minRating ? `filter[rate][condition][path]=field_average_rate&filter[rate][condition][operator]=>=&filter[rate][condition][value]=${minRating}` : '',
-    'sort=-field_average_rate',
+    search ? `filter[title][condition][path]=title&filter[title][condition][operator]=CONTAINS&filter[title][condition][value]=${encodeURIComponent(search)}` : '',
+    sortParam,
     buildPage(page, limit),
     buildFields(TOUR_CARD_FIELDS),
     buildInclude(TOUR_CARD_INCLUDE),
@@ -94,9 +145,17 @@ export async function getTours(filters: TourFilters = {}): Promise<PaginatedResu
 
   const { data, meta } = await drupalGetRaw('/node/tour', params);
   const rawList = Array.isArray(data) ? data : [data];
+  const mapped = rawList.map(mapDrupalTour);
+
+  if (mapped.length > 0) {
+    const stepCounts = await batchGetStepCounts(mapped.map((t) => t.id));
+    mapped.forEach((t) => {
+      t.stopsCount = stepCounts[t.id] ?? 0;
+    });
+  }
 
   return {
-    data: rawList.map(mapDrupalTour),
+    data: mapped,
     total: meta?.count ?? rawList.length,
     hasMore: rawList.length === limit,
   };
@@ -110,8 +169,22 @@ export async function getTourById(id: string): Promise<Tour> {
     buildInclude([...TOUR_INCLUDE, 'uid']),
   ].join('&');
 
+  // drupalGet uses Jsona — raw.id is already the UUID
   const raw = await drupalGet<any>(`/node/tour/${id}`, params);
-  return mapDrupalTour(raw);
+  const tour = mapDrupalTour(raw);
+
+  try {
+    const stepsRes = await drupalGetRaw(
+      '/node/tour_step',
+      `filter[field_tour.id]=${raw.id}&filter[status]=1&fields[node--tour_step]=id&page[limit]=100`
+    );
+    const steps = Array.isArray(stepsRes.data) ? stepsRes.data : stepsRes.data ? [stepsRes.data] : [];
+    tour.stopsCount = steps.length;
+  } catch {
+    tour.stopsCount = 0;
+  }
+
+  return tour;
 }
 
 // ── Obtener steps de un tour ──────────────────────────────────────────────────
@@ -217,17 +290,122 @@ export async function getUserTourActivities(userId: string): Promise<TourActivit
         'field_user_rating',
         'field_completed_at',
         'field_xp_awarded',
+        'field_tour',
       ],
-      'node--tour': ['title', 'field_image', 'field_average_rate', 'field_duration', 'field_city'],
+      'node--tour': [
+        'title',
+        'field_image',
+        'field_average_rate',
+        'field_duration',
+        'field_donation_count',
+        'field_city',
+        'field_country',
+        'status',
+      ],
       'taxonomy_term--cities': ['name'],
+      'taxonomy_term--countries': ['name'],
       'file--file': ['uri', 'url'],
     }),
-    buildInclude(['field_tour', 'field_tour.field_city', 'field_tour.field_image']),
+    buildInclude(['field_tour', 'field_tour.field_city', 'field_tour.field_country', 'field_tour.field_image']),
   ].join('&');
 
   const raw = await drupalGet<any[]>('/node/tour_user_activity', params);
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
   return list.map(mapDrupalActivity);
+}
+
+// ── Obtener actividades con datos de tour embebidos (una sola petición) ───────
+// Usa ?include=field_tour,... para obtener los datos del tour sin llamadas extra.
+// Devuelve pares { activity, tour } listos para usar en la UI.
+
+export interface ActivityWithTour {
+  activity: TourActivity;
+  tour: Tour;
+}
+
+export async function getUserActivitiesWithTours(userId: string): Promise<ActivityWithTour[]> {
+  const params = [
+    `filter[field_user.id]=${userId}`,
+    buildFields({
+      'node--tour_user_activity': [
+        'field_is_favorite',
+        'field_is_saved',
+        'field_is_completed',
+        'field_user_rating',
+        'field_completed_at',
+        'field_xp_awarded',
+        'field_tour',
+      ],
+      'node--tour': [
+        'title',
+        'field_image',
+        'field_average_rate',
+        'field_duration',
+        'field_donation_count',
+        'field_city',
+        'field_country',
+        'status',
+      ],
+      'taxonomy_term--cities': ['name'],
+      'taxonomy_term--countries': ['name'],
+      'file--file': ['uri', 'url'],
+    }),
+    buildInclude(['field_tour', 'field_tour.field_city', 'field_tour.field_country', 'field_tour.field_image']),
+  ].join('&');
+
+  const raw = await drupalGet<any[]>('/node/tour_user_activity', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const results: ActivityWithTour[] = [];
+  for (const item of list) {
+    const activity = mapDrupalActivity(item);
+    const tour = extractTourFromActivity(item);
+    if (tour) {
+      results.push({ activity, tour });
+    }
+  }
+
+  // Enrich tours with actual step counts in a single batch request
+  if (results.length > 0) {
+    const tourIds = results.map((r) => r.tour.id);
+    const stepCounts = await batchGetStepCounts(tourIds);
+    results.forEach((r) => {
+      r.tour.stopsCount = stepCounts[r.tour.id] ?? 0;
+    });
+  }
+
+  return results;
+}
+
+// ── Obtener tours por lista de UUIDs (para páginas de favoritos/completados) ──
+
+export async function getToursByIds(ids: string[]): Promise<Tour[]> {
+  if (ids.length === 0) return [];
+
+  const filterParts = ids.map(
+    (id, i) =>
+      `filter[id-group][group][conjunction]=OR&filter[id-${i}][condition][path]=id&filter[id-${i}][condition][value]=${id}&filter[id-${i}][condition][memberOf]=id-group`
+  );
+
+  const params = [
+    ...filterParts,
+    buildFields(TOUR_CARD_FIELDS),
+    buildInclude(TOUR_CARD_INCLUDE),
+    `page[limit]=${ids.length}`,
+  ].join('&');
+
+  const { data } = await drupalGetRaw('/node/tour', params);
+  const rawList = Array.isArray(data) ? data : data ? [data] : [];
+  const mapped = rawList.map(mapDrupalTour);
+
+  if (mapped.length > 0) {
+    const stepCounts = await batchGetStepCounts(mapped.map((t) => t.id));
+    mapped.forEach((t) => {
+      t.stopsCount = stepCounts[t.id] ?? 0;
+    });
+  }
+
+  return mapped;
 }
 
 // ── Obtener países disponibles ─────────────────────────────────────────────────

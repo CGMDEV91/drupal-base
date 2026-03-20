@@ -57,8 +57,13 @@ export function StarRating({
       <View style={styles.starsRow}>{stars}</View>
       {!interactive && (
         <Text style={[styles.label, { fontSize: size - 1 }]}>
-          {hasRating
-            ? `${value.toFixed(1)}${count !== undefined ? ` (${count})` : ''}`
+          {hasRating ? (
+            <>
+              <Text style={styles.ratingValue}>{value.toFixed(1)}</Text>
+              {count !== undefined ? ` (${count})` : ''}
+            </>
+          ) : count !== undefined
+            ? `(${count})`
             : t('tour.noRating')}
         </Text>
       )}
@@ -75,10 +80,14 @@ const styles = StyleSheet.create({
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 1,
+    gap: 2,
   },
   label: {
     color: '#6B7280',
     fontWeight: '500',
+  },
+  ratingValue: {
+    color: '#374151',
+    fontWeight: '700',
   },
 });

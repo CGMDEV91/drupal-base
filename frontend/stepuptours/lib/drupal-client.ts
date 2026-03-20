@@ -166,7 +166,15 @@ export function mapDrupalUser(raw: any): import('../types').User {
       : null,
     avatar: resolveImageUrl(raw.user_picture),
     experiencePoints: raw.field_experience_points ?? 0,
-    roles: raw.roles ?? [],
+    roles: Array.isArray(raw.roles)
+      ? raw.roles.map((r: any) =>
+          typeof r === 'string'
+            ? r
+            : (r.meta?.drupal_internal__id ?? r.meta?.drupal_internal__target_id ?? r.id ?? r)
+        )
+      : (raw.relationships?.roles?.data ?? []).map(
+          (r: any) => r.meta?.drupal_internal__id ?? r.meta?.drupal_internal__target_id ?? r.id
+        ),
     createdAt: raw.created ?? '',
   };
 }
@@ -180,6 +188,8 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
     image: resolveImageUrl(raw.field_image),
     duration: raw.field_duration ?? 0,
     averageRate: parseFloat(raw.field_average_rate ?? '0'),
+    ratingCount: 0, // Not stored in Drupal; reserved for future computed field
+    stopsCount: 0, // Set after mapping via batchGetStepCounts or getTourById
     donationCount: raw.field_donation_count ?? 0,
     donationTotal: parseFloat(raw.field_donation_total ?? '0'),
     city: raw.field_city ? { id: raw.field_city.id, name: raw.field_city.name } : null,
@@ -244,6 +254,16 @@ export function mapDrupalActivity(raw: any): import('../types').TourActivity {
     ratedAt: raw.field_rated_at ?? null,
     xpAwarded: raw.field_xp_awarded ?? false,
   };
+}
+
+// Extracts the embedded Tour from an activity raw node (when fetched with ?include=field_tour).
+// Returns null if the tour data is not embedded (only a reference is present).
+export function extractTourFromActivity(raw: any): import('../types').Tour | null {
+  const tourRaw = raw.field_tour;
+  if (!tourRaw || typeof tourRaw !== 'object' || !tourRaw.id) return null;
+  // If Jsona resolved the relationship, tourRaw will have title/fields; otherwise it's just {id, type}
+  if (!tourRaw.title) return null;
+  return mapDrupalTour(tourRaw);
 }
 
 export function mapDrupalSubscription(raw: any): import('../types').Subscription {

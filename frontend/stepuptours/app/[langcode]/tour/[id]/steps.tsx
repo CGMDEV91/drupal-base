@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +20,7 @@ import { useToursStore } from '../../../../stores/tours.store';
 import { useAuthStore } from '../../../../stores/auth.store';
 import { StepTimeline } from '../../../../components/tour/StepTimeline';
 import { CompletionPopup } from '../../../../components/tour/CompletionPopup';
+import { CONTENT_MAX_WIDTH } from '../../../../styles/theme';
 
 const AMBER = '#F59E0B';
 
@@ -138,43 +141,23 @@ export default function TourStepsScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {tour.title}
-        </Text>
-        <View style={styles.backButton} />
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{tour.title}</Text>
+          <Text style={styles.headerCity}>{'\u{1F4CD}'} {tour.city?.name}</Text>
+        </View>
+        <View style={styles.headerProgress}>
+          <Text style={styles.progressPercent}>{Math.round((stepsCompleted.length / totalSteps) * 100)}%</Text>
+          <Text style={styles.progressFraction}>{stepsCompleted.length}/{totalSteps}</Text>
+        </View>
+      </View>
+      <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarFill, { width: `${(stepsCompleted.length / totalSteps) * 100}%` }]} />
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Progress bar */}
-        <View style={styles.progressSection}>
-          <Text style={styles.progressLabel}>
-            {t('step.progress', {
-              completed: stepsCompleted.length,
-              total: totalSteps,
-            })}
-          </Text>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  width:
-                    totalSteps > 0
-                      ? `${(stepsCompleted.length / totalSteps) * 100}%`
-                      : '0%',
-                },
-              ]}
-            />
-          </View>
-        </View>
-
         {/* Restart button */}
         {stepsCompleted.length > 0 && (
           <TouchableOpacity
@@ -225,12 +208,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 48,
+    paddingTop: Platform.OS === 'web' ? 16 : 48,
     paddingBottom: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
   },
   backButton: {
     width: 40,
@@ -238,12 +222,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
+  headerInfo: {
     flex: 1,
-    fontSize: 18,
+    marginLeft: 8,
+  },
+  headerTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
-    textAlign: 'center',
+  },
+  headerCity: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  headerProgress: {
+    alignItems: 'flex-end',
+  },
+  progressPercent: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+  progressFraction: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   scrollView: {
     flex: 1,
@@ -252,26 +255,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 40,
-  },
-  progressSection: {
-    marginBottom: 16,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
   },
   progressBarBg: {
-    height: 8,
+    height: 6,
     backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: AMBER,
-    borderRadius: 4,
+    backgroundColor: '#F59E0B',
   },
   restartButton: {
     flexDirection: 'row',

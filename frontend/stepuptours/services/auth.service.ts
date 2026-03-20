@@ -12,21 +12,30 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://stepuptours.ddev.si
 
 /** Extrae un mensaje legible del error, parseando el formato JSON:API de Drupal */
 function extractErrorMessage(err: any, fallback: string): string {
-  // Drupal devuelve: { errors: [{ detail: '...' }] }
   const detail = err?.response?.data?.errors?.[0]?.detail;
   if (detail) return detail;
-  // Axios network error
   if (err?.message) return err.message;
   return fallback;
+}
+
+/** Obtiene los roles actuales de un usuario desde Drupal JSON:API */
+async function fetchUserRoles(userId: string, authHeader: string): Promise<string[]> {
+  const res = await axios.get(`${BASE_URL}/api/me`, {
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': authHeader,
+    },
+  });
+
+  return res.data?.roles ?? [];
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
 export async function login(credentials: AuthCredentials): Promise<AuthSession> {
-  // Basic Auth: codifica usuario:password en base64
   const token = btoa(`${credentials.username}:${credentials.password}`);
+  const authHeader = `Basic ${token}`;
 
-  // Verifica credenciales obteniendo el perfil del usuario actual
   let response: any;
   try {
     response = await axios.get(
@@ -34,7 +43,7 @@ export async function login(credentials: AuthCredentials): Promise<AuthSession> 
       {
         headers: {
           'Accept': 'application/vnd.api+json',
-          'Authorization': `Basic ${token}`,
+          'Authorization': authHeader,
         },
       }
     );
@@ -49,24 +58,17 @@ export async function login(credentials: AuthCredentials): Promise<AuthSession> 
     throw new Error('Credenciales incorrectas');
   }
 
-  // Obtener roles del usuario via endpoint de usuario autenticado
-  const rolesResponse = await axios.get(
-    `${BASE_URL}/jsonapi/user/user/${users[0].id}?fields[user--user]=roles`,
-    {
-      headers: {
-        'Accept': 'application/vnd.api+json',
-        'Authorization': `Basic ${token}`,
-      },
-    }
-  );
+  const roles = await fetchUserRoles(users[0].id, authHeader);
 
   const rawUser = {
     ...users[0].attributes,
     id: users[0].id,
     field_country: users[0].relationships?.field_country?.data
-      ? response.data?.included?.find((i: any) => i.id === users[0].relationships.field_country.data.id)?.attributes
+      ? response.data?.included?.find(
+          (i: any) => i.id === users[0].relationships.field_country.data.id
+        )?.attributes
       : null,
-    roles: rolesResponse.data?.data?.relationships?.roles?.data?.map((r: any) => r.meta?.drupal_internal__target_id) ?? [],
+    roles,
   };
 
   const user = mapDrupalUser(rawUser);
@@ -75,14 +77,11 @@ export async function login(credentials: AuthCredentials): Promise<AuthSession> 
     token,
     tokenType: 'basic',
     user,
-    expiresAt: null, // Basic Auth no expira
+    expiresAt: null,
   };
 
   await sessionStorage.saveSession(session);
-  inactivityTracker.start(() => {
-    // Callback cuando expira por inactividad
-    // El store de auth reaccionará via listener
-  });
+  inactivityTracker.start(() => {});
 
   return session;
 }
@@ -98,10 +97,50 @@ export async function logout(): Promise<void> {
 
 export async function restoreSession(): Promise<AuthSession | null> {
   const session = await sessionStorage.getSession();
-  if (session) {
+  if (!session?.token) return null;
+
+  try {
+    // Verificar que el token sigue siendo válido y refrescar roles
+    const authHeader = `Basic ${session.token}`;
+
+    const meRes = await axios.get(
+      `${BASE_URL}/jsonapi/user/user?filter[name]=${session.user.username}&fields[user--user]=name`,
+      {
+        headers: {
+          'Accept': 'application/vnd.api+json',
+          'Authorization': authHeader,
+        },
+      }
+    );
+
+    const users = meRes.data?.data ?? [];
+    if (!users.length) {
+      // Token inválido — limpiar sesión
+      await sessionStorage.clearSession();
+      return null;
+    }
+
+    // Obtener roles frescos desde Drupal
+    const freshRoles = await fetchUserRoles(users[0].id, authHeader);
+
+    const refreshed: AuthSession = {
+      ...session,
+      user: {
+        ...session.user,
+        roles: freshRoles,
+      },
+    };
+
+    await sessionStorage.saveSession(refreshed);
     inactivityTracker.start(() => {});
+    return refreshed;
+
+  } catch {
+    // Sin red o error inesperado — usar sesión cacheada como fallback
+    // para no bloquear el arranque de la app
+    inactivityTracker.start(() => {});
+    return session;
   }
-  return session;
 }
 
 // ── Registro ──────────────────────────────────────────────────────────────────
@@ -118,7 +157,6 @@ export async function register(data: {
       { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
-    // El endpoint devuelve { errors: { field: msg } } o { error: msg }
     const apiErrors = err?.response?.data?.errors;
     if (apiErrors && typeof apiErrors === 'object') {
       const firstField = Object.keys(apiErrors)[0];
@@ -127,7 +165,6 @@ export async function register(data: {
     throw new Error(extractErrorMessage(err, 'Error al registrarse'));
   }
 
-  // Auto-login tras el registro
   return login({ username: data.username, password: data.password });
 }
 

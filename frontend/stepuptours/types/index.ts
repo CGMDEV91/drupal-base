@@ -55,6 +55,8 @@ export interface Tour {
   image: string | null;
   duration: number;
   averageRate: number;
+  ratingCount: number;
+  stopsCount: number;
   donationCount: number;
   donationTotal: number;
   city: Taxonomy | null;
@@ -141,6 +143,7 @@ export interface TourFilters {
   search?: string;
   page?: number;
   limit?: number;
+  sort?: 'rating' | 'alphabetical' | 'popular';
 }
 
 // Tipos de autenticación

@@ -11,6 +11,8 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  pendingAuthModal: 'login' | 'register' | null;
+  contactModalOpen: boolean;
 
   // Actions
   signIn: (credentials: AuthCredentials) => Promise<void>;
@@ -18,6 +20,11 @@ interface AuthState {
   signOut: () => Promise<void>;
   restore: () => Promise<void>;
   clearError: () => void;
+  openAuthModal: (mode: 'login' | 'register') => void;
+  closeAuthModal: () => void;
+  openContactModal: () => void;
+  closeContactModal: () => void;
+  updateProfile: (updates: Partial<{ publicName: string; preferredLanguage: string; countryId: string }>) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -25,6 +32,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
   error: null,
+  pendingAuthModal: null,
+  contactModalOpen: false,
 
   signIn: async (credentials) => {
     set({ isLoading: true, error: null });
@@ -78,4 +87,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  openAuthModal: (mode) => set({ pendingAuthModal: mode }),
+  closeAuthModal: () => set({ pendingAuthModal: null }),
+  openContactModal: () => set({ contactModalOpen: true }),
+  closeContactModal: () => set({ contactModalOpen: false }),
+
+  updateProfile: async (updates) => {
+    const user = get().user;
+    if (!user) return;
+    const { updateUserProfile } = await import('../services/user.service');
+    await updateUserProfile(user.id, updates);
+    const { getUserById } = await import('../services/user.service');
+    const updatedUser = await getUserById(user.id);
+    set({ user: updatedUser });
+  },
 }));

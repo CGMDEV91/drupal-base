@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(tree -L 3 -I node_modules //wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend)",
-      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)"
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)",
+      "Bash(wsl bash:*)",
+      "Bash(find /wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend -name *.tsx -type f)",
+      "Bash(find /wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend -type f -name *id*tsx)"
     ]
   }
 }

@@ -1,86 +1,343 @@
 // components/layout/Footer.tsx
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuthStore } from '../../stores/auth.store';
 
-interface FooterProps {
-  onOpenContact: () => void;
+const NAVY = '#1C2B3A';
+const NAVY_LIGHT = '#243447';
+const ACCENT = '#F59E0B';
+const TEXT_MUTED = '#8B9EB0';
+const TEXT_LIGHT = '#CBD5E1';
+const TEXT_WHITE = '#FFFFFF';
+
+interface SiteSettings {
+  siteName: string;
+  siteEmail: string;
+  slogan: string;
+  address: string;
+  phone: string;
 }
 
-export default function Footer({ onOpenContact }: FooterProps) {
+export default function Footer() {
   const { t } = useTranslation();
   const router = useRouter();
   const { langcode } = useLocalSearchParams<{ langcode: string }>();
   const { width } = useWindowDimensions();
+  const openContactModal = useAuthStore((s) => s.openContactModal);
   const isDesktop = width >= 768;
 
+  const lang = langcode ?? 'en';
+
+  const [settings, setSettings] = useState<SiteSettings>({
+    siteName: 'StepUp Tours',
+    siteEmail: 'info@stepuptours.com',
+    slogan: 'Explore the world step by step',
+    address: 'Madrid, España',
+    phone: '',
+  });
+
+  useEffect(() => {
+    const base = process.env.EXPO_PUBLIC_API_URL ?? '';
+    fetch(`${base}/api/site-settings`)
+      .then(r => r.json())
+      .then((data: SiteSettings) => setSettings(data))
+      .catch(() => {/* keep defaults */});
+  }, []);
+
+  const year = new Date().getFullYear();
+
+  const navigate = (path: string) => router.push(path as any);
+
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
-      {/* Column 1: Brand */}
-      <View style={[styles.column, isDesktop && styles.columnDesktop]}>
-        <Text style={styles.brand}>StepUp Tours</Text>
-        <Text style={styles.subtitle}>Self-guided tours worldwide</Text>
+    <View style={styles.wrapper}>
+      {/* ── Main grid ── */}
+      <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
+
+        {/* Col 1 — Brand */}
+        <View style={[styles.col, isDesktop && styles.colDesktop, styles.colBrand]}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="compass" size={22} color={ACCENT} />
+            </View>
+            <Text style={styles.brandName}>{settings.siteName}</Text>
+          </View>
+          <Text style={styles.brandSlogan}>{settings.slogan}</Text>
+
+          <View style={styles.socialRow}>
+            {(['logo-instagram', 'logo-facebook', 'logo-twitter'] as const).map(icon => (
+              <TouchableOpacity key={icon} style={styles.socialBtn}>
+                <Ionicons name={icon} size={16} color={TEXT_MUTED} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Col 2 — Quick links */}
+        <View style={[styles.col, isDesktop && styles.colDesktop]}>
+          <View style={styles.colHeader}>
+            <Text style={styles.colTitle}>
+              {lang === 'es' ? 'Enlaces Rápidos' : 'Quick Links'}
+            </Text>
+            <View style={styles.colUnderline} />
+          </View>
+          <FooterLink label={lang === 'es' ? 'Inicio' : 'Home'}         onPress={() => navigate(`/${lang}`)} />
+          <FooterLink label={lang === 'es' ? 'Ranking' : 'Ranking'}     onPress={() => navigate(`/${lang}/ranking`)} />
+          <FooterLink label={lang === 'es' ? 'Favoritos' : 'Favourites'} onPress={() => navigate(`/${lang}/favourites`)} />
+          <FooterLink label={lang === 'es' ? 'Completados' : 'Completed'} onPress={() => navigate(`/${lang}/completed`)} />
+        </View>
+
+        {/* Col 3 — Legal */}
+        <View style={[styles.col, isDesktop && styles.colDesktop]}>
+          <View style={styles.colHeader}>
+            <Text style={styles.colTitle}>Legal</Text>
+            <View style={styles.colUnderline} />
+          </View>
+          <FooterLink
+            label={t('footer.privacyPolicy')}
+            onPress={() => navigate(`/${lang}/privacy-policy`)}
+          />
+          <FooterLink
+            label={t('footer.cookiePolicy')}
+            onPress={() => navigate(`/${lang}/cookie-policy`)}
+          />
+          <FooterLink
+            label={lang === 'es' ? 'Términos de Uso' : 'Terms of Use'}
+            onPress={() => navigate(`/${lang}/privacy-policy`)}
+          />
+          <FooterLink label={t('footer.contact')} onPress={openContactModal} />
+        </View>
+
+        {/* Col 4 — Contact info */}
+        <View style={[styles.col, isDesktop && styles.colDesktop]}>
+          <View style={styles.colHeader}>
+            <Text style={styles.colTitle}>
+              {lang === 'es' ? 'Información de Contacto' : 'Contact Info'}
+            </Text>
+            <View style={styles.colUnderline} />
+          </View>
+
+          {!!settings.address && (
+            <ContactItem icon="location-outline" text={settings.address} />
+          )}
+          {!!settings.siteEmail && (
+            <ContactItem icon="mail-outline" text={settings.siteEmail} />
+          )}
+          {!!settings.phone && (
+            <ContactItem icon="call-outline" text={settings.phone} />
+          )}
+        </View>
       </View>
 
-      {/* Column 2: Contact */}
-      <View style={[styles.column, isDesktop && styles.columnDesktop]}>
-        <TouchableOpacity onPress={onOpenContact}>
-          <Text style={styles.link}>{t('footer.contact')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Column 3: Legal */}
-      <View style={[styles.column, isDesktop && styles.columnDesktop]}>
-        <TouchableOpacity
-          onPress={() => router.push(`/${langcode}/cookie-policy` as any)}
-        >
-          <Text style={styles.link}>{t('footer.cookiePolicy')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.push(`/${langcode}/privacy-policy` as any)}
-        >
-          <Text style={[styles.link, styles.linkSpacing]}>
-            {t('footer.privacyPolicy')}
-          </Text>
-        </TouchableOpacity>
+      {/* ── Bottom bar ── */}
+      <View style={styles.bottomBar}>
+        <Text style={styles.copyright}>
+          © {year} {settings.siteName}. {lang === 'es' ? 'Todos los derechos reservados.' : 'All rights reserved.'}
+        </Text>
+        <View style={styles.bottomLinks}>
+          <TouchableOpacity onPress={() => navigate(`/${lang}/privacy-policy`)}>
+            <Text style={styles.bottomLink}>{t('footer.privacyPolicy')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.bottomDot}>·</Text>
+          <TouchableOpacity onPress={() => navigate(`/${lang}/cookie-policy`)}>
+            <Text style={styles.bottomLink}>{t('footer.cookiePolicy')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function FooterLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.footerLinkBtn} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons name="chevron-forward" size={12} color={ACCENT} style={styles.linkChevron} />
+      <Text style={styles.footerLinkText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ContactItem({ icon, text }: { icon: any; text: string }) {
+  return (
+    <View style={styles.contactItem}>
+      <View style={styles.contactIconCircle}>
+        <Ionicons name={icon} size={14} color={ACCENT} />
+      </View>
+      <Text style={styles.contactText}>{text}</Text>
+    </View>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#1F2937',
-    paddingVertical: 20,
+  wrapper: {
+    backgroundColor: NAVY,
+  },
+
+  // Grid
+  grid: {
     paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
+    gap: 32,
   },
-  containerDesktop: {
+  gridDesktop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
   },
-  column: {
-    marginBottom: 16,
+
+  // Columns
+  col: {
+    // mobile: stacked
   },
-  columnDesktop: {
+  colDesktop: {
     flex: 1,
-    marginBottom: 0,
+    paddingHorizontal: 12,
   },
-  brand: {
-    color: '#FFFFFF',
+  colBrand: {
+    // slightly wider on desktop
+  },
+
+  // Brand column
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  logoCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: NAVY_LIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2D3F52',
+  },
+  brandName: {
+    color: TEXT_WHITE,
     fontSize: 18,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  subtitle: {
-    color: '#9CA3AF',
+  brandSlogan: {
+    color: TEXT_MUTED,
     fontSize: 13,
-    marginTop: 2,
+    lineHeight: 20,
+    maxWidth: 220,
+    marginBottom: 16,
   },
-  link: {
-    color: '#D1D5DB',
+  socialRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  socialBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: NAVY_LIGHT,
+    borderWidth: 1,
+    borderColor: '#2D3F52',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Column headers
+  colHeader: {
+    marginBottom: 16,
+  },
+  colTitle: {
+    color: TEXT_WHITE,
     fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
-  linkSpacing: {
-    marginTop: 6,
+  colUnderline: {
+    width: 32,
+    height: 2,
+    backgroundColor: ACCENT,
+    borderRadius: 1,
+  },
+
+  // Footer links
+  footerLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  linkChevron: {
+    marginRight: 6,
+  },
+  footerLinkText: {
+    color: TEXT_LIGHT,
+    fontSize: 13,
+  },
+
+  // Contact items
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  contactIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: ACCENT + '22', // 13% opacity amber
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  contactText: {
+    color: TEXT_LIGHT,
+    fontSize: 13,
+    lineHeight: 20,
+    flex: 1,
+  },
+
+  // Bottom bar
+  bottomBar: {
+    borderTopWidth: 1,
+    borderTopColor: '#2D3F52',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  copyright: {
+    color: TEXT_MUTED,
+    fontSize: 12,
+  },
+  bottomLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bottomLink: {
+    color: TEXT_MUTED,
+    fontSize: 12,
+  },
+  bottomDot: {
+    color: TEXT_MUTED,
+    fontSize: 12,
   },
 });

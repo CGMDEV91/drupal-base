@@ -1,5 +1,5 @@
 // app/[langcode]/(tabs)/index.tsx
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,12 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useToursStore } from '../../../stores/tours.store';
+import { useAuthStore } from '../../../stores/auth.store';
 import { TourCard } from '../../../components/tour/TourCard';
 import Svg, { Path, Circle, G } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
+import type { TourFilters } from '../../../types';
+import Footer from '../../../components/layout/Footer';
 
 // ── Travel Pattern SVG Banner ─────────────────────────────────────────────────
 function TravelPatternBackground({ width, height }: { width: number; height: number }) {
@@ -147,35 +151,188 @@ function CountryDropdown({ countries, selected, onSelect, label, allLabel }: Cou
   );
 }
 
+// ── Filter Select (inline dropdown) ──────────────────────────────────────────
+interface FilterSelectOption {
+  id: string;
+  name: string;
+}
+
+interface FilterSelectProps {
+  label: string;
+  value: string | undefined;
+  options: FilterSelectOption[];
+  onSelect: (opt: FilterSelectOption | null) => void;
+  placeholder: string;
+}
+
+function FilterSelect({ label, value, options, onSelect, placeholder }: FilterSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = value || placeholder;
+
+  return (
+    <View>
+      <Text style={styles.filterLabel}>{label}</Text>
+      <TouchableOpacity
+        style={styles.selectBtn}
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.8}
+      >
+        <Text style={value ? styles.selectText : styles.selectPlaceholder} numberOfLines={1}>
+          {selectedLabel}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.selectDropdown}>
+          <TouchableOpacity
+            style={[styles.selectOption, !value && styles.selectOptionActive]}
+            onPress={() => { onSelect(null); setOpen(false); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.selectOptionText, !value && styles.selectOptionTextActive]}>
+              {placeholder}
+            </Text>
+          </TouchableOpacity>
+          {options.map((opt) => (
+            <TouchableOpacity
+              key={opt.id}
+              style={[styles.selectOption, value === opt.name && styles.selectOptionActive]}
+              onPress={() => { onSelect(opt); setOpen(false); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.selectOptionText, value === opt.name && styles.selectOptionTextActive]}>
+                {opt.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Filters Panel ─────────────────────────────────────────────────────────────
+interface FiltersPanelProps {
+  filters: TourFilters;
+  countries: { id: string; name: string }[];
+  cities: { id: string; name: string }[];
+  onCountrySelect: (name: string | null) => void;
+  onCitySelect: (name: string | null) => void;
+  onSortSelect: (sort: TourFilters['sort']) => void;
+  onApply: () => void;
+  onClear: () => void;
+}
+
+function FiltersPanel({
+  filters,
+  countries,
+  cities,
+  onCountrySelect,
+  onCitySelect,
+  onSortSelect,
+  onApply,
+  onClear,
+}: FiltersPanelProps) {
+  const { t } = useTranslation();
+
+  const sortOptions: { key: TourFilters['sort']; label: string }[] = [
+    { key: 'rating', label: t('filter.sortRating') },
+    { key: 'alphabetical', label: t('filter.sortAlpha') },
+    { key: 'popular', label: t('filter.sortPopular') },
+  ];
+
+  return (
+    <View style={styles.filtersPanel}>
+      {/* Country */}
+      <FilterSelect
+        label={t('filter.country')}
+        value={filters.country}
+        options={countries}
+        onSelect={(opt) => onCountrySelect(opt ? opt.name : null)}
+        placeholder={t('filter.selectCountry')}
+      />
+
+      {/* City */}
+      <FilterSelect
+        label={t('filter.city')}
+        value={filters.city}
+        options={cities}
+        onSelect={(opt) => onCitySelect(opt ? opt.name : null)}
+        placeholder={t('filter.selectCity')}
+      />
+
+      {/* Sort */}
+      <View>
+        <Text style={styles.filterLabel}>{t('filter.sort')}</Text>
+        <View style={styles.chipRow}>
+          {sortOptions.map((opt) => {
+            const isActive = filters.sort === opt.key || (!filters.sort && opt.key === 'rating');
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.chip, isActive && styles.chipActive]}
+                onPress={() => onSortSelect(opt.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.filterActions}>
+        <TouchableOpacity style={styles.clearBtn} onPress={onClear} activeOpacity={0.8}>
+          <Text style={styles.clearBtnText}>{t('filter.clear')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.applyBtn} onPress={onApply} activeOpacity={0.8}>
+          <Text style={styles.applyBtnText}>{t('filter.apply')}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // ── Homepage ──────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const { langcode } = useLocalSearchParams<{ langcode: string }>();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const {
     tours, isLoading, hasMore, filters,
-    countries, fetchTours, fetchCountries,
+    countries, cities, fetchTours, fetchCountries, fetchCities,
     setFilters, clearFilters,
+    userActivities, fetchUserActivities, toggleFavorite,
   } = useToursStore();
+
+  const { user, openAuthModal } = useAuthStore();
 
   useEffect(() => {
     fetchTours();
     fetchCountries();
   }, []);
 
-  const isMobile = width < 768;
-  const isTablet = width >= 768 && width < 1024;
-  const isDesktop = width >= 1024;
+  useEffect(() => {
+    if (user) {
+      fetchUserActivities(user.id);
+    }
+  }, [user?.id]);
 
-  // Móvil: 1 columna, tablet: 2, desktop: 3-4
-  const cols = isDesktop ? 4 : isTablet ? 2 : 1;
-  const PADDING = isDesktop ? 32 : 16;
-  const GAP = 12;
+  // Responsive columns: 3 cols (≥768) → 2 cols (≥640) → 1 col
+  const cols = width >= 768 ? 3 : width >= 640 ? 2 : 1;
+  const GRID_MAX_WIDTH = 1200;
+  const PADDING = width >= 768 ? 32 : 16;
+  const GAP = 20;
+  const gridWidth = Math.min(width, GRID_MAX_WIDTH);
   const cardWidth = cols === 1
     ? width - PADDING * 2
-    : (width - PADDING * 2 - GAP * (cols - 1)) / cols;
+    : (gridWidth - PADDING * 2 - GAP * (cols - 1)) / cols;
 
   const loadMore = useCallback(() => {
     if (!hasMore || isLoading) return;
@@ -189,14 +346,36 @@ export default function HomePage() {
     fetchTours({ search, page: 1 });
   };
 
+  // Determine if any non-default filter is active (for icon highlight)
+  const hasActiveFilters = !!(filters.country || filters.city || filters.sort);
+
   const handleCountrySelect = (country: string | null) => {
     if (country === null) {
-      clearFilters();
-      fetchTours();
+      setFilters({ country: undefined, city: undefined });
     } else {
-      setFilters({ country });
-      fetchTours({ country, page: 1 });
+      setFilters({ country, city: undefined });
+      fetchCities(country);
     }
+  };
+
+  const handleCitySelect = (city: string | null) => {
+    setFilters({ city: city ?? undefined });
+  };
+
+  const handleSortSelect = (sort: TourFilters['sort']) => {
+    setFilters({ sort });
+  };
+
+  const handleApply = () => {
+    fetchTours({ ...filters, page: 1 });
+    setShowFilters(false);
+  };
+
+  const handleClear = () => {
+    clearFilters();
+    setSearch('');
+    fetchTours({});
+    setShowFilters(false);
   };
 
   return (
@@ -206,11 +385,17 @@ export default function HomePage() {
         keyExtractor={(item) => item.id}
         numColumns={cols}
         key={`grid-${cols}`}
-        columnWrapperStyle={cols > 1 ? { gap: GAP, paddingHorizontal: PADDING } : undefined}
-        contentContainerStyle={[
-          { paddingBottom: 40 },
-          cols === 1 && { paddingHorizontal: PADDING },
-        ]}
+        columnWrapperStyle={cols > 1 ? {
+          maxWidth: GRID_MAX_WIDTH,
+          alignSelf: 'center',
+          width: '100%',
+          paddingHorizontal: PADDING,
+          justifyContent: 'space-between',
+        } : undefined}
+        contentContainerStyle={{
+          paddingTop: 0,
+          paddingBottom: 0,
+        }}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
@@ -245,37 +430,60 @@ export default function HomePage() {
                       <Text style={{ color: '#9CA3AF', fontSize: 16, paddingHorizontal: 8 }}>✕</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity style={styles.searchBtn} onPress={onSearch}>
-                    <Text style={styles.searchBtnText}>{t('filter.apply')}</Text>
+                  <TouchableOpacity
+                    style={[styles.filterIconBtn, (showFilters || hasActiveFilters) && styles.filterIconBtnActive]}
+                    onPress={() => setShowFilters((v) => !v)}
+                  >
+                    <Ionicons
+                      name="options-outline"
+                      size={20}
+                      color={showFilters || hasActiveFilters ? '#FFFFFF' : '#374151'}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
 
-            {/* ── FILTERS ROW ── */}
-            {countries.length > 0 && (
-              <View style={styles.filtersRow}>
-                <CountryDropdown
-                  countries={countries}
-                  selected={filters.country}
-                  onSelect={handleCountrySelect}
-                  label={t('filter.country')}
-                  allLabel={t('home.allCountries')}
-                />
-              </View>
+            {/* ── EXPANDABLE FILTERS PANEL ── */}
+            {showFilters && (
+              <FiltersPanel
+                filters={filters}
+                countries={countries}
+                cities={cities}
+                onCountrySelect={handleCountrySelect}
+                onCitySelect={handleCitySelect}
+                onSortSelect={handleSortSelect}
+                onApply={handleApply}
+                onClear={handleClear}
+              />
             )}
 
-            {/* ── SECTION TITLE ── */}
-            <View style={[styles.sectionHeader, { paddingHorizontal: PADDING }]}>
-              <Text style={styles.sectionTitle}>
-                {filters.country ? filters.country : t('home.featuredTours')}
-              </Text>
-              <Text style={styles.sectionCount}>{tours.length} {t('home.tours')}</Text>
-            </View>
+            <View style={{ height: 24 }} />
           </>
         }
         renderItem={({ item }) => (
-          <TourCard tour={item} cardWidth={cardWidth} langcode={langcode} />
+          <View style={cols === 1 ? {
+            maxWidth: GRID_MAX_WIDTH,
+            alignSelf: 'center',
+            width: '100%',
+            paddingHorizontal: PADDING,
+          } : undefined}>
+            <TourCard
+              tour={item}
+              cardWidth={cardWidth}
+              langcode={langcode}
+              isAuthenticated={!!user}
+              isFavorite={userActivities[item.id]?.isFavorite ?? false}
+              isCompleted={userActivities[item.id]?.isCompleted ?? false}
+              onToggleFavorite={() => {
+                if (!user) {
+                  openAuthModal('login');
+                  return;
+                }
+                toggleFavorite(user.id, item.id);
+              }}
+            />
+          </View>
         )}
         ListEmptyComponent={
           !isLoading ? (
@@ -293,11 +501,14 @@ export default function HomePage() {
           )
         }
         ListFooterComponent={
-          hasMore && isLoading ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#F59E0B" />
-            </View>
-          ) : null
+          <>
+            {hasMore && isLoading && (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#F59E0B" />
+              </View>
+            )}
+            <Footer />
+          </>
         }
       />
     </View>
@@ -329,20 +540,137 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 16, paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'web' ? 10 : 8,
-    gap: 8,
+    borderRadius: 12, paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'web' ? 12 : 10,
+    gap: 10,
     ...(Platform.OS === 'web'
-      ? { boxShadow: '0 4px 20px rgba(245,158,11,0.15)', backdropFilter: 'blur(8px)' } as any
+      ? { boxShadow: '0 4px 20px rgba(0,0,0,0.1)' } as any
       : { elevation: 4 }),
-    borderWidth: 1.5, borderColor: 'rgba(245,158,11,0.2)',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
   },
   searchIcon: { fontSize: 16 },
   searchInput: { flex: 1, fontSize: 14, color: '#111827', paddingVertical: 0 },
-  searchBtn: { backgroundColor: '#F59E0B', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
-  searchBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  filterIconBtn: {
+    width: 36, height: 36, borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  filterIconBtnActive: {
+    backgroundColor: '#F59E0B',
+  },
 
-  // Filters row
+  // Filters panel (expandable)
+  filtersPanel: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 12,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+
+  // Inline select dropdown
+  selectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  selectText: { flex: 1, fontSize: 14, color: '#111827', fontWeight: '500' },
+  selectPlaceholder: { flex: 1, fontSize: 14, color: '#9CA3AF' },
+  selectDropdown: {
+    marginTop: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    maxHeight: 200,
+  },
+  selectOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  selectOptionActive: { backgroundColor: '#FFFBEB' },
+  selectOptionText: { fontSize: 14, color: '#374151' },
+  selectOptionTextActive: { color: '#D97706', fontWeight: '600' },
+
+  // Sort chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  chipActive: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
+  chipText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Action buttons
+  filterActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  applyBtn: {
+    flex: 1,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  applyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  clearBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  clearBtnText: {
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+
+  // Filters row (kept for CountryDropdown if reused elsewhere)
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,13 +739,6 @@ const styles = StyleSheet.create({
   dropdownItemText: { flex: 1, fontSize: 14, color: '#374151', fontWeight: '400' },
   dropdownItemTextActive: { color: '#D97706', fontWeight: '600' },
   dropdownCheck: { color: '#F59E0B', fontSize: 14 },
-
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', paddingTop: 20, paddingBottom: 12,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  sectionCount: { fontSize: 13, color: '#9CA3AF' },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
   emptyTitle: { fontSize: 16, color: '#6B7280', fontWeight: '500' },

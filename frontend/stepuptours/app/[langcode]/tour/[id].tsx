@@ -8,10 +8,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   StyleSheet,
-  Dimensions,
+  Share,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,17 +21,22 @@ import { useToursStore } from '../../../stores/tours.store';
 import { useAuthStore } from '../../../stores/auth.store';
 import { StarRating } from '../../../components/tour/StarRating';
 import { BusinessCard } from '../../../components/tour/BusinessCard';
+import { LAYOUT } from '../../../styles/theme';
 
 const AMBER = '#F59E0B';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BANNER_HEIGHT = 260;
+const BANNER_HEIGHT = 380;
 
 export default function TourDetailScreen() {
   const { id, langcode } = useLocalSearchParams<{ id: string; langcode: string }>();
   const router = useRouter();
   const { t } = useTranslation();
 
+  const { width: screenWidth } = useWindowDimensions();
+  const isMobile = screenWidth < 768;
+  const isDesktop = screenWidth >= 768;
+
   const user = useAuthStore((s) => s.user);
+  const openAuthModal = useAuthStore((s) => s.openAuthModal);
   const {
     currentTour: tour,
     currentSteps: steps,
@@ -70,17 +75,21 @@ export default function TourDetailScreen() {
     setPendingRating(0);
   }, []);
 
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `${tour?.title} - StepUp Tours`,
+        url: `https://stepuptours.ddev.site/${langcode}/tour/${id}`,
+      });
+    } catch {}
+  };
+
   // CTA logic
   const getCtaConfig = useCallback(() => {
     if (!user) {
       return {
         label: t('tour.start'),
-        onPress: () => {
-          Alert.alert(
-            t('auth.required'),
-            t('auth.signInPrompt'),
-          );
-        },
+        onPress: () => openAuthModal('register'),
       };
     }
 
@@ -103,7 +112,7 @@ export default function TourDetailScreen() {
       label: t('tour.continue'),
       onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
     };
-  }, [user, activity, id, langcode, router, t]);
+  }, [user, activity, id, langcode, router, t, openAuthModal]);
 
   if (isLoadingDetail || !tour) {
     return (
@@ -114,6 +123,9 @@ export default function TourDetailScreen() {
   }
 
   const cta = getCtaConfig();
+  const ctaLabel = cta.label;
+  const handleStartTour = cta.onPress;
+  const currentSteps = steps;
   const featuredBusinesses = tour.featuredBusinesses.filter(
     (b): b is NonNullable<typeof b> => b !== null,
   );
@@ -137,10 +149,10 @@ export default function TourDetailScreen() {
           )}
           <View style={styles.bannerOverlay} />
           <View style={styles.bannerTextContainer}>
-            <Text style={styles.bannerTitle}>{tour.title}</Text>
+            <Text style={[styles.bannerTitle, isMobile && { fontSize: 22 }]}>{tour.title}</Text>
             {(tour.country || tour.city) && (
               <Text style={styles.bannerLocation}>
-                {[tour.city?.name, tour.country?.name].filter(Boolean).join(', ')}
+                {'\u{1F4CD}'} {[tour.city?.name, tour.country?.name].filter(Boolean).join(', ')}
               </Text>
             )}
           </View>
@@ -153,54 +165,76 @@ export default function TourDetailScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+
+          {/* Heart + Share icons */}
+          <View style={styles.topRightActions}>
+            <TouchableOpacity style={styles.actionCircle}>
+              <Ionicons name="heart-outline" size={22} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCircle} onPress={handleShare}>
+              <Ionicons name="share-outline" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={16} color="#6B7280" />
-            <Text style={styles.statText}>
-              {tour.duration} {t('tour.duration')}
-            </Text>
+        {/* Content wrapper — centered on desktop, full-width on mobile */}
+        <View style={LAYOUT.contentWrapper}>
+          {/* Stats row */}
+          <View style={[styles.statsRow, isMobile && styles.statsRowMobile]}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="time" size={22} color="#F59E0B" />
+              </View>
+              <View>
+                <Text style={styles.statLabel}>{t('tour.estimatedTime')}</Text>
+                <Text style={styles.statValue}>{tour.duration} min</Text>
+              </View>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={[styles.statIconCircle, { backgroundColor: '#DCFCE7' }]}>
+                <Ionicons name="location" size={22} color="#22C55E" />
+              </View>
+              <View>
+                <Text style={styles.statLabel}>{t('tour.totalPoints')}</Text>
+                <Text style={styles.statValue}>{currentSteps.length} {t('tour.points')}</Text>
+              </View>
+            </View>
+
+            <StarRating value={tour?.averageRate ?? 0} count={tour?.ratingCount} size={18} />
           </View>
 
-          <View style={styles.statItem}>
-            <Ionicons name="footsteps-outline" size={16} color="#6B7280" />
-            <Text style={styles.statText}>
-              {steps.length} {t('tour.stops')}
-            </Text>
-          </View>
+          {/* Description */}
+          {tour.description ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeading}>{t('tour.aboutThisTour')}</Text>
+              <Text style={styles.description}>{tour.description}</Text>
+            </View>
+          ) : null}
 
-          <StarRating value={tour.averageRate} count={tour.donationCount} size={14} />
+          {/* Featured businesses */}
+          {featuredBusinesses.length > 0 && (
+            <View style={styles.section}>
+              {featuredBusinesses.map((business) => (
+                <BusinessCard key={business.id} business={business} />
+              ))}
+            </View>
+          )}
+
+          {/* CTA buttons — always show both, stack on mobile */}
+          <View style={[styles.ctaContainer, isMobile && styles.ctaContainerMobile]}>
+            <TouchableOpacity style={styles.ctaButton} onPress={handleStartTour}>
+              <Ionicons name="play" size={18} color="#fff" />
+              <Text style={styles.ctaText}>{ctaLabel}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+              <Ionicons name="share-outline" size={18} color="#374151" />
+              <Text style={styles.shareButtonText}>{t('tour.share')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Description */}
-        {tour.description ? (
-          <View style={styles.section}>
-            <Text style={styles.description}>{tour.description}</Text>
-          </View>
-        ) : null}
-
-        {/* Featured businesses */}
-        {featuredBusinesses.length > 0 && (
-          <View style={styles.section}>
-            {featuredBusinesses.map((business) => (
-              <BusinessCard key={business.id} business={business} />
-            ))}
-          </View>
-        )}
       </ScrollView>
-
-      {/* CTA button */}
-      <View style={styles.ctaContainer}>
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={cta.onPress}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.ctaText}>{cta.label}</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Rating modal */}
       <Modal
@@ -260,12 +294,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 0,
   },
 
   // Banner
   bannerContainer: {
-    width: SCREEN_WIDTH,
+    width: '100%',
     height: BANNER_HEIGHT,
     position: 'relative',
   },
@@ -287,28 +321,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    top: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 60,
   },
   bannerTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textAlign: 'left',
   },
   bannerLocation: {
     fontSize: 14,
-    color: '#F3F4F6',
+    color: '#E5E7EB',
     marginTop: 6,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textAlign: 'left',
   },
   backButton: {
     position: 'absolute',
@@ -322,26 +349,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Top right actions
+  topRightActions: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    flexDirection: 'row',
+    gap: 10,
+    zIndex: 2,
+  },
+  actionCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   // Stats
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-    paddingVertical: 14,
+    gap: 24,
+    paddingVertical: 24,
     paddingHorizontal: 16,
+    marginTop: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  statItem: {
+  statsRowMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  statCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
   },
-  statText: {
-    fontSize: 13,
-    color: '#6B7280',
+  statIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
     fontWeight: '500',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
 
   // Content
@@ -350,35 +412,63 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 12,
   },
+  sectionHeading: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
   description: {
     fontSize: 15,
     color: '#374151',
     lineHeight: 22,
+    paddingBottom: 8,
   },
 
   // CTA
   ctaContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flexDirection: 'row',
+    gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 24,
     paddingBottom: 32,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
+  ctaContainerMobile: {
+    flexDirection: 'column',
+  },
   ctaButton: {
-    backgroundColor: AMBER,
-    paddingVertical: 16,
-    borderRadius: 12,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: AMBER,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
   ctaText: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  shareButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
   },
 
   // Modal

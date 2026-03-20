@@ -38,7 +38,7 @@ export async function getUserById(userId: string): Promise<User> {
 
 export async function updateUserProfile(
   userId: string,
-  updates: Partial<Pick<User, 'publicName' | 'country'>>
+  updates: Partial<Pick<User, 'publicName' | 'country' | 'preferredLanguage'>> & { countryId?: string }
 ): Promise<User> {
   const attributes: Record<string, any> = {};
   const relationships: Record<string, any> = {};
@@ -47,9 +47,19 @@ export async function updateUserProfile(
     attributes.field_public_name = updates.publicName;
   }
 
+  if (updates.preferredLanguage !== undefined) {
+    attributes.preferred_langcode = updates.preferredLanguage;
+  }
+
   if (updates.country !== undefined) {
     relationships.field_country = updates.country
       ? { data: { type: 'taxonomy_term--countries', id: updates.country.id } }
+      : { data: null };
+  }
+
+  if (updates.countryId !== undefined) {
+    relationships.field_country = updates.countryId
+      ? { data: { type: 'taxonomy_term--countries', id: updates.countryId } }
       : { data: null };
   }
 
@@ -63,6 +73,20 @@ export async function updateUserProfile(
   });
 
   return mapDrupalUser(raw);
+}
+
+// ── Actualizar contraseña ─────────────────────────────────────────────────────
+
+export async function updatePassword(userId: string, newPassword: string): Promise<void> {
+  await drupalPatch(`/user/user/${userId}`, {
+    data: {
+      type: 'user--user',
+      id: userId,
+      attributes: {
+        pass: { value: newPassword },
+      },
+    },
+  });
 }
 
 // ── Obtener suscripción activa ────────────────────────────────────────────────

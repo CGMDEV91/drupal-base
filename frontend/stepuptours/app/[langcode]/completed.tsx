@@ -1,5 +1,5 @@
-// app/[langcode]/favourites.tsx
-// Favourite tours page — auth-protected
+// app/[langcode]/completed.tsx
+// Completed tours page — auth-protected
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -26,7 +26,7 @@ const AMBER = '#F59E0B';
 const GRID_MAX_WIDTH = 1200;
 const GAP = 20;
 
-export default function FavouritesScreen() {
+export default function CompletedScreen() {
   const { langcode } = useLocalSearchParams<{ langcode: string }>();
   const router = useRouter();
   const { t } = useTranslation();
@@ -55,31 +55,36 @@ export default function FavouritesScreen() {
     }
   }, [user, isAuthLoading, langcode]);
 
-  const fetchFavourites = useCallback(async () => {
+  const fetchCompleted = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     setError(null);
     try {
       const all = await getUserActivitiesWithTours(user.id);
-      setItems(all.filter((item) => item.activity.isFavorite));
+      setItems(all.filter((item) => item.activity.isCompleted));
     } catch (err: any) {
-      setError(err.message ?? 'Error loading favourites');
+      setError(err.message ?? 'Error loading completed tours');
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchFavourites();
-  }, [fetchFavourites]);
+    fetchCompleted();
+  }, [fetchCompleted]);
 
   const handleToggleFavourite = useCallback(
     async (item: ActivityWithTour) => {
       if (!user) return;
       try {
-        await upsertTourActivity(user.id, item.activity.tourId, { isFavorite: false });
+        const newValue = !item.activity.isFavorite;
+        await upsertTourActivity(user.id, item.activity.tourId, { isFavorite: newValue });
         setItems((prev) =>
-          prev.filter((i) => i.activity.tourId !== item.activity.tourId)
+          prev.map((i) =>
+            i.activity.tourId === item.activity.tourId
+              ? { ...i, activity: { ...i.activity, isFavorite: newValue } }
+              : i
+          )
         );
       } catch {
         // Silently ignore toggle errors
@@ -106,19 +111,19 @@ export default function FavouritesScreen() {
     );
   }
 
-  // ── Main render ───────────────────────────────────────────────────────────
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
     <FlatList
       data={items}
       keyExtractor={(item) => item.activity.tourId}
       numColumns={cols}
-      key={`fav-grid-${cols}`}
+      key={`completed-grid-${cols}`}
       ListHeaderComponent={
         <PageBanner
-          icon="heart"
-          iconBgColor="#EC4899"
-          title={t('nav.favourites')}
-          subtitle={t('favourites.subtitle')}
+          icon="trophy"
+          iconBgColor="#22C55E"
+          title={t('nav.completed')}
+          subtitle={t('completed.subtitle')}
         />
       }
       columnWrapperStyle={
@@ -156,16 +161,16 @@ export default function FavouritesScreen() {
             cardWidth={cardWidth}
             langcode={langcode}
             isAuthenticated={true}
-            isFavorite={true}
-            isCompleted={item.activity.isCompleted}
+            isCompleted={true}
+            isFavorite={item.activity.isFavorite}
             onToggleFavorite={() => handleToggleFavourite(item)}
           />
         </View>
       )}
       ListEmptyComponent={
         <View style={styles.emptyState}>
-          <Ionicons name="heart-outline" size={56} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No favourites yet</Text>
+          <Ionicons name="trophy-outline" size={56} color="#D1D5DB" />
+          <Text style={styles.emptyTitle}>{t('completed.empty')}</Text>
           <TouchableOpacity
             style={styles.btnPrimary}
             onPress={() => router.replace(`/${langcode}` as any)}
