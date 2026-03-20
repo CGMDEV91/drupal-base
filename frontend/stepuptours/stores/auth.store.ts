@@ -40,8 +40,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const session = await login(credentials);
       set({ session, user: session.user, isLoading: false });
-
-      // Arrancar tracker de inactividad
       inactivityTracker.start(() => {
         get().signOut();
       });
@@ -95,10 +93,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (updates) => {
     const user = get().user;
     if (!user) return;
+
+    // Dynamic import para evitar dependencias circulares
     const { updateUserProfile } = await import('../services/user.service');
-    await updateUserProfile(user.id, updates);
-    const { getUserById } = await import('../services/user.service');
-    const updatedUser = await getUserById(user.id);
-    set({ user: updatedUser });
+    const updatedUser = await updateUserProfile(user.id, updates);
+
+    // Conservar roles del estado actual — JSON:API no permite leerlos
+    // sin permisos de admin, por lo que updateUserProfile no los devuelve
+    set({
+      user: {
+        ...updatedUser,
+        roles: user.roles,
+      },
+    });
   },
 }));

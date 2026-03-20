@@ -24,6 +24,8 @@ export async function getUserById(userId: string): Promise<User> {
         'field_country',
         'user_picture',
         'created',
+        'preferred_langcode',
+        'langcode',
       ],
       'taxonomy_term--countries': ['name'],
     }),
@@ -63,7 +65,8 @@ export async function updateUserProfile(
       : { data: null };
   }
 
-  const raw = await drupalPatch<any>(`/user/user/${userId}`, {
+  // PATCH guarda los cambios en Drupal
+  await drupalPatch<any>(`/user/user/${userId}`, {
     data: {
       type: 'user--user',
       id: userId,
@@ -72,7 +75,9 @@ export async function updateUserProfile(
     },
   });
 
-  return mapDrupalUser(raw);
+  // GET para obtener el usuario completo con includes (field_country con name)
+  // El PATCH no devuelve los includes, así que necesitamos un GET adicional
+  return getUserById(userId);
 }
 
 // ── Actualizar contraseña ─────────────────────────────────────────────────────

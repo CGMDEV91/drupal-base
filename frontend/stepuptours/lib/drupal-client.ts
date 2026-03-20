@@ -106,9 +106,7 @@ export function buildPage(page: number, limit: number): string {
 function resolveImageUrl(raw: any): string | null {
   const url = raw?.uri?.url ?? raw?.url ?? null;
   if (!url) return null;
-  // Si ya es absoluta la devolvemos tal cual
   if (url.startsWith('http')) return url;
-  // Si es relativa la prefijamos con BASE_URL
   return `${BASE_URL}${url}`;
 }
 
@@ -155,26 +153,49 @@ export async function drupalDelete(endpoint: string): Promise<void> {
 // ── Helpers de mapeo: Drupal → tipos del dominio ──────────────────────────────
 
 export function mapDrupalUser(raw: any): import('../types').User {
+  // ── Roles ─────────────────────────────────────────────────────────────────
+  // Jsona deserializa las relaciones y renombra meta → resourceIdObjMeta
+  // El machine name del rol está en resourceIdObjMeta.drupal_internal__target_id
+  const roles: string[] = Array.isArray(raw.roles)
+    ? raw.roles.map((r: any) => {
+      if (typeof r === 'string') return r;
+      // Jsona resuelto: resourceIdObjMeta tiene el machine name
+      const fromResourceMeta = r.resourceIdObjMeta?.drupal_internal__target_id;
+      if (fromResourceMeta) return fromResourceMeta;
+      // Fallback: meta estándar JSON:API
+      const fromMeta = r.meta?.drupal_internal__target_id ?? r.meta?.drupal_internal__id;
+      if (fromMeta) return fromMeta;
+      // Último recurso: id (UUID)
+      return r.id ?? r;
+    })
+    : (raw.relationships?.roles?.data ?? []).map(
+      (r: any) =>
+        r.meta?.drupal_internal__target_id ??
+        r.meta?.drupal_internal__id ??
+        r.id
+    );
+
+  // ── Country ───────────────────────────────────────────────────────────────
+  // Cuando viene de PATCH sin include, field_country solo tiene id y type
+  // Cuando viene de GET con include=field_country, tiene también name
+  const country = raw.field_country
+    ? {
+      id: raw.field_country.id,
+      name: raw.field_country.name ?? raw.field_country.attributes?.name ?? null,
+    }
+    : null;
+
   return {
     id: raw.id,
     username: raw.name ?? '',
     email: raw.mail ?? '',
     publicName: raw.field_public_name ?? raw.name ?? '',
-    preferredLanguage: raw.langcode ?? raw.preferred_langcode ?? 'en',
-    country: raw.field_country
-      ? { id: raw.field_country.id, name: raw.field_country.name }
-      : null,
+    // preferred_langcode es el campo correcto en Drupal — langcode es el idioma del nodo
+    preferredLanguage: raw.preferred_langcode ?? raw.langcode ?? 'en',
+    country,
     avatar: resolveImageUrl(raw.user_picture),
     experiencePoints: raw.field_experience_points ?? 0,
-    roles: Array.isArray(raw.roles)
-      ? raw.roles.map((r: any) =>
-          typeof r === 'string'
-            ? r
-            : (r.meta?.drupal_internal__id ?? r.meta?.drupal_internal__target_id ?? r.id ?? r)
-        )
-      : (raw.relationships?.roles?.data ?? []).map(
-          (r: any) => r.meta?.drupal_internal__id ?? r.meta?.drupal_internal__target_id ?? r.id
-        ),
+    roles,
     createdAt: raw.created ?? '',
   };
 }
@@ -188,8 +209,8 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
     image: resolveImageUrl(raw.field_image),
     duration: raw.field_duration ?? 0,
     averageRate: parseFloat(raw.field_average_rate ?? '0'),
-    ratingCount: 0, // Not stored in Drupal; reserved for future computed field
-    stopsCount: 0, // Set after mapping via batchGetStepCounts or getTourById
+    ratingCount: 0,
+    stopsCount: 0,
     donationCount: raw.field_donation_count ?? 0,
     donationTotal: parseFloat(raw.field_donation_total ?? '0'),
     city: raw.field_city ? { id: raw.field_city.id, name: raw.field_city.name } : null,
@@ -256,12 +277,9 @@ export function mapDrupalActivity(raw: any): import('../types').TourActivity {
   };
 }
 
-// Extracts the embedded Tour from an activity raw node (when fetched with ?include=field_tour).
-// Returns null if the tour data is not embedded (only a reference is present).
 export function extractTourFromActivity(raw: any): import('../types').Tour | null {
   const tourRaw = raw.field_tour;
   if (!tourRaw || typeof tourRaw !== 'object' || !tourRaw.id) return null;
-  // If Jsona resolved the relationship, tourRaw will have title/fields; otherwise it's just {id, type}
   if (!tourRaw.title) return null;
   return mapDrupalTour(tourRaw);
 }
