@@ -13,8 +13,9 @@ import {
   mapDrupalDonation,
   mapDrupalProfessionalProfile,
   mapDrupalSubscription,
+  mapDrupalSubscriptionPlan,
 } from '../lib/drupal-client';
-import type { Tour, TourStep, Donation, ProfessionalProfile, Subscription } from '../types';
+import type { Tour, TourStep, Donation, ProfessionalProfile, Subscription, SubscriptionPlan } from '../types';
 
 // ── Tours ─────────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,17 @@ export async function updateProfessionalProfile(
 }
 
 // ── Subscription ──────────────────────────────────────────────────────────────
+
+export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+  const params = [
+    'filter[status]=1',
+    'filter[field_plan_type]=premium',
+    'sort=field_price',
+  ].join('&');
+  const raw = await drupalGet<any[]>('/node/subscription_plan', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalSubscriptionPlan);
+}
 
 export async function getActiveSubscription(userId: string): Promise<Subscription | null> {
   const params = [

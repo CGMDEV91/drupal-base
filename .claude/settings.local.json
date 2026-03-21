@@ -21,7 +21,18 @@
       "Bash(ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app/[langcode]/)",
       "Read(///wsl.localhost/Ubuntu/home/carlos/devel/**)",
       "Read(///wsl.localhost/Ubuntu/home/carlos/**)",
-      "Read(///wsl.localhost/Ubuntu/home/**)"
+      "Read(///wsl.localhost/Ubuntu/home/**)",
+      "Read(//mnt/c/Users/cgonzale/AppData/Local/Temp/claude/--wsl-localhost-Ubuntu-home-carlos-devel-test-sites-stepuptours/f88e9e8b-6a9a-4f6a-996e-ab16bbb39562/tasks/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/services/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app/[langcode]/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/components/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/web/modules/custom/stepuptours_api/src/Controller/**)",
+      "Bash(wsl -e bash -c 'cd /home/carlos/devel/test-sites/stepuptours && ddev composer require stripe/stripe-php')",
+      "Bash(wsl -e bash -c 'cd /home/carlos/devel/test-sites/stepuptours && ddev drush config:set stepuptours.payment stripe_secret_key \"\"sk_test_PLACEHOLDER\"\" -y && ddev drush config:set stepuptours.payment stripe_publishable_key \"\"pk_test_PLACEHOLDER\"\" -y && ddev drush config:set stepuptours.payment stripe_webhook_secret \"\"whsec_PLACEHOLDER\"\" -y && ddev drush config:set stepuptours.payment platform_revenue_percentage 20 -y && ddev drush cr')",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours -name *.json -path */i18n/*)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours -name *.json)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/**)",
+      "Read(//mnt/wsl/Ubuntu/home/carlos/devel/test-sites/**)"
     ]
   }
 }

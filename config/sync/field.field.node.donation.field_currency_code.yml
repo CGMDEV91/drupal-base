@@ -1,0 +1,19 @@
+uuid: 5a05e896-45f3-4848-b623-1b6e9b15da9a
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_currency_code
+    - node.type.donation
+id: node.donation.field_currency_code
+field_name: field_currency_code
+entity_type: node
+bundle: donation
+label: 'Currency Code'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

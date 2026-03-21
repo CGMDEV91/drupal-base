@@ -310,6 +310,22 @@ export function mapDrupalSubscription(raw: any): import('../types').Subscription
   };
 }
 
+export function mapDrupalSubscriptionPlan(raw: any): import('../types').SubscriptionPlan {
+  return {
+    id: raw.id,
+    title: raw.title ?? '',
+    planType: raw.field_plan_type ?? 'premium',
+    billingCycle: raw.field_billing_cycle ?? 'monthly',
+    price: parseFloat(raw.field_price ?? '0'),
+    maxFeaturedDetail: raw.field_max_featured_detail ?? 1,
+    maxFeaturedSteps: raw.field_max_featured_steps ?? 3,
+    maxLanguages: raw.field_max_languages ?? 5,
+    featuredPerStep: raw.field_featured_per_step ?? false,
+    autoRenewal: raw.field_auto_renewal_available ?? true,
+    active: raw.status ?? true,
+  };
+}
+
 export function mapDrupalDonation(raw: any): import('../types').Donation {
   return {
     id: raw.id,

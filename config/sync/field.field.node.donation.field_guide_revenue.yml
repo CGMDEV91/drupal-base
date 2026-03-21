@@ -1,0 +1,23 @@
+uuid: 5a2fbfe3-9895-4c82-8145-92c7cdb99535
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_guide_revenue
+    - node.type.donation
+id: node.donation.field_guide_revenue
+field_name: field_guide_revenue
+entity_type: node
+bundle: donation
+label: 'Guide Revenue'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

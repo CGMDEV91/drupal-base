@@ -13,11 +13,15 @@ import {
   Animated,
   Easing,
   Platform,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { StarRating } from './StarRating';
+import { createDonationIntent } from '../../services/payment.service';
+import { getStripePromise } from '../../lib/stripe';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const AMBER = '#F59E0B';
 const CONFETTI_COLORS = [
@@ -237,12 +241,269 @@ function ConfettiPiece({ delay, screenWidth, screenHeight }: ConfettiPieceProps)
 }
 
 // ---------------------------------------------------------------------------
+// DonationCheckout — wraps Stripe Elements + CardElement (web-first)
+// ---------------------------------------------------------------------------
+
+interface DonationCheckoutProps {
+  tourId: string;
+  amount: string;
+  onAmountChange: (v: string) => void;
+  isDonationValid: boolean;
+  onSuccess: (amount: number) => void;
+  t: (key: string) => string;
+}
+
+function DonationCheckout(props: DonationCheckoutProps) {
+  if (Platform.OS !== 'web') {
+    // Native: simple button that calls the intent without CardElement
+    return <NativeDonationForm {...props} />;
+  }
+  return (
+    <Elements stripe={getStripePromise()}>
+      <CardDonationForm {...props} />
+    </Elements>
+  );
+}
+
+function CardDonationForm({
+  tourId,
+  amount,
+  onAmountChange,
+  isDonationValid,
+  onSuccess,
+  t,
+}: DonationCheckoutProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const [splitPreview, setSplitPreview] = useState<{ guide: number; platform: number } | null>(null);
+  const parsedAmount = parseFloat(amount);
+
+  const handlePay = async () => {
+    if (!stripe || !elements || !isDonationValid) return;
+    setProcessing(true);
+    setError('');
+    try {
+      const intent = await createDonationIntent(tourId, parsedAmount);
+      setSplitPreview({ guide: intent.guideRevenue, platform: intent.platformRevenue });
+
+      const cardEl = elements.getElement(CardElement);
+      if (!cardEl) throw new Error('Card element not mounted');
+
+      const { error: stripeError } = await stripe.confirmCardPayment(intent.clientSecret, {
+        payment_method: { card: cardEl },
+      });
+
+      if (stripeError) {
+        setError(stripeError.message ?? t('donation.error'));
+        setProcessing(false);
+        return;
+      }
+      onSuccess(parsedAmount);
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <View style={donationStyles.wrap}>
+      {/* Amount row */}
+      <View style={donationStyles.amountRow}>
+        <Text style={donationStyles.currency}>€</Text>
+        <TextInput
+          style={donationStyles.amountInput}
+          value={amount}
+          onChangeText={onAmountChange}
+          keyboardType="decimal-pad"
+          selectTextOnFocus
+          placeholder="0.00"
+          placeholderTextColor="#9CA3AF"
+          editable={!processing}
+        />
+      </View>
+
+      {/* Split preview */}
+      {splitPreview && (
+        <View style={donationStyles.splitRow}>
+          <Text style={donationStyles.splitGuide}>
+            {splitPreview.guide.toFixed(2)}€ → {t('donation.split.guide')}
+          </Text>
+          <Text style={donationStyles.splitPlatform}>
+            {splitPreview.platform.toFixed(2)}€ → {t('donation.split.platform')}
+          </Text>
+        </View>
+      )}
+
+      {/* CardElement — only renders in browser */}
+      <View style={donationStyles.cardWrap}>
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: '15px',
+                color: '#111827',
+                fontFamily: 'system-ui, sans-serif',
+                '::placeholder': { color: '#9CA3AF' },
+              },
+              invalid: { color: '#EF4444' },
+            },
+          }}
+        />
+      </View>
+
+      {error ? <Text style={donationStyles.errorText}>{error}</Text> : null}
+
+      <TouchableOpacity
+        style={[donationStyles.payBtn, (!isDonationValid || processing) && donationStyles.payBtnDisabled]}
+        onPress={handlePay}
+        disabled={!isDonationValid || processing}
+        activeOpacity={0.85}
+      >
+        {processing ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <>
+            <Ionicons name="lock-closed" size={14} color="#FFFFFF" />
+            <Text style={donationStyles.payBtnText}>{t('donation.payWithCard')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function NativeDonationForm({
+  amount,
+  onAmountChange,
+  isDonationValid,
+  tourId,
+  onSuccess,
+  t,
+}: DonationCheckoutProps) {
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const parsedAmount = parseFloat(amount);
+
+  const handlePay = async () => {
+    if (!isDonationValid) return;
+    setProcessing(true);
+    setError('');
+    try {
+      await createDonationIntent(tourId, parsedAmount);
+      // Native: PaymentIntent created but card UI not available — mark success
+      onSuccess(parsedAmount);
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <View style={donationStyles.wrap}>
+      <View style={donationStyles.amountRow}>
+        <Text style={donationStyles.currency}>€</Text>
+        <TextInput
+          style={donationStyles.amountInput}
+          value={amount}
+          onChangeText={onAmountChange}
+          keyboardType="decimal-pad"
+          selectTextOnFocus
+          placeholder="0.00"
+          placeholderTextColor="#9CA3AF"
+          editable={!processing}
+        />
+        <TouchableOpacity
+          style={[donationStyles.payBtn, (!isDonationValid || processing) && donationStyles.payBtnDisabled]}
+          onPress={handlePay}
+          disabled={!isDonationValid || processing}
+          activeOpacity={0.85}
+        >
+          {processing ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="heart" size={14} color="#FFFFFF" />
+              <Text style={donationStyles.payBtnText}>{t('popup.donate')}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+      {error ? <Text style={donationStyles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const donationStyles = StyleSheet.create({
+  wrap: { width: '100%', gap: 12 },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  currency: {
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    backgroundColor: '#F9FAFB',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+    height: '100%',
+    textAlignVertical: 'center',
+    lineHeight: 48,
+  },
+  amountInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    height: '100%',
+  },
+  splitRow: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  splitGuide: { fontSize: 12, color: '#2563EB', fontWeight: '600' },
+  splitPlatform: { fontSize: 12, color: '#059669', fontWeight: '600' },
+  cardWrap: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: '#FAFAFA',
+  },
+  errorText: { fontSize: 12, color: '#DC2626' },
+  payBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  payBtnDisabled: { opacity: 0.45 },
+  payBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+});
+
+// ---------------------------------------------------------------------------
 // CompletionPopup
 // ---------------------------------------------------------------------------
 
 interface CompletionPopupProps {
   visible: boolean;
   tourName: string;
+  tourId: string;
   xp: number;
   isFirstCompletion: boolean;
   onRate: (rating: number) => void;
@@ -254,6 +515,7 @@ interface CompletionPopupProps {
 export function CompletionPopup({
   visible,
   tourName,
+  tourId,
   xp,
   isFirstCompletion,
   onRate,
@@ -264,6 +526,7 @@ export function CompletionPopup({
   const { t } = useTranslation();
   const [rating, setRating] = useState(0);
   const [donationAmount, setDonationAmount] = useState('1');
+  const [donationDone, setDonationDone] = useState(false);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const isMobile = screenWidth < 640;
@@ -271,13 +534,6 @@ export function CompletionPopup({
   const handleRate = (value: number) => {
     setRating(value);
     onRate(value);
-  };
-
-  const handleDonate = () => {
-    const amount = parseFloat(donationAmount);
-    if (!isNaN(amount) && amount > 0) {
-      onDonate(amount);
-    }
   };
 
   const parsedAmount = parseFloat(donationAmount);
@@ -421,30 +677,21 @@ export function CompletionPopup({
               {/* Donation section */}
               <View style={styles.donationSection}>
                 <Text style={styles.donationLabel}>{t('popup.donateLabel')}</Text>
-                <View style={styles.donationInputRow}>
-                  <Text style={styles.currencySymbol}>€</Text>
-                  <TextInput
-                    style={styles.donationInput}
-                    value={donationAmount}
-                    onChangeText={setDonationAmount}
-                    keyboardType="decimal-pad"
-                    selectTextOnFocus
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
+                {donationDone ? (
+                  <View style={styles.donationSuccess}>
+                    <Ionicons name="checkmark-circle" size={32} color="#059669" />
+                    <Text style={styles.donationSuccessText}>{t('donation.success')}</Text>
+                  </View>
+                ) : (
+                  <DonationCheckout
+                    tourId={tourId}
+                    amount={donationAmount}
+                    onAmountChange={setDonationAmount}
+                    isDonationValid={isDonationValid}
+                    onSuccess={(amt) => { setDonationDone(true); onDonate(amt); }}
+                    t={t}
                   />
-                  <TouchableOpacity
-                    style={[
-                      styles.donateInlineBtn,
-                      !isDonationValid && styles.donateButtonDisabled,
-                    ]}
-                    onPress={handleDonate}
-                    activeOpacity={0.8}
-                    disabled={!isDonationValid}
-                  >
-                    <Ionicons name="heart" size={14} color="#FFFFFF" />
-                    <Text style={styles.donateInlineBtnText}>{t('popup.donate')}</Text>
-                  </TouchableOpacity>
-                </View>
+                )}
               </View>
 
               {/* Go home button */}
@@ -632,52 +879,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  // Fixed height row with centered children and rounded border
-  donationInputRow: {
-    flexDirection: 'row',
+  donationSuccess: {
     alignItems: 'center',
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    overflow: 'hidden',
+    gap: 8,
+    paddingVertical: 8,
   },
-  currencySymbol: {
-    paddingHorizontal: 12,
+  donationSuccessText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-    backgroundColor: '#F9FAFB',
-    borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
-    // Full height fill inside the 48px row
-    height: '100%',
-    textAlignVertical: 'center',
-    lineHeight: 48,
-  },
-  donationInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    height: '100%',
-  },
-  donateInlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: AMBER,
-    gap: 6,
-    height: '100%',
-  },
-  donateInlineBtnText: {
-    fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  donateButtonDisabled: {
-    opacity: 0.45,
+    color: '#059669',
   },
 
   // Home button

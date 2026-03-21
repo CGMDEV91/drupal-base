@@ -1,0 +1,23 @@
+uuid: dc761df7-8a19-432c-903c-2df4b7796d89
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_platform_revenue
+    - node.type.donation
+id: node.donation.field_platform_revenue
+field_name: field_platform_revenue
+entity_type: node
+bundle: donation
+label: 'Platform Revenue'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

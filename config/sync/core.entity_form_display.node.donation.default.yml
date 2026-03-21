@@ -4,6 +4,10 @@ status: true
 dependencies:
   config:
     - field.field.node.donation.field_amount
+    - field.field.node.donation.field_currency_code
+    - field.field.node.donation.field_guide_revenue
+    - field.field.node.donation.field_payment_reference
+    - field.field.node.donation.field_platform_revenue
     - field.field.node.donation.field_tour
     - field.field.node.donation.field_user
     - node.type.donation
@@ -86,5 +90,9 @@ content:
       placeholder: ''
     third_party_settings: {  }
 hidden:
+  field_currency_code: true
+  field_guide_revenue: true
+  field_payment_reference: true
+  field_platform_revenue: true
   promote: true
   sticky: true
