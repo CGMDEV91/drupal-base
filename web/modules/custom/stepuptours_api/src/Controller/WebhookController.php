@@ -59,7 +59,7 @@ class WebhookController extends ControllerBase {
       switch ($event->type) {
         case 'payment_intent.succeeded':
           $pi   = $event->data->object;
-          $meta = (array) ($pi->metadata ?? []);
+          $meta = self::extractMetadata($pi);
           $type = $meta['type'] ?? 'donation';
 
           if ($type === 'subscription') {
@@ -85,11 +85,26 @@ class WebhookController extends ControllerBase {
   }
 
   /**
+   * Safely extract metadata from a Stripe object.
+   * Handles both StripeObject (SDK) and plain stdClass/array (dev mode).
+   */
+  private static function extractMetadata(object $stripeObject): array {
+    $meta = $stripeObject->metadata ?? [];
+
+    // Stripe SDK returns metadata as a StripeObject with toArray().
+    if (is_object($meta) && method_exists($meta, 'toArray')) {
+      return $meta->toArray();
+    }
+
+    // Dev mode / plain object cast from json_decode.
+    return (array) $meta;
+  }
+
+  /**
    * Handle subscription payment: create or verify subscription node.
-   * Mirrors SubscriptionController::activate() — idempotent by payment reference.
    */
   private function handleSubscriptionPaymentSucceeded(object $paymentIntent): void {
-    $metadata = (array) ($paymentIntent->metadata ?? []);
+    $metadata = self::extractMetadata($paymentIntent);
 
     $planNid      = $metadata['plan_nid'] ?? '';
     $userUid      = (int) ($metadata['user_uid'] ?? 0);
@@ -170,7 +185,7 @@ class WebhookController extends ControllerBase {
    * Handle successful payment: create a donation node.
    */
   private function handlePaymentIntentSucceeded(object $paymentIntent): void {
-    $metadata = (array) ($paymentIntent->metadata ?? []);
+    $metadata = self::extractMetadata($paymentIntent);
 
     $tourNid         = $metadata['tour_nid'] ?? '';
     $donorUid        = $metadata['donor_uid'] ?? '';
@@ -179,7 +194,10 @@ class WebhookController extends ControllerBase {
     $currencyCode    = $metadata['currency_code'] ?? 'EUR';
 
     if (empty($tourNid) || empty($donorUid)) {
-      \Drupal::logger('stepuptours_api')->warning('Webhook: missing metadata in payment_intent.succeeded');
+      \Drupal::logger('stepuptours_api')->warning(
+        'Webhook: missing metadata in payment_intent.succeeded. meta: @m',
+        ['@m' => json_encode($metadata)]
+      );
       return;
     }
 

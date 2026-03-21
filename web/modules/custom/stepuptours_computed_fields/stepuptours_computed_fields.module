@@ -361,23 +361,16 @@ function _stepuptours_update_step_completed_count(NodeInterface $node): void {
 }
 
 /**
- * 6. Gestiona donation completada: contadores del tour + revenue split.
+ * 6. Gestiona donation completada: incrementa contadores del tour.
  */
 function _stepuptours_handle_donation_completed(NodeInterface $node): void {
-  $status = $node->get('field_status')->value;
-
-  if ($status !== 'completed') {
-    return;
-  }
-
-  // Evitar doble procesamiento en updates
-  $original = $node->original ?? NULL;
-  if ($original && $original->get('field_status')->value === 'completed') {
+  // Solo en insert — evitar doble procesamiento en updates.
+  if (!$node->isNew()) {
     return;
   }
 
   $tour_id = $node->get('field_tour')->target_id;
-  $amount = (float) $node->get('field_amount')->value;
+  $amount  = (float) $node->get('field_amount')->value;
 
   if (!$tour_id || $amount <= 0) {
     return;
@@ -388,7 +381,6 @@ function _stepuptours_handle_donation_completed(NodeInterface $node): void {
     return;
   }
 
-  // Incrementar donation_count y donation_total en el tour
   $current_count = (int) $tour->get('field_donation_count')->value;
   $current_total = (float) $tour->get('field_donation_total')->value;
 
@@ -396,41 +388,9 @@ function _stepuptours_handle_donation_completed(NodeInterface $node): void {
   $tour->set('field_donation_total', round($current_total + $amount, 2));
   $tour->save();
 
-  // Calcular revenue split
-  $tour_author_id = $tour->getOwnerId();
-  $guide_revenue = 0;
-  $platform_revenue = $amount;
-
-  if (!_stepuptours_is_admin($tour_author_id)) {
-    // Obtener el % del guía desde su professional_profile
-    $profile_nids = \Drupal::entityQuery('node')
-      ->condition('type', 'professional_profile')
-      ->condition('field_user', $tour_author_id)
-      ->accessCheck(FALSE)
-      ->range(0, 1)
-      ->execute();
-
-    if (!empty($profile_nids)) {
-      $profile = \Drupal::entityTypeManager()->getStorage('node')->load(reset($profile_nids));
-      $revenue_pct = (float) $profile->get('field_revenue_percentage')->value;
-
-      $guide_revenue = round($amount * ($revenue_pct / 100), 2);
-      $platform_revenue = round($amount - $guide_revenue, 2);
-    }
-  }
-
-  $node->set('field_guide_revenue', $guide_revenue);
-  $node->set('field_platform_revenue', $platform_revenue);
-  $node->save();
-
   \Drupal::logger('stepuptours_computed_fields')->info(
-    'Donación @nid procesada: @amount EUR — guía: @guide EUR, plataforma: @platform EUR',
-    [
-      '@nid' => $node->id(),
-      '@amount' => $amount,
-      '@guide' => $guide_revenue,
-      '@platform' => $platform_revenue,
-    ]
+    'Donación @nid procesada: @amount EUR para tour @tour',
+    ['@nid' => $node->id(), '@amount' => $amount, '@tour' => $tour_id]
   );
 }
 

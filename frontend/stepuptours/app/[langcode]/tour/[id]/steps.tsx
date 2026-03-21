@@ -107,7 +107,6 @@ export default function TourStepsScreen() {
 
   const handleDonate = useCallback(
     (_amount: number) => {
-      // Donation handling — to be integrated with payment service
       setShowCompletion(false);
       router.replace(`/${langcode}`);
     },
@@ -183,6 +182,7 @@ export default function TourStepsScreen() {
       <CompletionPopup
         visible={showCompletion}
         tourName={tour.title}
+        tourId={tour.id}
         xp={xp}
         isFirstCompletion={!xpAwardedBefore}
         onRate={handleRate}

@@ -85,7 +85,7 @@ class AdminDonationsController extends ControllerBase {
         'guideRevenue' => (float) ($node->hasField('field_guide_revenue') ? ($node->get('field_guide_revenue')->value ?? 0) : 0),
         'platformRevenue' => (float) ($node->hasField('field_platform_revenue') ? ($node->get('field_platform_revenue')->value ?? 0) : 0),
         'paymentReference' => $node->hasField('field_payment_reference') ? ($node->get('field_payment_reference')->value ?? '') : '',
-        'createdAt' => date('c', $node->getCreatedTime()),
+        'createdAt' => date('c', (int) $node->getCreatedTime()),
       ];
     }
 
