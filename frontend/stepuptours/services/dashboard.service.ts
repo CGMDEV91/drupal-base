@@ -112,10 +112,25 @@ export interface ProfileUpdates {
   administrativeArea: string;
 }
 
+/**
+ * Splits a full name into given_name + family_name for the Address module.
+ * The Address module for Spain requires both fields to be non-empty.
+ * We use the first word as given_name and the rest as family_name.
+ * If there's only one word, we duplicate it (e.g. "Empresa" → given:"Empresa" family:"Empresa").
+ */
+function splitFullName(fullName: string): { given_name: string; family_name: string } {
+  const parts = (fullName || 'Unknown').trim().split(/\s+/);
+  return {
+    given_name: parts[0] || 'Unknown',
+    family_name: parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'Unknown',
+  };
+}
+
 export async function createProfessionalProfile(
   userId: string,
   updates: ProfileUpdates
 ): Promise<void> {
+  const { given_name, family_name } = splitFullName(updates.fullName);
   await drupalPost('/node/professional_profile', {
     data: {
       type: 'node--professional_profile',
@@ -128,11 +143,13 @@ export async function createProfessionalProfile(
         field_bank_bic: updates.bic,
         field_address: {
           country_code: updates.countryCode || 'ES',
+          given_name,
+          family_name,
           address_line1: updates.addressLine1,
-          address_line2: updates.addressLine2,
+          address_line2: updates.addressLine2 ?? '',
           locality: updates.locality,
           postal_code: updates.postalCode,
-          administrative_area: updates.administrativeArea,
+          administrative_area: updates.administrativeArea ?? '',
         },
       },
       relationships: {
@@ -160,8 +177,11 @@ export async function updateProfessionalProfile(
     updates.postalCode !== undefined ||
     updates.countryCode !== undefined
   ) {
+    const { given_name, family_name } = splitFullName(updates.fullName ?? '');
     attributes.field_address = {
       country_code: updates.countryCode || 'ES',
+      given_name,
+      family_name,
       address_line1: updates.addressLine1 ?? '',
       address_line2: updates.addressLine2 ?? '',
       locality: updates.locality ?? '',

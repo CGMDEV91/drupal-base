@@ -1,14 +1,13 @@
 // components/tour/CompletionPopup.tsx
-// Modal shown when a tour is completed
+// Modal shown when a tour is completed — compact card + separate DonationModal
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   TextInput,
   Modal,
-  ScrollView,
   StyleSheet,
   Animated,
   Easing,
@@ -19,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { StarRating } from './StarRating';
-import { createDonationIntent } from '../../services/payment.service';
+import { createDonationIntent, activateDonation } from '../../services/payment.service';
 import { getStripePromise } from '../../lib/stripe';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -29,9 +28,7 @@ const CONFETTI_COLORS = [
   '#8B5CF6', '#FCD34D', '#EC4899', '#14B8A6',
   '#F97316', '#06B6D4', '#84CC16', '#A855F7',
 ];
-// Increased particle count for richer visual effect
 const CONFETTI_COUNT = 100;
-// Avoid useNativeDriver on web — transforms via JS thread are fine there
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 // ---------------------------------------------------------------------------
@@ -74,7 +71,6 @@ function mountWebConfetti(screenWidth: number): () => void {
 
   injectConfettiCSS();
 
-  // Remove any previous instance so re-opening the modal re-triggers animation.
   const existing = document.getElementById(CONFETTI_HOST_ID);
   if (existing) existing.remove();
 
@@ -111,7 +107,6 @@ function mountWebConfetti(screenWidth: number): () => void {
   host.innerHTML = pieces.join('');
   document.body.appendChild(host);
 
-  // Auto-remove after max fall duration (~4s) + max delay (~1.8s) + buffer.
   const timer = setTimeout(() => {
     const el = document.getElementById(CONFETTI_HOST_ID);
     if (el) el.remove();
@@ -125,25 +120,19 @@ function mountWebConfetti(screenWidth: number): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// WebConfetti component — mounts DOM confetti when visible, tears down on hide
+// WebConfetti — mounts DOM confetti, returns null from RN tree
 // ---------------------------------------------------------------------------
 
-interface WebConfettiProps {
-  screenWidth: number;
-}
-
-function WebConfetti({ screenWidth }: WebConfettiProps) {
+function WebConfetti({ screenWidth }: { screenWidth: number }) {
   useEffect(() => {
     const cleanup = mountWebConfetti(screenWidth);
     return cleanup;
   }, [screenWidth]);
-
-  // No RN nodes needed — everything lives in the DOM layer.
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// Shape types for visual variety (native only)
+// Native confetti particles
 // ---------------------------------------------------------------------------
 
 type ConfettiShape = 'square' | 'rect' | 'circle' | 'thin';
@@ -158,43 +147,32 @@ function pickShape(): ConfettiShape {
 
 function shapeStyle(shape: ConfettiShape, size: number) {
   switch (shape) {
-    case 'circle':
-      return { width: size, height: size, borderRadius: size / 2 };
-    case 'rect':
-      return { width: size * 0.7, height: size * 1.8, borderRadius: 2 };
-    case 'thin':
-      return { width: size * 0.4, height: size * 2.2, borderRadius: 1 };
+    case 'circle': return { width: size, height: size, borderRadius: size / 2 };
+    case 'rect': return { width: size * 0.7, height: size * 1.8, borderRadius: 2 };
+    case 'thin': return { width: size * 0.4, height: size * 2.2, borderRadius: 1 };
     case 'square':
-    default:
-      return { width: size, height: size, borderRadius: 2 };
+    default: return { width: size, height: size, borderRadius: 2 };
   }
 }
 
-// ---------------------------------------------------------------------------
-// ConfettiPiece — a single animated falling particle (native only)
-// ---------------------------------------------------------------------------
-
-interface ConfettiPieceProps {
+function ConfettiPiece({
+  delay,
+  screenWidth,
+  screenHeight,
+}: {
   delay: number;
   screenWidth: number;
   screenHeight: number;
-}
-
-function ConfettiPiece({ delay, screenWidth, screenHeight }: ConfettiPieceProps) {
+}) {
   const animValue = useRef(new Animated.Value(0)).current;
-
   const x = useRef(Math.random() * screenWidth).current;
-  // Varied sizes: small (4-8), medium (8-14), occasional large (14-18)
   const rawSize = useRef(Math.random()).current;
   const size = useRef(rawSize < 0.6 ? 4 + rawSize * 13 : 4 + rawSize * 20).current;
   const color = useRef(CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]).current;
-  // Wider horizontal drift range for a more dispersed look
   const drift = useRef((Math.random() - 0.5) * 180).current;
   const shape = useRef(pickShape()).current;
   const endRotation = useRef(`${Math.random() * 900 - 450}deg`).current;
-  // Wider duration spread — some pieces fall faster, others lazily
   const duration = useRef(1800 + Math.random() * 2200).current;
-  // Initial vertical spread so not all pieces start at exactly y=0
   const startY = useRef(-(Math.random() * 60)).current;
 
   useEffect(() => {
@@ -241,7 +219,7 @@ function ConfettiPiece({ delay, screenWidth, screenHeight }: ConfettiPieceProps)
 }
 
 // ---------------------------------------------------------------------------
-// DonationCheckout — wraps Stripe Elements + CardElement (web-first)
+// DonationCheckout — Stripe form (web) or simple form (native)
 // ---------------------------------------------------------------------------
 
 interface DonationCheckoutProps {
@@ -255,7 +233,6 @@ interface DonationCheckoutProps {
 
 function DonationCheckout(props: DonationCheckoutProps) {
   if (Platform.OS !== 'web') {
-    // Native: simple button that calls the intent without CardElement
     return <NativeDonationForm {...props} />;
   }
   return (
@@ -300,6 +277,8 @@ function CardDonationForm({
         setProcessing(false);
         return;
       }
+
+      await activateDonation(intent.paymentIntentId);
       onSuccess(parsedAmount);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
@@ -309,7 +288,6 @@ function CardDonationForm({
 
   return (
     <View style={donationStyles.wrap}>
-      {/* Amount row */}
       <View style={donationStyles.amountRow}>
         <Text style={donationStyles.currency}>€</Text>
         <TextInput
@@ -324,7 +302,6 @@ function CardDonationForm({
         />
       </View>
 
-      {/* Split preview */}
       {splitPreview && (
         <View style={donationStyles.splitRow}>
           <Text style={donationStyles.splitGuide}>
@@ -336,7 +313,6 @@ function CardDonationForm({
         </View>
       )}
 
-      {/* CardElement — only renders in browser */}
       <View style={donationStyles.cardWrap}>
         <CardElement
           options={{
@@ -392,7 +368,6 @@ function NativeDonationForm({
     setError('');
     try {
       await createDonationIntent(tourId, parsedAmount);
-      // Native: PaymentIntent created but card UI not available — mark success
       onSuccess(parsedAmount);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
@@ -416,7 +391,7 @@ function NativeDonationForm({
           editable={!processing}
         />
         <TouchableOpacity
-          style={[donationStyles.payBtn, (!isDonationValid || processing) && donationStyles.payBtnDisabled]}
+          style={[donationStyles.payBtnCompact, (!isDonationValid || processing) && donationStyles.payBtnDisabled]}
           onPress={handlePay}
           disabled={!isDonationValid || processing}
           activeOpacity={0.85}
@@ -492,12 +467,234 @@ const donationStyles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
   },
+  payBtnCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 14,
+    height: '100%',
+  },
   payBtnDisabled: { opacity: 0.45 },
   payBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });
 
 // ---------------------------------------------------------------------------
-// CompletionPopup
+// DonationModal — opens when user taps "Donate" in CompletionPopup
+// ---------------------------------------------------------------------------
+
+interface DonationModalProps {
+  visible: boolean;
+  tourId: string;
+  tourName: string;
+  onClose: () => void;
+}
+
+function DonationModal({ visible, tourId, tourName, onClose }: DonationModalProps) {
+  const { t } = useTranslation();
+  const [amount, setAmount] = useState('1');
+  const [successAmount, setSuccessAmount] = useState<number | null>(null);
+
+  // Success animation values
+  const checkScaleAnim = useRef(new Animated.Value(0)).current;
+  const successOpacityAnim = useRef(new Animated.Value(0)).current;
+  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (visible) {
+      setAmount('1');
+      setSuccessAmount(null);
+      checkScaleAnim.setValue(0);
+      successOpacityAnim.setValue(0);
+    }
+    return () => {
+      if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
+    };
+  }, [visible]);
+
+  const parsedAmount = parseFloat(amount);
+  const isDonationValid = !isNaN(parsedAmount) && parsedAmount > 0;
+
+  const handleSuccess = useCallback(
+    (amt: number) => {
+      setSuccessAmount(amt);
+
+      // Checkmark scale pop: 0 → 1.3 → 1
+      Animated.sequence([
+        Animated.spring(checkScaleAnim, {
+          toValue: 1.3,
+          friction: 4,
+          tension: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(checkScaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Text fade in
+      Animated.timing(successOpacityAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: 200,
+        useNativeDriver: true,
+      }).start();
+
+      // Auto-close after 3s
+      autoCloseTimer.current = setTimeout(() => {
+        onClose();
+      }, 3000);
+    },
+    [checkScaleAnim, successOpacityAnim, onClose],
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={dmStyles.backdrop}>
+        <View style={dmStyles.card}>
+          {/* Close button */}
+          <TouchableOpacity style={dmStyles.closeBtn} onPress={onClose} hitSlop={8}>
+            <View style={dmStyles.closeBtnInner}>
+              <Ionicons name="close" size={18} color="#6B7280" />
+            </View>
+          </TouchableOpacity>
+
+          {successAmount !== null ? (
+            // ─── Success screen ───
+            <View style={dmStyles.successContainer}>
+              <Animated.View style={{ transform: [{ scale: checkScaleAnim }] }}>
+                <View style={dmStyles.successIcon}>
+                  <Ionicons name="checkmark-circle" size={56} color="#059669" />
+                </View>
+              </Animated.View>
+
+              <Animated.View style={{ opacity: successOpacityAnim, alignItems: 'center', gap: 6 }}>
+                <Text style={dmStyles.successTitle}>{t('donation.thankYou')}</Text>
+                <Text style={dmStyles.successSubtitle}>
+                  {t('donation.donated', {
+                    amount: successAmount.toFixed(2),
+                    tour: tourName,
+                  })}
+                </Text>
+                <TouchableOpacity style={dmStyles.closeSuccessBtn} onPress={onClose}>
+                  <Text style={dmStyles.closeSuccessBtnText}>{t('popup.goHome')}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          ) : (
+            // ─── Donation form ───
+            <>
+              <View style={dmStyles.header}>
+                <Ionicons name="heart" size={22} color={AMBER} />
+                <Text style={dmStyles.title}>{t('popup.donateLabel')}</Text>
+              </View>
+              <Text style={dmStyles.tourName} numberOfLines={2}>{tourName}</Text>
+              <DonationCheckout
+                tourId={tourId}
+                amount={amount}
+                onAmountChange={setAmount}
+                isDonationValid={isDonationValid}
+                onSuccess={handleSuccess}
+                t={t}
+              />
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const dmStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    position: 'relative',
+    gap: 16,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  closeBtnInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  tourName: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: -8,
+  },
+  // Success
+  successContainer: {
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 16,
+    paddingTop: 32,
+  },
+  successIcon: {
+    marginBottom: 4,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#059669',
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  closeSuccessBtn: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: AMBER,
+    borderRadius: 12,
+  },
+  closeSuccessBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});
+
+// ---------------------------------------------------------------------------
+// CompletionPopup — compact main card
 // ---------------------------------------------------------------------------
 
 interface CompletionPopupProps {
@@ -525,244 +722,237 @@ export function CompletionPopup({
 }: CompletionPopupProps) {
   const { t } = useTranslation();
   const [rating, setRating] = useState(0);
-  const [donationAmount, setDonationAmount] = useState('1');
-  const [donationDone, setDonationDone] = useState(false);
+  const [showDonationModal, setShowDonationModal] = useState(false);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const isMobile = screenWidth < 640;
+
+  // XP animation values
+  const xpScaleAnim = useRef(new Animated.Value(0)).current;
+  const xpFloatAnim = useRef(new Animated.Value(0)).current;
+  const xpOpacityAnim = useRef(new Animated.Value(1)).current;
+
+  // Run XP animation when popup first opens (first completion only)
+  useEffect(() => {
+    if (visible && isFirstCompletion && xp > 0) {
+      xpScaleAnim.setValue(0);
+      xpFloatAnim.setValue(0);
+      xpOpacityAnim.setValue(1);
+
+      // Badge scale pop
+      Animated.spring(xpScaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 300,
+        useNativeDriver: true,
+      }).start();
+
+      // Floating "+XP" text: float up then fade
+      Animated.parallel([
+        Animated.timing(xpFloatAnim, {
+          toValue: -60,
+          duration: 1200,
+          delay: 400,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(400),
+          Animated.timing(xpOpacityAnim, {
+            toValue: 0,
+            duration: 800,
+            delay: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [visible]);
 
   const handleRate = (value: number) => {
     setRating(value);
     onRate(value);
   };
 
-  const parsedAmount = parseFloat(donationAmount);
-  const isDonationValid = !isNaN(parsedAmount) && parsedAmount > 0;
+  const handleDonationSuccess = useCallback(
+    (amt: number) => {
+      onDonate(amt);
+    },
+    [onDonate],
+  );
 
-  // Card style: mobile sticks to bottom with maxHeight, desktop centers as a box
   const cardStyle = isMobile
-    ? {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
-      }
-    : {
-        maxWidth: 420,
-        width: '100%' as const,
-        borderRadius: 24,
-      };
+    ? { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
+    : { maxWidth: 420, width: '100%' as const, borderRadius: 24 };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      {/*
-        Root fills the entire screen so confetti has full canvas.
-        Confetti layer stays behind the card via z-index layering.
-      */}
-      <View style={styles.root}>
-        {/* Backdrop tint — sits behind everything */}
-        <View style={styles.backdropTint} />
+    <>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <View style={styles.root}>
+          {/* Backdrop */}
+          <View style={styles.backdropTint} />
 
-        {/*
-          Confetti:
-          - Web: CSS keyframe divs appended to document.body (escapes Modal stacking context,
-            fully visible over the viewport). WebConfetti returns null from the RN tree.
-          - Native: React Native Animated particles rendered inside the Modal root View.
-        */}
-        {isFirstCompletion && visible && (
-          Platform.OS === 'web'
-            ? <WebConfetti screenWidth={screenWidth} />
-            : (
-              <View
-                style={[StyleSheet.absoluteFill, styles.confettiLayer]}
-                pointerEvents="none"
-              >
-                {Array.from({ length: CONFETTI_COUNT }).map((_, i) => (
-                  <ConfettiPiece
-                    key={i}
-                    delay={i * 18}
-                    screenWidth={screenWidth}
-                    screenHeight={screenHeight}
-                  />
-                ))}
-              </View>
-            )
-        )}
+          {/* Confetti — always shown on completion (both first and repeat) */}
+          {visible && (
+            Platform.OS === 'web'
+              ? <WebConfetti screenWidth={screenWidth} />
+              : (
+                <View
+                  style={[StyleSheet.absoluteFill, styles.confettiLayer]}
+                  pointerEvents="none"
+                >
+                  {Array.from({ length: CONFETTI_COUNT }).map((_, i) => (
+                    <ConfettiPiece
+                      key={i}
+                      delay={i * 18}
+                      screenWidth={screenWidth}
+                      screenHeight={screenHeight}
+                    />
+                  ))}
+                </View>
+              )
+          )}
 
-        {/* Card container — aligns to bottom on mobile, centers on desktop */}
-        <View
-          style={[
-            styles.cardWrapper,
-            isMobile ? styles.cardWrapperMobile : styles.cardWrapperDesktop,
-          ]}
-          pointerEvents="box-none"
-        >
-          {/*
-            Outer shell provides the constrained height + border radius on mobile.
-            On mobile: maxHeight 85% + flex-end keeps the sheet pinned to bottom.
-            On desktop: the card itself handles sizing.
-          */}
+          {/* Card */}
           <View
             style={[
-              styles.cardShell,
-              isMobile ? styles.cardShellMobile : styles.cardShellDesktop,
-              cardStyle,
+              styles.cardWrapper,
+              isMobile ? styles.cardWrapperMobile : styles.cardWrapperDesktop,
             ]}
+            pointerEvents="box-none"
           >
-            {/* Close button — zIndex 10 so always accessible above scroll */}
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8}>
-              <View style={styles.closeBtnInner}>
-                <Ionicons name="close" size={18} color="#6B7280" />
-              </View>
-            </TouchableOpacity>
-
-            {/* ScrollView allows content to scroll on small screens */}
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
+            <View
+              style={[
+                styles.cardShell,
+                isMobile ? styles.cardShellMobile : styles.cardShellDesktop,
+                cardStyle,
+              ]}
             >
-              {/* Party icon circle — only on first completion */}
-              {isFirstCompletion && (
-                <View style={styles.iconCircle}>
-                  <Text style={styles.iconEmoji}>🎉</Text>
+              {/* Close button */}
+              <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8}>
+                <View style={styles.closeBtnInner}>
+                  <Ionicons name="close" size={18} color="#6B7280" />
                 </View>
-              )}
-
-              {/* Title */}
-              <Text style={styles.title}>
-                {isFirstCompletion
-                  ? t('popup.congratulations')
-                  : t('popup.alreadyCompleted')}
-              </Text>
-
-              {/* Subtitle */}
-              <Text style={styles.subtitle}>
-                {t('popup.completedTourOf')}{' '}
-                <Text style={styles.subtitleBold}>{tourName}</Text>
-              </Text>
-
-              {/* XP badge — first completion only */}
-              {isFirstCompletion && xp > 0 && (
-                <View style={styles.xpBadge}>
-                  <Ionicons name="flash" size={15} color={AMBER} />
-                  <Text style={styles.xpText}>+{xp} XP</Text>
-                </View>
-              )}
-
-              {/* Star rating — first completion only */}
-              {isFirstCompletion && (
-                <View style={styles.ratingSection}>
-                  <Text style={styles.ratingPrompt}>
-                    {'\u2728'} {t('popup.rateExperience')}
-                  </Text>
-                  <StarRating
-                    value={rating}
-                    interactive
-                    onRate={handleRate}
-                    size={32}
-                  />
-                </View>
-              )}
-
-              {/* Divider */}
-              <View style={styles.divider} />
-
-              {/* Donation section */}
-              <View style={styles.donationSection}>
-                <Text style={styles.donationLabel}>{t('popup.donateLabel')}</Text>
-                {donationDone ? (
-                  <View style={styles.donationSuccess}>
-                    <Ionicons name="checkmark-circle" size={32} color="#059669" />
-                    <Text style={styles.donationSuccessText}>{t('donation.success')}</Text>
-                  </View>
-                ) : (
-                  <DonationCheckout
-                    tourId={tourId}
-                    amount={donationAmount}
-                    onAmountChange={setDonationAmount}
-                    isDonationValid={isDonationValid}
-                    onSuccess={(amt) => { setDonationDone(true); onDonate(amt); }}
-                    t={t}
-                  />
-                )}
-              </View>
-
-              {/* Go home button */}
-              <TouchableOpacity
-                style={styles.homeButton}
-                onPress={onClose}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.homeButtonText}>{t('popup.goHome')}</Text>
               </TouchableOpacity>
-            </ScrollView>
+
+              {/* Content — no scroll needed with compact layout */}
+              <View style={styles.content}>
+                {/* Party icon — first completion only */}
+                {isFirstCompletion && (
+                  <View style={styles.iconCircle}>
+                    <Text style={styles.iconEmoji}>🎉</Text>
+                  </View>
+                )}
+
+                {/* Title */}
+                <Text style={styles.title}>
+                  {isFirstCompletion ? t('popup.congratulations') : t('popup.alreadyCompleted')}
+                </Text>
+
+                {/* Subtitle */}
+                <Text style={styles.subtitle}>
+                  {t('popup.completedTourOf')}{' '}
+                  <Text style={styles.subtitleBold}>{tourName}</Text>
+                </Text>
+
+                {/* XP badge with animations — first completion only */}
+                {isFirstCompletion && xp > 0 && (
+                  <View style={styles.xpContainer}>
+                    {/* Floating +XP text */}
+                    <Animated.Text
+                      style={[
+                        styles.xpFloat,
+                        {
+                          transform: [{ translateY: xpFloatAnim }],
+                          opacity: xpOpacityAnim,
+                        },
+                      ]}
+                    >
+                      +{xp} XP
+                    </Animated.Text>
+
+                    {/* XP badge (scale pop) */}
+                    <Animated.View
+                      style={[styles.xpBadge, { transform: [{ scale: xpScaleAnim }] }]}
+                    >
+                      <Ionicons name="flash" size={15} color={AMBER} />
+                      <Text style={styles.xpText}>+{xp} XP</Text>
+                    </Animated.View>
+                  </View>
+                )}
+
+                {/* Star rating — first completion only */}
+                {isFirstCompletion && (
+                  <View style={styles.ratingSection}>
+                    <Text style={styles.ratingPrompt}>
+                      {'\u2728'} {t('popup.rateExperience')}
+                    </Text>
+                    <StarRating
+                      value={rating}
+                      interactive
+                      onRate={handleRate}
+                      size={32}
+                    />
+                  </View>
+                )}
+
+                <View style={styles.divider} />
+
+                {/* Action buttons */}
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={styles.donateButton}
+                    onPress={() => setShowDonationModal(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="heart" size={16} color="#FFFFFF" />
+                    <Text style={styles.donateButtonText}>{t('popup.donate')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.homeButton}
+                    onPress={onClose}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.homeButtonText}>{t('popup.goHome')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* Donation modal — rendered outside the main modal to avoid stacking issues */}
+      <DonationModal
+        visible={showDonationModal}
+        tourId={tourId}
+        tourName={tourName}
+        onClose={() => {
+          setShowDonationModal(false);
+        }}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  // Full-screen root — contains all layers
-  root: {
-    flex: 1,
-  },
-
-  // Semi-transparent backdrop
+  root: { flex: 1 },
   backdropTint: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
-
-  // Confetti sits above backdrop (zIndex 1) but below card (zIndex 2) — native only
-  confettiLayer: {
-    zIndex: 1,
-  },
-
-  // Card wrapper fills screen; on mobile it aligns to bottom, on desktop it centers
-  cardWrapper: {
-    flex: 1,
-    zIndex: 2,
-  },
-  cardWrapperMobile: {
-    justifyContent: 'flex-end',
-  },
-  cardWrapperDesktop: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-
-  // Card shell: provides overflow clipping and height constraints
+  confettiLayer: { zIndex: 1 },
+  cardWrapper: { flex: 1, zIndex: 2 },
+  cardWrapperMobile: { justifyContent: 'flex-end' },
+  cardWrapperDesktop: { justifyContent: 'center', alignItems: 'center', padding: 20 },
   cardShell: {
     backgroundColor: '#FFFFFF',
     position: 'relative',
     overflow: 'hidden',
   },
-  cardShellMobile: {
-    // Constrain to 85% of screen height so it never covers the full screen
-    maxHeight: '85%',
-  },
-  cardShellDesktop: {
-    // Desktop uses natural height up to the viewport via the wrapper padding
-    maxHeight: '90%',
-  },
-
-  // Close button — absolute-positioned above the ScrollView
-  closeBtn: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 10,
-  },
+  cardShellMobile: { maxHeight: '70%' },
+  cardShellDesktop: { maxHeight: '80%' },
+  closeBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10 },
   closeBtnInner: {
     width: 32,
     height: 32,
@@ -771,60 +961,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // ScrollView fills the card shell
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
+  content: {
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingTop: 32,
+    paddingBottom: 24,
+    gap: 10,
   },
-
-  // Icon circle
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: AMBER,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    // Subtle glow
     shadowColor: AMBER,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowRadius: 10,
     elevation: 8,
   },
-  iconEmoji: {
-    fontSize: 38,
-  },
-
-  // Title & subtitle
+  iconEmoji: { fontSize: 34 },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 10,
-    lineHeight: 32,
+    lineHeight: 30,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  subtitleBold: {
-    fontWeight: '700',
-    color: '#111827',
+  subtitleBold: { fontWeight: '700', color: '#111827' },
+  // XP container: positions float text above badge
+  xpContainer: {
+    alignItems: 'center',
+    height: 52,
+    justifyContent: 'flex-end',
   },
-
-  // XP badge — centered, clear bottom margin
+  xpFloat: {
+    position: 'absolute',
+    top: 0,
+    fontSize: 18,
+    fontWeight: '900',
+    color: AMBER,
+  },
   xpBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -832,82 +1016,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 20,
-    alignSelf: 'center',
-    marginBottom: 8,
   },
-  xpText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#D97706',
-  },
-
-  // Rating — extra vertical breathing room
+  xpText: { fontSize: 15, fontWeight: '800', color: '#D97706' },
   ratingSection: {
     alignItems: 'center',
-    gap: 10,
-    marginVertical: 12,
+    gap: 8,
     width: '100%',
   },
   ratingPrompt: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '600',
     textAlign: 'center',
   },
-
-  // Divider — clear vertical margin on both sides
   divider: {
     width: '100%',
     height: 1,
     backgroundColor: '#F3F4F6',
-    marginVertical: 16,
+    marginVertical: 4,
   },
-
-  // Donation section
-  donationSection: {
+  actions: {
     width: '100%',
     gap: 10,
-    marginBottom: 16,
   },
-  donationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  donationSuccess: {
+  donateButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 8,
+    backgroundColor: '#EF4444',
+    paddingVertical: 14,
+    borderRadius: 12,
   },
-  donationSuccessText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#059669',
-  },
-
-  // Home button
+  donateButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   homeButton: {
-    width: '100%',
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     backgroundColor: AMBER,
-    marginBottom: 16,
-    shadowColor: AMBER,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
   },
-  homeButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
+  homeButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });

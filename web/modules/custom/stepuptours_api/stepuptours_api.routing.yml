@@ -114,6 +114,19 @@ stepuptours_api.payment_donation_intent:
       - basic_auth
       - cookie
 
+stepuptours_api.payment_donation_activate:
+  path: '/api/payment/donation-activate'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\PaymentController::donationActivate'
+  methods: [POST, OPTIONS]
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE
+    _auth:
+      - basic_auth
+      - cookie
+
 stepuptours_api.payment_webhook:
   path: '/api/payment/webhook'
   defaults:

@@ -53,7 +53,7 @@ interface ToursState {
   fetchUserActivities: (userId: string) => Promise<void>;
   toggleFavorite: (userId: string, tourId: string) => Promise<void>;
   fetchCountries: () => Promise<void>;
-  fetchCities: (country: string) => Promise<void>;
+  fetchCities: (country?: string) => Promise<void>;
   setFilters: (filters: Partial<TourFilters>) => void;
   clearFilters: () => void;
   clearError: () => void;
@@ -120,11 +120,17 @@ export const useToursStore = create<ToursState>((set, get) => ({
   },
 
   updateActivity: async (userId, tourId, updates) => {
+    // Optimistic update: apply changes immediately, rollback on error
+    const prev = get().currentActivity;
+    if (prev) {
+      set({ currentActivity: { ...prev, ...updates } });
+    }
     try {
       const activity = await upsertTourActivity(userId, tourId, updates);
       set({ currentActivity: activity });
     } catch (err: any) {
-      set({ error: err.message ?? 'Error al actualizar actividad' });
+      // Rollback to previous state on error
+      set({ currentActivity: prev, error: err.message ?? 'Error al actualizar actividad' });
     }
   },
 
@@ -193,7 +199,7 @@ export const useToursStore = create<ToursState>((set, get) => ({
     }
   },
 
-  fetchCities: async (country) => {
+  fetchCities: async (country?: string) => {
     try {
       const cities = await getCitiesByCountry(country);
       set({ cities });

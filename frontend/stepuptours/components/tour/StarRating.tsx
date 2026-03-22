@@ -1,8 +1,8 @@
 // components/tour/StarRating.tsx
 // Reusable star rating component — display and interactive modes
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -11,15 +11,23 @@ const STAR_EMPTY = '#D1D5DB';
 const COUNT_GRAY = '#9CA3AF';
 
 interface StarRatingProps {
-  rating: number;        // 0-5
-  ratingCount?: number;  // number of reviews
-  interactive?: boolean; // if true, stars are tappable
+  /** Current rating value 0-5. Accepts both `value` (preferred) for clarity. */
+  value?: number;
+  /** @deprecated use value instead */
+  rating?: number;
+  /** Number of reviews (shown in display mode) */
+  count?: number;
+  /** @deprecated use count instead */
+  ratingCount?: number;
+  interactive?: boolean;
   onRate?: (rating: number) => void;
-  size?: number;         // star icon size, default 14
+  size?: number;
 }
 
 export function StarRating({
+  value,
   rating,
+  count,
   ratingCount,
   interactive = false,
   onRate,
@@ -27,9 +35,48 @@ export function StarRating({
 }: StarRatingProps) {
   const { t } = useTranslation();
 
+  // Support both `value` and legacy `rating` prop
+  const ratingValue = value ?? rating ?? 0;
+  const reviewCount = count ?? ratingCount;
+
+  // One Animated.Value per star for bounce effect
+  const starAnims = useRef(
+    Array.from({ length: 5 }, () => new Animated.Value(1))
+  ).current;
+
+  // When rating changes externally (display mode), ensure no stale anims
+  useEffect(() => {
+    // nothing needed for display mode
+  }, [ratingValue]);
+
+  const handleStarPress = (starIndex: number) => {
+    if (!interactive || !onRate) return;
+
+    // Cascade bounce: animate each star 0..starIndex with 30ms stagger
+    for (let i = 0; i <= starIndex; i++) {
+      const delay = i * 30;
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(starAnims[i], {
+          toValue: 1.5,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(starAnims[i], {
+          toValue: 1,
+          friction: 3,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    onRate(starIndex + 1);
+  };
+
   const stars = Array.from({ length: 5 }, (_, i) => {
-    const starIndex = i + 1;
-    const filled = starIndex <= Math.round(rating);
+    const starIndex = i;
+    const filled = i + 1 <= Math.round(ratingValue);
     const iconName: any = filled ? 'star' : 'star-outline';
     const color = filled ? AMBER : STAR_EMPTY;
 
@@ -37,11 +84,13 @@ export function StarRating({
       return (
         <TouchableOpacity
           key={starIndex}
-          onPress={() => onRate?.(starIndex)}
-          hitSlop={4}
+          onPress={() => handleStarPress(starIndex)}
+          hitSlop={6}
           activeOpacity={0.7}
         >
-          <Ionicons name={iconName} size={size} color={color} />
+          <Animated.View style={{ transform: [{ scale: starAnims[i] }] }}>
+            <Ionicons name={iconName} size={size} color={color} />
+          </Animated.View>
         </TouchableOpacity>
       );
     }
@@ -49,7 +98,7 @@ export function StarRating({
     return <Ionicons key={starIndex} name={iconName} size={size} color={color} />;
   });
 
-  const hasRating = rating > 0;
+  const hasRating = ratingValue > 0;
 
   return (
     <View style={styles.container}>
@@ -58,15 +107,15 @@ export function StarRating({
         <>
           {hasRating && (
             <Text style={[styles.ratingValue, { fontSize: size - 1 }]}>
-              {rating.toFixed(1)}
+              {ratingValue.toFixed(1)}
             </Text>
           )}
-          {ratingCount !== undefined && (
+          {reviewCount !== undefined && (
             <Text style={[styles.ratingCount, { fontSize: size - 2 }]}>
-              ({ratingCount})
+              ({reviewCount})
             </Text>
           )}
-          {!hasRating && ratingCount === undefined && (
+          {!hasRating && reviewCount === undefined && (
             <Text style={[styles.noRating, { fontSize: size - 1 }]}>
               {t('tour.noRating')}
             </Text>

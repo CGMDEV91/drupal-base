@@ -1,8 +1,15 @@
 // components/tour/StepTimeline.tsx
-// Vertical timeline with step circles and expandable content
+// Vertical timeline with step circles and expandable content (animated)
 
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Easing,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { StepContent } from './StepContent';
@@ -30,6 +37,25 @@ export function StepTimeline({
   const { t } = useTranslation();
 
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+
+  // Animated values stored lazily by step index
+  const expandAnims = useRef<Map<number, Animated.Value>>(new Map());
+  const circleAnims = useRef<Map<number, Animated.Value>>(new Map());
+
+  const getExpandAnim = (index: number): Animated.Value => {
+    if (!expandAnims.current.has(index)) {
+      expandAnims.current.set(index, new Animated.Value(0));
+    }
+    return expandAnims.current.get(index)!;
+  };
+
+  const getCircleAnim = (index: number): Animated.Value => {
+    if (!circleAnims.current.has(index)) {
+      circleAnims.current.set(index, new Animated.Value(1));
+    }
+    return circleAnims.current.get(index)!;
+  };
 
   const getStepState = (step: TourStep, index: number): StepState => {
     if (stepsCompleted.includes(step.id)) return 'completed';
@@ -45,41 +71,67 @@ export function StepTimeline({
     return index === firstIncompleteIndex ? 'active' : 'pending';
   };
 
-  // All steps start collapsed
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const animateExpand = (index: number, open: boolean) => {
+    Animated.timing(getExpandAnim(index), {
+      toValue: open ? 1 : 0,
+      duration: open ? 300 : 250,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false,
+    }).start();
+  };
 
   const toggleStep = (index: number) => {
+    const isCurrentlyOpen = expandedSteps.has(index);
+    const willOpen = !isCurrentlyOpen;
+
     setExpandedSteps((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
+      if (isCurrentlyOpen) next.delete(index);
+      else next.add(index);
       return next;
     });
 
-    // If step is not completed, make it the active step
-    if (!stepsCompleted.includes(steps[index].id)) {
+    animateExpand(index, willOpen);
+
+    if (willOpen && !stepsCompleted.includes(steps[index].id)) {
       setManualActiveIndex(index);
     }
   };
 
-  // Collapse a step when it is completed, then reset to auto-detect for next
+  // Collapse + circle-pop when a step gets completed
   const prevCompletedCount = useRef(stepsCompleted.length);
 
   useEffect(() => {
     if (stepsCompleted.length > prevCompletedCount.current) {
       const justCompletedId = stepsCompleted[stepsCompleted.length - 1];
       const justCompletedIndex = steps.findIndex((s) => s.id === justCompletedId);
+
       if (justCompletedIndex >= 0) {
+        // Collapse the completed step
         setExpandedSteps((prev) => {
           const next = new Set(prev);
           next.delete(justCompletedIndex);
           return next;
         });
+        animateExpand(justCompletedIndex, false);
+
+        // Circle pop: scale 1 → 1.4 → 1
+        const circleAnim = getCircleAnim(justCompletedIndex);
+        Animated.sequence([
+          Animated.timing(circleAnim, {
+            toValue: 1.4,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+          Animated.spring(circleAnim, {
+            toValue: 1,
+            friction: 3,
+            tension: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
       }
-      // Reset manual active so next incomplete step is auto-detected
+
       setManualActiveIndex(null);
     }
     prevCompletedCount.current = stepsCompleted.length;
@@ -87,12 +139,9 @@ export function StepTimeline({
 
   const getStateColor = (state: StepState): string => {
     switch (state) {
-      case 'completed':
-        return GREEN;
-      case 'active':
-        return ORANGE;
-      case 'pending':
-        return GREY;
+      case 'completed': return GREEN;
+      case 'active': return ORANGE;
+      case 'pending': return GREY;
     }
   };
 
@@ -115,42 +164,43 @@ export function StepTimeline({
         const pill = getStatePill(state);
         const isExpanded = expandedSteps.has(index);
         const isLast = index === steps.length - 1;
+        const expandAnim = getExpandAnim(index);
+        const circleAnim = getCircleAnim(index);
 
         return (
           <View key={step.id} style={styles.stepRow}>
             {/* Timeline column */}
             <View style={styles.timelineCol}>
-              {/* Circle */}
-              <View
-                style={[
-                  styles.circle,
-                  { borderColor: color },
-                  state === 'completed' && { backgroundColor: color },
-                ]}
-              >
-                {state === 'completed' ? (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.circleNumber,
-                      { color: state === 'active' ? color : '#9CA3AF' },
-                    ]}
-                  >
-                    {index + 1}
-                  </Text>
-                )}
-              </View>
+              {/* Circle with completion pop animation */}
+              <Animated.View style={{ transform: [{ scale: circleAnim }] }}>
+                <View
+                  style={[
+                    styles.circle,
+                    { borderColor: color },
+                    state === 'completed' && { backgroundColor: color },
+                  ]}
+                >
+                  {state === 'completed' ? (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.circleNumber,
+                        { color: state === 'active' ? color : '#9CA3AF' },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  )}
+                </View>
+              </Animated.View>
 
               {/* Connecting line */}
               {!isLast && (
                 <View
                   style={[
                     styles.line,
-                    {
-                      backgroundColor:
-                        state === 'completed' ? GREEN : '#E5E7EB',
-                    },
+                    { backgroundColor: state === 'completed' ? GREEN : '#E5E7EB' },
                   ]}
                 />
               )}
@@ -158,11 +208,13 @@ export function StepTimeline({
 
             {/* Content column */}
             <View style={[styles.contentCol, !isLast && styles.contentColSpacing]}>
-              <View style={[
-                styles.stepCard,
-                state === 'completed' && styles.stepCardCompleted,
-                state === 'active' && styles.stepCardActive,
-              ]}>
+              <View
+                style={[
+                  styles.stepCard,
+                  state === 'completed' && styles.stepCardCompleted,
+                  state === 'active' && styles.stepCardActive,
+                ]}
+              >
                 <TouchableOpacity
                   style={styles.stepHeader}
                   onPress={() => toggleStep(index)}
@@ -185,15 +237,29 @@ export function StepTimeline({
                   />
                 </TouchableOpacity>
 
-                {isExpanded && (
+                {/* Animated expand/collapse wrapper — always rendered */}
+                <Animated.View
+                  style={{
+                    maxHeight: expandAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 1200],
+                    }),
+                    opacity: expandAnim.interpolate({
+                      inputRange: [0, 0.4, 1],
+                      outputRange: [0, 0, 1],
+                    }),
+                    overflow: 'hidden',
+                  }}
+                >
                   <StepContent
                     step={step}
                     isCompleted={state === 'completed'}
                     isActive={state === 'active'}
+                    isExpanded={isExpanded}
                     onComplete={() => onCompleteStep(step.id)}
                     langcode={langcode}
                   />
-                )}
+                </Animated.View>
               </View>
             </View>
           </View>

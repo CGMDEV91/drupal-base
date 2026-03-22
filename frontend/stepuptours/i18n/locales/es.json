@@ -28,7 +28,7 @@
   "step.markCompleted": "Marcar como Completado",
   "step.pending": "Pendiente",
   "step.inProgress": "Actual",
-  "step.completed": "Visitado",
+  "step.completed": "Completado",
   "step.walk": "A Pie",
   "step.bike": "Bicicleta",
   "step.publicTransport": "Transporte Público",
@@ -36,6 +36,8 @@
   "step.tts.play": "Reproducir",
   "step.tts.pause": "Pausar",
   "step.tts.stop": "Detener",
+  "step.tts.listen": "Escuchar descripción",
+  "step.description": "Descripción",
   "step.progress": "{{completed}} de {{total}} pasos completados",
 
   "popup.congratulations": "¡Enhorabuena!",
@@ -63,6 +65,7 @@
   "filter.sortPopular": "Más Populares",
   "filter.rating": "Ordenar por Valoración",
   "filter.duration": "Ordenar por Duración",
+  "filter.filters": "Filtros",
   "filter.clear": "Limpiar",
   "filter.apply": "Aplicar",
   "filter.selectCountry": "Todos los países",
@@ -237,6 +240,8 @@
   "donation.processing": "Procesando pago...",
   "donation.success": "¡Donación completada!",
   "donation.error": "El pago falló. Inténtalo de nuevo.",
+  "donation.thankYou": "¡Gracias por tu donación!",
+  "donation.donated": "Has donado {{amount}}€ al tour {{tour}}",
 
   "admin.tabs.donations": "Donaciones",
   "admin.donations.totalAmount": "Total Donaciones",
@@ -261,6 +266,7 @@
   "admin.settings.stripeKeysNote": "Las claves secreta y webhook son solo escritura. Una vez guardadas no se pueden leer de vuelta — solo se muestra su estado.",
   "admin.settings.stripeDashboardHint": "Encuentra tus claves en dashboard.stripe.com → Developers → API keys",
 
+  "home.heroTitle": "Descubre tu próxima aventura",
   "home.searchPlaceholder": "Buscar tours...",
   "home.allCountries": "Todos",
   "home.noTours": "No se encontraron tours",

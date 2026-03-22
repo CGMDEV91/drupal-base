@@ -51,7 +51,10 @@ export default function FavouritesScreen() {
   // ── Redirect unauthenticated users ────────────────────────────────────────
   useEffect(() => {
     if (!user && !isAuthLoading) {
-      router.replace(`/${langcode}` as any);
+      const timer = setTimeout(() => {
+        router.replace(`/${langcode}` as any);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [user, isAuthLoading, langcode]);
 

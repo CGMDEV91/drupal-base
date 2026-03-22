@@ -136,6 +136,19 @@ export async function drupalGetRaw(
   };
 }
 
+/**
+ * Fetches the raw JSON:API response without Jsona deserialization.
+ * Use when Jsona fails to resolve relationships (e.g. entity refs without includes).
+ */
+export async function drupalGetJsonApi(
+  endpoint: string,
+  params?: string,
+): Promise<any[]> {
+  const url = params ? `${endpoint}?${params}` : endpoint;
+  const response = await drupalClient.get(url);
+  return response.data?.data ?? [];
+}
+
 export async function drupalPost<T>(endpoint: string, body: object): Promise<T> {
   const response = await drupalClient.post(endpoint, body);
   return deserializer.deserialize(response.data) as T;

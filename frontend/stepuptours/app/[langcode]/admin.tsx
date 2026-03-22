@@ -53,7 +53,10 @@ export default function AdminScreen() {
 
   useEffect(() => {
     if (!isAuthLoading && (!user || !isAdmin)) {
-      router.replace(`/${langcode}` as any);
+      const timer = setTimeout(() => {
+        router.replace(`/${langcode}` as any);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [user, isAuthLoading, isAdmin, langcode]);
 

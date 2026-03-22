@@ -472,3 +472,135 @@ El endpoint de roles en `auth.service.ts` usaba `?fields[user--user]=roles`, que
 - Verificar en expo web que tras login con usuario `professional` el dropdown muestra el enlace Dashboard y la página carga correctamente los 4 tabs.
 - Donaciones/Stripe integration.
 - Endpoint Drupal `GET /api/ranking`.
+
+---
+
+## Sesión 2026-03-21
+
+**Resumen**: Implementación completa de la Fase 1 — Donaciones + Admin Panel + Stripe Integration + Gestión de Suscripciones para profesionales.
+
+**Trabajo realizado**:
+
+### Donaciones y Admin Panel
+- **`components/shared/DonationsView.tsx`** (CREADO): Vista compartida de donaciones con modo `admin` (tabla + 4 cards resumen, badges role) y modo `professional` (card total propio). Responsive: tabla desktop, cards mobile.
+- **`app/[langcode]/admin.tsx`** (MODIFICADO): Añadida pestaña `donations` con `<DonationsView mode="admin" />`.
+- **`components/admin/SiteSettingsTab.tsx`** (REESCRITO): Tres cards — Social Links, Revenue Split (con preview live), Stripe Configuration (publishable key visible, secret/webhook write-only con badge "✓ configured").
+
+### Stripe Integration
+- **`lib/stripe.ts`** (MODIFICADO): Añadida función `resetStripePromise()` para invalidar el singleton tras cambio de keys.
+- **`services/admin.service.ts`** (MODIFICADO): Interfaces `StripeSettings`, `StripeKeysInput`; función `updateStripeKeys()`.
+- **`components/tour/CompletionPopup.tsx`** (MODIFICADO): Flujo real de donación con `Elements` + `CardElement` de Stripe — `createDonationIntent` → `confirmCardPayment` → `onSuccess`. Guard Platform.OS (web/native).
+- **`components/dashboard/DonationsTab.tsx`** (REESCRITO): Thin wrapper sobre `DonationsView`.
+
+### Backend Stripe
+- **`web/modules/custom/stepuptours_api/src/Controller/SiteSettingsController.php`** (MODIFICADO): `buildSettingsData()` devuelve `stripeSettings` (publishable key pública, booleans para secret/webhook). `update()` guarda keys en `stepuptours.payment` config con validación de prefijos.
+- **`web/modules/custom/stepuptours_api/src/Controller/WebhookController.php`** (MODIFICADO): Routing por `metadata.type` (`donation` vs `subscription`). `handleSubscriptionPaymentSucceeded()` añadido para crear nodo suscripción desde webhook (idempotente por `field_payment_reference`).
+
+### Gestión de Suscripciones
+- **`web/modules/custom/stepuptours_api/src/Controller/SubscriptionController.php`** (CREADO): `POST /api/subscription/intent` (crea PaymentIntent Stripe con metadata plan) + `POST /api/subscription/activate` (verifica pago, cancela suscripciones previas, crea nodo). Idempotencia por `field_payment_reference`.
+- **`stepuptours_api.routing.yml`** (MODIFICADO): Añadidas rutas `subscription_intent` y `subscription_activate`.
+- **`lib/drupal-client.ts`** (MODIFICADO): `mapDrupalSubscriptionPlan()`.
+- **`services/dashboard.service.ts`** (MODIFICADO): `getSubscriptionPlans()` vía JSON:API.
+- **`services/subscription.service.ts`** (CREADO): `createSubscriptionIntent()` + `activateSubscription()`.
+- **`components/dashboard/SubscriptionTab.tsx`** (REESCRITO): Vista activa (auto-renewal toggle, cancel, limits grid, last payment), `NoSubscriptionView` (planes reales Drupal, billing cycle toggle, `StripeSubscriptionForm` con `Elements` + `CardElement`), pantalla éxito.
+
+### i18n
+- **`i18n/locales/en.json`** y **`es.json`**: Añadidas ~40 keys `subscription.*` y ~15 keys `admin.settings.*` y `admin.donations.*`.
+- Caché Drupal limpiada: `ddev drush cr` ✅
+
+**Archivos modificados** (principales):
+- `frontend/stepuptours/components/shared/DonationsView.tsx`
+- `frontend/stepuptours/components/tour/CompletionPopup.tsx`
+- `frontend/stepuptours/components/admin/SiteSettingsTab.tsx`
+- `frontend/stepuptours/components/dashboard/DonationsTab.tsx`
+- `frontend/stepuptours/components/dashboard/SubscriptionTab.tsx`
+- `frontend/stepuptours/services/admin.service.ts`
+- `frontend/stepuptours/services/subscription.service.ts`
+- `frontend/stepuptours/services/dashboard.service.ts`
+- `frontend/stepuptours/lib/drupal-client.ts`
+- `frontend/stepuptours/lib/stripe.ts`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+- `web/modules/custom/stepuptours_api/src/Controller/SiteSettingsController.php`
+- `web/modules/custom/stepuptours_api/src/Controller/SubscriptionController.php`
+- `web/modules/custom/stepuptours_api/src/Controller/WebhookController.php`
+- `web/modules/custom/stepuptours_api/stepuptours_api.routing.yml`
+
+**Pendiente / Próximos pasos**:
+- Probar el flujo completo de donación en Expo Web con tarjeta de test Stripe (4242 4242 4242 4242).
+- Probar el flujo de suscripción: selección de plan → CardElement → activación → vista activa.
+- Verificar webhook Stripe local (stripe listen --forward-to) para el flujo de fallback.
+- Endpoint `GET /api/ranking` (pendiente de sesiones anteriores).
+- Considerar añadir keys de suscripción a `de.json` y `fr.json` (actualmente solo en/es).
+
+## Sesión 2026-03-22
+
+**Resumen**: Tour Experience Polish — completado el plan aprobado de mejoras de performance, animaciones, UX y rediseño de componentes.
+
+**Trabajo realizado**:
+
+### Correcciones de sesión anterior (retomadas)
+- Fix 403 PATCH `tour_user_activity`: permisos `create/edit own` añadidos al rol `authenticated`
+- Fix 422 POST `professional_profile`: módulo Address requiere `given_name`/`family_name`; añadido `splitFullName()` en `dashboard.service.ts`
+- Fix `StarRating` rating bug: aceptar prop `value` (antes solo `rating`)
+- Fix banner detail page: emoji `📍` → `<Ionicons name="location-outline">`
+- Fix "Start Again": resetea `stepsCompleted: [], isCompleted: false` antes de navegar
+- Fix es.json: "Visitado" → "Completado"
+- Endpoint `POST /api/payment/donation-activate`: crea nodo donación verificando PaymentIntent en Stripe (idempotente)
+
+### Implementado en esta sesión
+
+**Performance**:
+- `stores/tours.store.ts`: `updateActivity` usa optimistic update (patron idéntico a `toggleFavorite`) — steps se marcan completados instantáneamente sin esperar la respuesta API
+
+**Animaciones**:
+- `steps.tsx`: Barra de progreso animada con `Animated.timing` (500ms, Easing.out cubic) + `progressAnim.interpolate` para width `'0%'→'100%'`
+- `StepTimeline.tsx`: Expand/collapse animado con `maxHeight` 0→600 + `opacity` 0→1 (300ms, bezier). Círculo del timeline hace pop (scale 1→1.4→1) al completar un step (useNativeDriver: true)
+- `CompletionPopup.tsx`: XP badge hace scale pop (spring), texto "+XP" flota hacia arriba y se desvanece (translateY -60px, 1200ms). Confetti se muestra en TODAS las completaciones (no solo la primera)
+- `StarRating.tsx`: Bounce en cascada al votar (i*30ms stagger, scale 1→1.5→1)
+
+**TTS Player rediseñado** (`StepContent.tsx`):
+- Botón "Escuchar descripción" que expande/colapsa un mini-player (Animated, 280ms)
+- Controles: Stop | Play/Pause | Speed
+- Velocidades ciclables: 0.75x → 1x → 1.25x → 1.5x → 2x
+- Barra de progreso + timestamps (elapsed/total)
+- Progreso estimado: `Math.ceil(textLength / (15 * rate))` segundos
+- `setInterval(100ms)` actualiza progressAnim; display se actualiza 1×/segundo
+- `onDone/onStopped/onError` callbacks de expo-speech
+
+**Descripción rediseñada** (`StepContent.tsx`):
+- Card con sombra (elevation 3), icono `information-circle-outline`
+- Line-height 22, color #374151
+- TTS player en mini-card gris (#F9FAFB) debajo de la descripción
+
+**CompletionPopup refactorizado**:
+- Tamaño compacto: `maxHeight: '70%'` mobile, sin ScrollView
+- Donación movida a `DonationModal` separado (abre al pulsar botón "Donar")
+- `DonationModal`: feedback de éxito inline (checkmark scale pop + fade-in texto + auto-close 3s)
+- Flujo: `CompletionPopup` → botón Donar → `DonationModal` → éxito inline → cierre
+
+**i18n** (`en.json`, `es.json`):
+- Añadidas: `step.tts.listen`, `step.description`, `donation.thankYou`, `donation.donated`
+
+**Archivos modificados**:
+- `frontend/stepuptours/stores/tours.store.ts`
+- `frontend/stepuptours/app/[langcode]/tour/[id]/steps.tsx`
+- `frontend/stepuptours/app/[langcode]/tour/[id].tsx`
+- `frontend/stepuptours/components/tour/StepTimeline.tsx`
+- `frontend/stepuptours/components/tour/StepContent.tsx`
+- `frontend/stepuptours/components/tour/CompletionPopup.tsx`
+- `frontend/stepuptours/components/tour/StarRating.tsx`
+- `frontend/stepuptours/services/dashboard.service.ts`
+- `frontend/stepuptours/services/payment.service.ts`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+- `web/modules/custom/stepuptours_api/src/Controller/PaymentController.php`
+- `web/modules/custom/stepuptours_api/stepuptours_api.routing.yml`
+- `config/sync/user.role.authenticated.yml`
+- `config/sync/user.role.professional.yml`
+
+**Pendiente / Próximos pasos**:
+- Probar el flujo completo en Expo Web: completar tour → popup compacto → donar → modal Stripe → feedback éxito
+- Verificar TTS en iOS/Android (expo-speech `onDone` callback puede comportarse diferente por plataforma)
+- Endpoint `GET /api/ranking` (pendiente de sesiones anteriores)
+- Añadir keys de traducción a otros idiomas (de.json, fr.json) si aplica

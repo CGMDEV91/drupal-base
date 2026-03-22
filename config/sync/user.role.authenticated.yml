@@ -4,11 +4,13 @@ status: true
 dependencies:
   config:
     - filter.format.basic_html
+    - node.type.tour_user_activity
   module:
     - comment
     - file
     - filter
     - language
+    - node
     - search
     - shortcut
     - system
@@ -26,7 +28,9 @@ permissions:
   - 'administer languages'
   - 'cancel account'
   - 'change own username'
+  - 'create tour_user_activity content'
   - 'delete own files'
+  - 'edit own tour_user_activity content'
   - 'post comments'
   - 'search content'
   - 'skip comment approval'

@@ -21,6 +21,7 @@ import { useToursStore } from '../../../stores/tours.store';
 import { useAuthStore } from '../../../stores/auth.store';
 import { StarRating } from '../../../components/tour/StarRating';
 import { BusinessCard } from '../../../components/tour/BusinessCard';
+import BackButton from '../../../components/layout/BackButton';
 import { LAYOUT } from '../../../styles/theme';
 
 const AMBER = '#F59E0B';
@@ -44,6 +45,8 @@ export default function TourDetailScreen() {
     isLoadingDetail,
     fetchTourDetail,
     updateActivity,
+    userActivities,
+    toggleFavorite,
   } = useToursStore();
 
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -75,6 +78,18 @@ export default function TourDetailScreen() {
     setPendingRating(0);
   }, []);
 
+  const isFavorite = id ? (userActivities[id]?.isFavorite ?? false) : false;
+
+  const handleToggleFavorite = useCallback(() => {
+    if (!user) {
+      openAuthModal('register');
+      return;
+    }
+    if (id) {
+      toggleFavorite(user.id, id);
+    }
+  }, [user, id, openAuthModal, toggleFavorite]);
+
   const handleShare = async () => {
     try {
       await Share.share({
@@ -103,7 +118,11 @@ export default function TourDetailScreen() {
     if (activity.isCompleted || activity.completedAt) {
       return {
         label: t('tour.startAgain'),
-        onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
+        onPress: async () => {
+          // Reset all steps before navigating so the user starts fresh
+          await updateActivity(user.id, id!, { stepsCompleted: [] });
+          router.push(`/${langcode}/tour/${id}/steps`);
+        },
       };
     }
 
@@ -151,25 +170,28 @@ export default function TourDetailScreen() {
           <View style={styles.bannerTextContainer}>
             <Text style={[styles.bannerTitle, isMobile && { fontSize: 22 }]}>{tour.title}</Text>
             {(tour.country || tour.city) && (
-              <Text style={styles.bannerLocation}>
-                {'\u{1F4CD}'} {[tour.city?.name, tour.country?.name].filter(Boolean).join(', ')}
-              </Text>
+              <View style={styles.bannerLocationRow}>
+                <Ionicons name="location-outline" size={14} color="#D1D5DB" />
+                <Text style={styles.bannerLocation}>
+                  {[tour.city?.name, tour.country?.name].filter(Boolean).join(', ')}
+                </Text>
+              </View>
             )}
           </View>
 
           {/* Back button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={styles.backButton}>
+            <BackButton color="#FFFFFF" fallbackRoute={`/${langcode}`} />
+          </View>
 
           {/* Heart + Share icons */}
           <View style={styles.topRightActions}>
-            <TouchableOpacity style={styles.actionCircle}>
-              <Ionicons name="heart-outline" size={22} color="#fff" />
+            <TouchableOpacity style={styles.actionCircle} onPress={handleToggleFavorite}>
+              <Ionicons
+                name={isFavorite ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isFavorite ? '#EF4444' : '#fff'}
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCircle} onPress={handleShare}>
               <Ionicons name="share-outline" size={22} color="#fff" />
@@ -331,10 +353,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'left',
   },
+  bannerLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
   bannerLocation: {
     fontSize: 14,
     color: '#E5E7EB',
-    marginTop: 6,
     textAlign: 'left',
   },
   backButton: {

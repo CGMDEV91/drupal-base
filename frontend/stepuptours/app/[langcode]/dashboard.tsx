@@ -54,7 +54,10 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     if (!isAuthLoading && (!user || !isProfessional)) {
-      router.replace(`/${langcode}` as any);
+      const timer = setTimeout(() => {
+        router.replace(`/${langcode}` as any);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [user, isAuthLoading, isProfessional, langcode]);
 

@@ -20,6 +20,7 @@ permissions:
   - 'create tour_user_activity content'
   - 'delete own tour content'
   - 'delete own tour_step content'
+  - 'edit own professional_profile content'
   - 'edit own tour content'
   - 'edit own tour_step content'
   - 'view own unpublished content'

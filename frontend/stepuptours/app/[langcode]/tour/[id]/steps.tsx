@@ -1,7 +1,7 @@
 // app/[langcode]/tour/[id]/steps.tsx
 // Tour steps page — core gameplay
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   StyleSheet,
   Platform,
   useWindowDimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +22,7 @@ import { useToursStore } from '../../../../stores/tours.store';
 import { useAuthStore } from '../../../../stores/auth.store';
 import { StepTimeline } from '../../../../components/tour/StepTimeline';
 import { CompletionPopup } from '../../../../components/tour/CompletionPopup';
+import BackButton from '../../../../components/layout/BackButton';
 import { CONTENT_MAX_WIDTH } from '../../../../styles/theme';
 
 const AMBER = '#F59E0B';
@@ -41,6 +44,9 @@ export default function TourStepsScreen() {
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [xpAwardedBefore, setXpAwardedBefore] = useState(false);
+
+  // Animated progress bar
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Auth guard
   useEffect(() => {
@@ -69,6 +75,17 @@ export default function TourStepsScreen() {
 
   const stepsCompleted = activity?.stepsCompleted ?? [];
   const totalSteps = steps.length;
+
+  // Animate progress bar whenever stepsCompleted changes
+  useEffect(() => {
+    const ratio = totalSteps > 0 ? stepsCompleted.length / totalSteps : 0;
+    Animated.timing(progressAnim, {
+      toValue: ratio,
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [stepsCompleted.length, totalSteps]);
 
   const handleCompleteStep = useCallback(
     async (stepId: string) => {
@@ -140,12 +157,15 @@ export default function TourStepsScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
-        </TouchableOpacity>
+        <View style={styles.backButton}>
+          <BackButton color="#374151" bgColor="rgba(0,0,0,0.07)" fallbackRoute={`/${langcode}/tour/${id}`} />
+        </View>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle} numberOfLines={1}>{tour.title}</Text>
-          <Text style={styles.headerCity}>{'\u{1F4CD}'} {tour.city?.name}</Text>
+          <View style={styles.headerCityRow}>
+            <Ionicons name="location-outline" size={12} color="#9CA3AF" />
+            <Text style={styles.headerCity}>{tour.city?.name}</Text>
+          </View>
         </View>
         <View style={styles.headerProgress}>
           <Text style={styles.progressPercent}>{Math.round((stepsCompleted.length / totalSteps) * 100)}%</Text>
@@ -153,7 +173,17 @@ export default function TourStepsScreen() {
         </View>
       </View>
       <View style={styles.progressBarBg}>
-        <View style={[styles.progressBarFill, { width: `${(stepsCompleted.length / totalSteps) * 100}%` }]} />
+        <Animated.View
+          style={[
+            styles.progressBarFill,
+            {
+              width: progressAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -231,10 +261,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  headerCityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
   headerCity: {
     fontSize: 12,
     color: '#9CA3AF',
-    marginTop: 2,
   },
   headerProgress: {
     alignItems: 'flex-end',

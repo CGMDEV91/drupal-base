@@ -4,6 +4,7 @@
 import {
   drupalGet,
   drupalGetRaw,
+  drupalGetJsonApi,
   drupalPost,
   drupalPatch,
   buildFilters,
@@ -419,14 +420,16 @@ export async function getCountries(): Promise<{ id: string; name: string }[]> {
 
 // ── Obtener ciudades por país ─────────────────────────────────────────────────
 
-export async function getCitiesByCountry(countryName: string): Promise<{ id: string; name: string }[]> {
-  const params = [
-    `filter[field_country.name]=${encodeURIComponent(countryName)}`,
-    'sort=name',
-    'fields[taxonomy_term--cities]=name',
-  ].join('&');
-
-  const raw = await drupalGet<any[]>('/taxonomy_term/cities', params);
-  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  return list.map((item) => ({ id: item.id, name: item.name }));
+export async function getCitiesByCountry(countryName?: string): Promise<{ id: string; name: string }[]> {
+  // Use drupalGetJsonApi (raw, no Jsona) to avoid relationship-resolution errors:
+  // cities have a field_country entity ref that Jsona fails to resolve without includes.
+  const parts = ['sort=name', 'page[limit]=200', 'fields[taxonomy_term--cities]=name'];
+  if (countryName) {
+    parts.push(`filter[field_country.name]=${encodeURIComponent(countryName)}`);
+  }
+  const params = parts.join('&');
+  const items = await drupalGetJsonApi('/taxonomy_term/cities', params);
+  return items
+    .map((item: any) => ({ id: item.id, name: item.attributes?.name ?? '' }))
+    .filter((c: { id: string; name: string }) => c.name);
 }

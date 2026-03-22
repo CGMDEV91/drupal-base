@@ -55,6 +55,27 @@ export async function createDonationIntent(
   return data;
 }
 
+export interface DonationActivateResult {
+  id: string;
+  amount: number;
+  guideRevenue: number;
+  platformRevenue: number;
+  paymentReference: string;
+  currency: string;
+  createdAt: number;
+}
+
+export async function activateDonation(
+  paymentIntentId: string,
+): Promise<DonationActivateResult> {
+  const { data } = await axios.post(
+    `${BASE_URL}/api/payment/donation-activate`,
+    { paymentIntentId },
+    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
+  );
+  return data;
+}
+
 export async function getAdminDonations(): Promise<AdminDonation[]> {
   const { data } = await axios.get(`${BASE_URL}/api/admin/donations`, {
     headers: getAuthHeader(),

@@ -1,8 +1,16 @@
 // components/tour/StepContent.tsx
-// Expanded content for a single tour step
+// Expanded content for a single tour step — TTS player with amber design
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Linking,
+  StyleSheet,
+  Animated,
+  Easing,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Speech from 'expo-speech';
@@ -10,11 +18,21 @@ import { BusinessCard } from './BusinessCard';
 import type { TourStep } from '../../types';
 
 const AMBER = '#F59E0B';
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+// Approximate characters read per second at 1× speed
+const CHARS_PER_SECOND = 15;
+
+// ---------------------------------------------------------------------------
+// Global singleton — ensures only one step plays audio at a time.
+// ---------------------------------------------------------------------------
+let stopGlobalAudio: (() => void) | null = null;
 
 interface StepContentProps {
   step: TourStep;
   isCompleted: boolean;
   isActive: boolean;
+  /** Passed from StepTimeline — stops audio when the card collapses */
+  isExpanded: boolean;
   onComplete: () => void;
   langcode: string;
 }
@@ -32,28 +50,280 @@ const NAV_MODES: NavMode[] = [
   { labelKey: 'step.drive', icon: 'car-outline', travelmode: 'driving' },
 ];
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 export function StepContent({
   step,
   isCompleted,
   isActive,
+  isExpanded,
   onComplete,
   langcode,
 }: StepContentProps) {
   const { t } = useTranslation();
-  const [showDescription, setShowDescription] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
+  const [showDescription, setShowDescription] = useState(false);
+  const [showPlayer, setShowPlayer] = useState(false);
+  // 'idle' | 'playing' | 'paused'
+  const [playState, setPlayState] = useState<'idle' | 'playing' | 'paused'>('idle');
+  const [speedIndex, setSpeedIndex] = useState(1); // default 1×
+  const [elapsed, setElapsed] = useState(0);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const playerExpandAnim = useRef(new Animated.Value(0)).current;
+
+  const elapsedRef = useRef(0);
+  const lastSecRef = useRef(-1);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentDurationRef = useRef(1);
+  // Always-current speed index — avoids stale closure captures
+  const speedIndexRef = useRef(1);
+  // Generation counter: increment before every deliberate speech stop so that
+  // the async onDone/onStopped callbacks from the previous utterance are ignored.
+  const generationRef = useRef(0);
+  // Saved elapsed position when paused (so resume can re-speak from here)
+  const pausedAtRef = useRef(0);
+  // Stable ref to handleStop for the global singleton and collapse effect
+  const handleStopRef = useRef<(() => void) | null>(null);
+
+  const descriptionText = step.description ?? '';
+
+  // ---------------------------------------------------------------------------
+  // Timer helpers
+  // ---------------------------------------------------------------------------
+  const clearTimerFn = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startTimerFrom = useCallback(
+    (fromElapsed: number) => {
+      clearTimerFn();
+      elapsedRef.current = fromElapsed;
+      lastSecRef.current = Math.floor(fromElapsed) - 1;
+      setElapsed(Math.floor(fromElapsed));
+
+      intervalRef.current = setInterval(() => {
+        elapsedRef.current += 0.1;
+        const sec = Math.floor(elapsedRef.current);
+        if (sec !== lastSecRef.current) {
+          lastSecRef.current = sec;
+          setElapsed(sec);
+        }
+        progressAnim.setValue(
+          Math.min(elapsedRef.current / currentDurationRef.current, 1),
+        );
+        if (elapsedRef.current >= currentDurationRef.current) {
+          clearTimerFn();
+        }
+      }, 100);
+    },
+    [progressAnim],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Core speech helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Increment generation counter and stop TTS.
+   * Any pending onDone/onStopped from the previous utterance will check the
+   * counter and bail out early — no state changes from stale callbacks.
+   */
+  const stopSpeechAndInvalidate = useCallback(() => {
+    generationRef.current += 1;
+    Speech.stop();
+    clearTimerFn();
+  }, []);
+
+  /**
+   * Start speaking `text` at `rate`, continuing the elapsed display from
+   * `fromElapsed`. Captures the current generation so callbacks are discarded
+   * if another action invalidates them before they fire.
+   */
+  const startSpeech = useCallback(
+    (text: string, rate: number, fromElapsed: number) => {
+      const gen = (generationRef.current += 1);
+      const segDuration = Math.max(1, Math.ceil(text.length / (CHARS_PER_SECOND * rate)));
+      currentDurationRef.current = fromElapsed + segDuration;
+
+      const onEnd = () => {
+        if (generationRef.current !== gen) return; // stale callback — ignore
+        setPlayState('idle');
+        clearTimerFn();
+        progressAnim.setValue(1);
+        if (stopGlobalAudio === handleStopRef.current) stopGlobalAudio = null;
+      };
+
+      Speech.speak(text, {
+        language: langcode,
+        rate,
+        onDone: onEnd,
+        onStopped: onEnd,
+        onError: onEnd,
+      });
+
+      setPlayState('playing');
+      startTimerFrom(fromElapsed);
+    },
+    [langcode, progressAnim, startTimerFrom],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Stop (reset to beginning)
+  // ---------------------------------------------------------------------------
+  const handleStop = useCallback(() => {
+    stopSpeechAndInvalidate();
+    setPlayState('idle');
+    elapsedRef.current = 0;
+    lastSecRef.current = -1;
+    setElapsed(0);
+    progressAnim.setValue(0);
+    if (stopGlobalAudio === handleStopRef.current) stopGlobalAudio = null;
+  }, [stopSpeechAndInvalidate, progressAnim]);
+
+  // Keep handleStopRef up to date so collapse effect and global singleton
+  // always call the latest version.
+  useEffect(() => {
+    handleStopRef.current = handleStop;
+  }, [handleStop]);
+
+  // ---------------------------------------------------------------------------
+  // Stop audio when card collapses
+  // ---------------------------------------------------------------------------
+  const prevExpandedRef = useRef(isExpanded);
+  useEffect(() => {
+    if (prevExpandedRef.current && !isExpanded) {
+      handleStopRef.current?.();
+    }
+    prevExpandedRef.current = isExpanded;
+  }, [isExpanded]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      generationRef.current += 1;
       Speech.stop();
+      clearTimerFn();
+      if (stopGlobalAudio === handleStopRef.current) {
+        stopGlobalAudio = null;
+      }
     };
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Play / Pause / Resume
+  // ---------------------------------------------------------------------------
+  const handlePlayPause = useCallback(() => {
+    if (playState === 'playing') {
+      // ── Pause: save position, invalidate TTS ──
+      pausedAtRef.current = elapsedRef.current;
+      stopSpeechAndInvalidate();
+      setPlayState('paused');
+
+    } else if (playState === 'paused') {
+      // ── Resume: re-speak remaining text from saved position ──
+      const rate = SPEEDS[speedIndexRef.current];
+      const charsRead = Math.min(
+        Math.floor(pausedAtRef.current * CHARS_PER_SECOND * rate),
+        descriptionText.length,
+      );
+      const remainingText = descriptionText.slice(charsRead) || descriptionText;
+      startSpeech(remainingText, rate, pausedAtRef.current);
+
+    } else {
+      // ── Start fresh ──
+      if (stopGlobalAudio && stopGlobalAudio !== handleStopRef.current) {
+        stopGlobalAudio();
+      }
+      stopGlobalAudio = handleStopRef.current;
+      elapsedRef.current = 0;
+      progressAnim.setValue(0);
+      startSpeech(descriptionText, SPEEDS[speedIndexRef.current], 0);
+    }
+  }, [playState, descriptionText, stopSpeechAndInvalidate, startSpeech, progressAnim]);
+
+  // ---------------------------------------------------------------------------
+  // Speed change — continues playback from current position at new rate
+  // ---------------------------------------------------------------------------
+  const handleSpeedChange = useCallback(() => {
+    // ── Save OLD speed BEFORE updating ──
+    const oldSpeedIdx = speedIndexRef.current;
+    const newSpeedIdx = (oldSpeedIdx + 1) % SPEEDS.length;
+    speedIndexRef.current = newSpeedIdx;
+    setSpeedIndex(newSpeedIdx);
+
+    if (playState === 'idle') return; // just cycle the display label
+
+    // Use the OLD speed to estimate where we are in the text
+    const referenceElapsed =
+      playState === 'paused' ? pausedAtRef.current : elapsedRef.current;
+    const charsRead = Math.min(
+      Math.floor(referenceElapsed * CHARS_PER_SECOND * SPEEDS[oldSpeedIdx]),
+      descriptionText.length,
+    );
+    const remainingText = descriptionText.slice(charsRead) || descriptionText;
+
+    if (playState === 'paused') {
+      // Update the total duration estimate so the display is correct on resume
+      const remainingDuration = Math.max(
+        1,
+        Math.ceil(remainingText.length / (CHARS_PER_SECOND * SPEEDS[newSpeedIdx])),
+      );
+      currentDurationRef.current = referenceElapsed + remainingDuration;
+      return;
+    }
+
+    // Currently playing — stop (invalidate) and re-speak at new speed
+    stopSpeechAndInvalidate();
+    if (stopGlobalAudio && stopGlobalAudio !== handleStopRef.current) {
+      stopGlobalAudio();
+    }
+    stopGlobalAudio = handleStopRef.current;
+    startSpeech(remainingText, SPEEDS[newSpeedIdx], referenceElapsed);
+  }, [playState, descriptionText, stopSpeechAndInvalidate, startSpeech]);
+
+  // ---------------------------------------------------------------------------
+  // Player panel expand / collapse
+  // ---------------------------------------------------------------------------
+  const togglePlayer = useCallback(() => {
+    const opening = !showPlayer;
+    setShowPlayer(opening);
+
+    if (!opening) handleStopRef.current?.();
+
+    Animated.timing(playerExpandAnim, {
+      toValue: opening ? 1 : 0,
+      duration: opening ? 260 : 180,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false,
+    }).start();
+  }, [showPlayer, playerExpandAnim]);
 
   const openNavigation = (travelmode: string) => {
     if (!step.location) return;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${step.location.lat},${step.location.lon}&travelmode=${travelmode}`;
     Linking.openURL(url).catch(() => {});
   };
+
+  // ---------------------------------------------------------------------------
+  // Derived display values
+  // ---------------------------------------------------------------------------
+  const estimatedTotal = Math.max(
+    1,
+    Math.ceil(descriptionText.length / (CHARS_PER_SECOND * SPEEDS[speedIndex])),
+  );
+  const totalDisplay = formatTime(
+    playState === 'idle' ? estimatedTotal : currentDurationRef.current,
+  );
+  const elapsedDisplay = formatTime(elapsed);
+  const isPlaying = playState === 'playing';
 
   return (
     <View style={styles.container}>
@@ -81,50 +351,110 @@ export function StepContent({
         activeOpacity={0.7}
       >
         <Ionicons name="location" size={18} color="#FFFFFF" />
-        <Text style={styles.imHereText}>
-          {t('step.imHere')}
-        </Text>
+        <Text style={styles.imHereText}>{t('step.imHere')}</Text>
       </TouchableOpacity>
 
-      {/* Description text — shown after "I'm Here" */}
-      {showDescription && step.description ? (
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionText}>{step.description}</Text>
-          <View style={styles.ttsRow}>
-            <TouchableOpacity
-              style={[styles.ttsButton, isSpeaking && styles.ttsButtonDisabled]}
-              onPress={() => {
-                Speech.speak(step.description ?? '', { language: langcode });
-                setIsSpeaking(true);
-              }}
-              disabled={isSpeaking}
-              accessibilityLabel={t('step.tts.play')}
-            >
-              <Text style={styles.ttsButtonText}>▶</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.ttsButton, !isSpeaking && styles.ttsButtonDisabled]}
-              onPress={() => {
-                Speech.pause();
-                setIsSpeaking(false);
-              }}
-              disabled={!isSpeaking}
-              accessibilityLabel={t('step.tts.pause')}
-            >
-              <Text style={styles.ttsButtonText}>⏸</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.ttsButton, !isSpeaking && styles.ttsButtonDisabled]}
-              onPress={() => {
-                Speech.stop();
-                setIsSpeaking(false);
-              }}
-              disabled={!isSpeaking}
-              accessibilityLabel={t('step.tts.stop')}
-            >
-              <Text style={styles.ttsButtonText}>⏹</Text>
-            </TouchableOpacity>
+      {/* Description card — shown after "I'm Here" */}
+      {showDescription && descriptionText ? (
+        <View style={styles.descriptionCard}>
+
+          {/* ── TTS toggle button ── */}
+          <TouchableOpacity
+            style={styles.ttsToggleBtn}
+            onPress={togglePlayer}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={showPlayer ? 'volume-high' : 'volume-medium-outline'}
+              size={15}
+              color={AMBER}
+            />
+            <Text style={styles.ttsToggleBtnText}>{t('step.tts.listen')}</Text>
+            <Ionicons
+              name={showPlayer ? 'chevron-up' : 'chevron-down'}
+              size={13}
+              color={AMBER}
+            />
+          </TouchableOpacity>
+
+          {/* ── Animated TTS player — above the description text ── */}
+          <Animated.View
+            style={{
+              maxHeight: playerExpandAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 110],
+              }),
+              opacity: playerExpandAnim.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, 0, 1],
+              }),
+              overflow: 'hidden',
+            }}
+          >
+            <View style={styles.playerCard}>
+              {/* Progress bar: track → fill → thumb */}
+              <View style={styles.progressWrapper}>
+                <Text style={styles.timeText}>{elapsedDisplay}</Text>
+                <View style={styles.progressTrack}>
+                  <Animated.View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: progressAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      },
+                    ]}
+                  >
+                    {/* Thumb sits at the right edge of the fill */}
+                    <View style={styles.progressThumb} />
+                  </Animated.View>
+                </View>
+                <Text style={styles.timeText}>{totalDisplay}</Text>
+              </View>
+
+              {/* Controls: Stop | Play/Pause | Speed */}
+              <View style={styles.playerControls}>
+                <TouchableOpacity
+                  style={styles.controlBtn}
+                  onPress={handleStop}
+                  activeOpacity={0.7}
+                  accessibilityLabel={t('step.tts.stop')}
+                >
+                  <Ionicons name="stop" size={17} color="#6B7280" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.playBtn}
+                  onPress={handlePlayPause}
+                  activeOpacity={0.8}
+                  accessibilityLabel={isPlaying ? t('step.tts.pause') : t('step.tts.play')}
+                >
+                  <Ionicons
+                    name={isPlaying ? 'pause' : 'play'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.controlBtn}
+                  onPress={handleSpeedChange}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.speedText}>{SPEEDS[speedIndex]}x</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* ── Description header + text (below player) ── */}
+          <View style={styles.descriptionHeader}>
+            <Ionicons name="information-circle-outline" size={15} color={AMBER} />
+            <Text style={styles.descriptionHeaderText}>{t('step.description')}</Text>
           </View>
+          <Text style={styles.descriptionText}>{descriptionText}</Text>
         </View>
       ) : null}
 
@@ -135,7 +465,7 @@ export function StepContent({
         </View>
       ) : null}
 
-      {/* Mark as Completed button — only for active step */}
+      {/* Mark as Completed — always at the bottom when active */}
       {isActive && !isCompleted && (
         <TouchableOpacity
           style={styles.completeButton}
@@ -143,9 +473,7 @@ export function StepContent({
           activeOpacity={0.8}
         >
           <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.completeButtonText}>
-            {t('step.markCompleted')}
-          </Text>
+          <Text style={styles.completeButtonText}>{t('step.markCompleted')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -157,6 +485,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 12,
   },
+
+  // Navigation grid
   navGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -179,56 +509,171 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
   },
+
+  // I'm Here button
   imHereButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    backgroundColor: '#F59E0B',
+    backgroundColor: AMBER,
     borderRadius: 10,
-    borderWidth: 0,
   },
   imHereText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  descriptionContainer: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: 8,
+
+  // Description card wrapper
+  descriptionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: AMBER,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+
+  // TTS toggle button
+  ttsToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  ttsToggleBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+
+  // ── Player card — amber/neutral, compact ─────────────────────────────────
+  playerCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    marginBottom: 2,
+  },
+
+  // Progress bar
+  progressWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    overflow: 'visible',
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: AMBER,
+    borderRadius: 2,
+    overflow: 'visible',
+  },
+  progressThumb: {
+    position: 'absolute',
+    right: -7,
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: AMBER,
+    shadowColor: AMBER,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  timeText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+
+  // Controls row
+  playerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  controlBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: AMBER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AMBER,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  speedText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+
+  // Description section
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  descriptionHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   descriptionText: {
     fontSize: 14,
     color: '#374151',
-    lineHeight: 20,
+    lineHeight: 21,
   },
-  ttsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  ttsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: AMBER,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ttsButtonDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  ttsButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
+
+  // Business
   businessContainer: {
     marginTop: 4,
   },
+
+  // Mark Completed
   completeButton: {
     flexDirection: 'row',
     alignItems: 'center',

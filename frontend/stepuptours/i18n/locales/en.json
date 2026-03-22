@@ -36,6 +36,8 @@
   "step.tts.play": "Play",
   "step.tts.pause": "Pause",
   "step.tts.stop": "Stop",
+  "step.tts.listen": "Listen to description",
+  "step.description": "Description",
   "step.progress": "{{completed}} of {{total}} steps completed",
 
   "popup.congratulations": "Congratulations!",
@@ -63,6 +65,7 @@
   "filter.sortPopular": "Most Popular",
   "filter.rating": "Sort by Rating",
   "filter.duration": "Sort by Duration",
+  "filter.filters": "Filters",
   "filter.clear": "Clear",
   "filter.apply": "Apply",
   "filter.selectCountry": "All countries",
@@ -237,6 +240,8 @@
   "donation.processing": "Processing payment...",
   "donation.success": "Donation completed!",
   "donation.error": "Payment failed. Please try again.",
+  "donation.thankYou": "Thank you for your donation!",
+  "donation.donated": "You donated {{amount}}€ to {{tour}}",
 
   "admin.tabs.donations": "Donations",
   "admin.donations.totalAmount": "Total Donations",
@@ -261,6 +266,7 @@
   "admin.settings.stripeKeysNote": "Secret and webhook keys are write-only. Once saved they cannot be read back — only their configured status is shown.",
   "admin.settings.stripeDashboardHint": "Find your keys at dashboard.stripe.com → Developers → API keys",
 
+  "home.heroTitle": "Discover your next adventure",
   "home.searchPlaceholder": "Search tours...",
   "home.allCountries": "All",
   "home.noTours": "No tours found",
