@@ -7,22 +7,23 @@ import { Platform } from 'react-native';
 import type { AuthSession } from '../types';
 
 const SESSION_KEY = 'app_session';
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
 
 // ── Abstracción de almacenamiento ─────────────────────────────────────────────
-// En web usa localStorage, en nativo usa SecureStore
+// En web usa sessionStorage (se borra al cerrar el navegador/pestaña),
+// en nativo usa SecureStore.
 
 const storage = {
   async get(key: string): Promise<string | null> {
     if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
+      return window.sessionStorage.getItem(key);
     }
     return SecureStore.getItemAsync(key);
   },
 
   async set(key: string, value: string): Promise<void> {
     if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
+      window.sessionStorage.setItem(key, value);
       return;
     }
     await SecureStore.setItemAsync(key, value);
@@ -30,7 +31,7 @@ const storage = {
 
   async remove(key: string): Promise<void> {
     if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
       return;
     }
     await SecureStore.deleteItemAsync(key);
@@ -91,6 +92,8 @@ export const inactivityTracker = (() => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let onExpire: InactivityCallback | null = null;
 
+  const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+
   const reset = () => {
     if (timer) clearTimeout(timer);
     if (!onExpire) return;
@@ -100,15 +103,27 @@ export const inactivityTracker = (() => {
     }, INACTIVITY_TIMEOUT_MS);
   };
 
+  const handleActivity = () => reset();
+
   const start = (callback: InactivityCallback) => {
     onExpire = callback;
     reset();
+    if (Platform.OS === 'web') {
+      ACTIVITY_EVENTS.forEach((e) =>
+        window.addEventListener(e, handleActivity, { passive: true }),
+      );
+    }
   };
 
   const stop = () => {
     if (timer) clearTimeout(timer);
     timer = null;
     onExpire = null;
+    if (Platform.OS === 'web') {
+      ACTIVITY_EVENTS.forEach((e) =>
+        window.removeEventListener(e, handleActivity),
+      );
+    }
   };
 
   return { start, stop, reset };

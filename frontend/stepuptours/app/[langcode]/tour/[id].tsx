@@ -22,6 +22,7 @@ import { useAuthStore } from '../../../stores/auth.store';
 import { StarRating } from '../../../components/tour/StarRating';
 import { BusinessCard } from '../../../components/tour/BusinessCard';
 import BackButton from '../../../components/layout/BackButton';
+import Footer from '../../../components/layout/Footer';
 import { LAYOUT } from '../../../styles/theme';
 
 const AMBER = '#F59E0B';
@@ -101,37 +102,41 @@ export default function TourDetailScreen() {
 
   // CTA logic
   const getCtaConfig = useCallback(() => {
-    if (!user) {
-      return {
-        label: t('tour.start'),
-        onPress: () => openAuthModal('register'),
-      };
-    }
+  if (!user) {
+    return {
+      label: t('tour.start'),
+      onPress: () => openAuthModal('register'),
+    };
+  }
 
-    if (!activity || (!activity.isCompleted && activity.stepsCompleted.length === 0)) {
-      return {
-        label: t('tour.start'),
-        onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
-      };
-    }
+  const isCompleted = activity?.isCompleted || !!activity?.completedAt;
+  const stepsCompletedCount = activity?.stepsCompleted?.length ?? 0;
 
-    if (activity.isCompleted || activity.completedAt) {
-      return {
-        label: t('tour.startAgain'),
-        onPress: async () => {
-          // Reset all steps before navigating so the user starts fresh
-          await updateActivity(user.id, id!, { stepsCompleted: [] });
-          router.push(`/${langcode}/tour/${id}/steps`);
-        },
-      };
-    }
+  // Tour completado y sin steps en progreso (completado limpio o reseteado) → "Start again"
+  if (isCompleted && stepsCompletedCount === 0) {
+    return {
+      label: t('tour.startAgain'),
+      onPress: async () => {
+        await updateActivity(user.id, id!, { stepsCompleted: [] });
+        router.push(`/${langcode}/tour/${id}/steps`);
+      },
+    };
+  }
 
-    // Some steps completed but not all
+  // Tiene steps completados (en progreso o completado+reseteado a medias) → "Continue"
+  if (stepsCompletedCount > 0) {
     return {
       label: t('tour.continue'),
       onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
     };
-  }, [user, activity, id, langcode, router, t, openAuthModal]);
+  }
+
+  // Sin actividad o ningún step completado → "Start tour"
+  return {
+    label: t('tour.start'),
+    onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
+  };
+}, [user, activity, id, langcode, router, t, openAuthModal]);
 
   if (isLoadingDetail || !tour) {
     return (
@@ -148,6 +153,8 @@ export default function TourDetailScreen() {
   const featuredBusinesses = tour.featuredBusinesses.filter(
     (b): b is NonNullable<typeof b> => b !== null,
   );
+
+  console.log(tour)
 
   return (
     <View style={styles.screen}>
@@ -256,6 +263,7 @@ export default function TourDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        <Footer />
       </ScrollView>
 
       {/* Rating modal */}

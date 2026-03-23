@@ -1,0 +1,23 @@
+uuid: afe12ede-6e32-4cb5-a550-0e7808bf9db4
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_rating_count
+    - node.type.tour
+id: node.tour.field_rating_count
+field_name: field_rating_count
+entity_type: node
+bundle: tour
+label: 'Rating Count'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

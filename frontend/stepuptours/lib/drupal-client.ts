@@ -166,19 +166,13 @@ export async function drupalDelete(endpoint: string): Promise<void> {
 // ── Helpers de mapeo: Drupal → tipos del dominio ──────────────────────────────
 
 export function mapDrupalUser(raw: any): import('../types').User {
-  // ── Roles ─────────────────────────────────────────────────────────────────
-  // Jsona deserializa las relaciones y renombra meta → resourceIdObjMeta
-  // El machine name del rol está en resourceIdObjMeta.drupal_internal__target_id
   const roles: string[] = Array.isArray(raw.roles)
     ? raw.roles.map((r: any) => {
       if (typeof r === 'string') return r;
-      // Jsona resuelto: resourceIdObjMeta tiene el machine name
       const fromResourceMeta = r.resourceIdObjMeta?.drupal_internal__target_id;
       if (fromResourceMeta) return fromResourceMeta;
-      // Fallback: meta estándar JSON:API
       const fromMeta = r.meta?.drupal_internal__target_id ?? r.meta?.drupal_internal__id;
       if (fromMeta) return fromMeta;
-      // Último recurso: id (UUID)
       return r.id ?? r;
     })
     : (raw.relationships?.roles?.data ?? []).map(
@@ -188,9 +182,6 @@ export function mapDrupalUser(raw: any): import('../types').User {
         r.id
     );
 
-  // ── Country ───────────────────────────────────────────────────────────────
-  // Cuando viene de PATCH sin include, field_country solo tiene id y type
-  // Cuando viene de GET con include=field_country, tiene también name
   const country = raw.field_country
     ? {
       id: raw.field_country.id,
@@ -203,7 +194,6 @@ export function mapDrupalUser(raw: any): import('../types').User {
     username: raw.name ?? '',
     email: raw.mail ?? '',
     publicName: raw.field_public_name ?? raw.name ?? '',
-    // preferred_langcode es el campo correcto en Drupal — langcode es el idioma del nodo
     preferredLanguage: raw.preferred_langcode ?? raw.langcode ?? 'en',
     country,
     avatar: resolveImageUrl(raw.user_picture),
@@ -222,7 +212,7 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
     image: resolveImageUrl(raw.field_image),
     duration: raw.field_duration ?? 0,
     averageRate: parseFloat(raw.field_average_rate ?? '0'),
-    ratingCount: raw.field_rating_count ?? 0,
+    ratingCount: parseInt(raw.field_rating_count ?? '0', 10) || 0,
     stopsCount: raw.field_steps_count ?? 0,
     donationCount: raw.field_donation_count ?? 0,
     donationTotal: parseFloat(raw.field_donation_total ?? '0'),

@@ -70,7 +70,24 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(len\\(d.get\\(''''data'''',[]\\)\\), ''''cities''''\\); [print\\(c[''''attributes''''][''''name'''']\\) for c in d.get\\(''''data'''',[]\\)]\")",
       "Bash(curl -sk \"https://stepuptours.ddev.site/jsonapi/node/tour?filter%5Bfield_city.name%5D=Barcelona&fields%5Bnode--tour%5D=title,field_city&include=field_city\")",
       "Bash(curl -sk \"https://stepuptours.ddev.site/jsonapi/node/tour?filter%5Bfield_city.name%5D=Barcelona&fields%5Bnode--tour%5D=title\")",
-      "Bash(curl -sk \"https://stepuptours.ddev.site/jsonapi/node/tour?filter%5Bstatus%5D=1&filter%5Bfield_country.name%5D=Spain&filter%5Bfield_city.name%5D=Barcelona&fields%5Bnode--tour%5D=title\")"
-    ]
+      "Bash(curl -sk \"https://stepuptours.ddev.site/jsonapi/node/tour?filter%5Bstatus%5D=1&filter%5Bfield_country.name%5D=Spain&filter%5Bfield_city.name%5D=Barcelona&fields%5Bnode--tour%5D=title\")",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(__NEW_LINE_c6560db000be3e3a__ grep:*)",
+      "Bash(git config:*)",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' log --oneline -- \"frontend/stepuptours/app/[langcode]/tour/[id].tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' show 816e048:\"frontend/stepuptours/app/[langcode]/tour/[id].tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' show 00b593c:\"frontend/stepuptours/app/[langcode]/tour/[id].tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' log --oneline -- \"frontend/stepuptours/components/tour/TourCompletionModal*\" \"frontend/stepuptours/components/**/*omplete*\" \"frontend/stepuptours/components/**/*onat*\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' diff --name-only b7af82e 00b593c -- \"frontend/stepuptours/components/\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' log --oneline -- \"frontend/stepuptours/components/tour/CompletionPopup.tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' show b7b4ddd:\"frontend/stepuptours/components/tour/CompletionPopup.tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' show 816e048:\"frontend/stepuptours/components/tour/CompletionPopup.tsx\")",
+      "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' diff b7b4ddd 816e048 -- \"frontend/stepuptours/components/tour/CompletionPopup.tsx\")",
+      "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app --include=*.tsx -n)",
+      "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" frontend/stepuptours/app --include=*.tsx -n)",
+      "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" frontend/stepuptours/components --include=*.tsx -n)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

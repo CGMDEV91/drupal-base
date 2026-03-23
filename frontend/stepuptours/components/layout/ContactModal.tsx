@@ -1,5 +1,5 @@
 // components/layout/ContactModal.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'https://stepuptours.ddev.site';
@@ -35,6 +36,8 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const subjectRef = useRef<TextInput>(null);
+  const messageRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!success) return;
@@ -97,7 +100,7 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
             >
               {/* Close */}
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Ionicons name="close" size={20} color="#6B7280" />
               </TouchableOpacity>
 
               <Text style={styles.title}>{t('contact.title')}</Text>
@@ -117,19 +120,27 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
                     autoCapitalize="none"
                     placeholder={t('contact.email')}
                     placeholderTextColor="#9CA3AF"
+                    returnKeyType="next"
+                    onSubmitEditing={() => subjectRef.current?.focus()}
+                    blurOnSubmit={false}
                   />
 
                   <Text style={styles.label}>{t('contact.subject')}</Text>
                   <TextInput
+                    ref={subjectRef}
                     style={styles.input}
                     value={subject}
                     onChangeText={setSubject}
                     placeholder={t('contact.subject')}
                     placeholderTextColor="#9CA3AF"
+                    returnKeyType="next"
+                    onSubmitEditing={() => messageRef.current?.focus()}
+                    blurOnSubmit={false}
                   />
 
                   <Text style={styles.label}>{t('contact.message')}</Text>
                   <TextInput
+                    ref={messageRef}
                     style={[styles.input, styles.textArea]}
                     value={message}
                     onChangeText={setMessage}
@@ -168,7 +179,7 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
             <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
               <ScrollView keyboardShouldPersistTaps="handled">
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Text style={styles.closeButtonText}>✕</Text>
+                  <Ionicons name="close" size={20} color="#6B7280" />
                 </TouchableOpacity>
 
                 <Text style={styles.title}>{t('contact.title')}</Text>
@@ -308,6 +319,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1F2937',
     backgroundColor: '#F9FAFB',
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
   },
   textArea: {
     minHeight: 100,
@@ -350,9 +362,5 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 8,
     zIndex: 1,
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#6B7280',
   },
 });

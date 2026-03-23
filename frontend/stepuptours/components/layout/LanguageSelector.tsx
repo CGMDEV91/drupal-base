@@ -12,6 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useLanguageStore } from '../../stores/language.store';
 import { langCodeToCountryCode } from '../../services/language.service';
 import type { Language } from '../../services/language.service';
@@ -73,7 +74,7 @@ export function LanguageSelector() {
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetHeaderText}>Idioma</Text>
                 <TouchableOpacity onPress={() => setOpen(false)} hitSlop={8}>
-                  <Text style={styles.sheetClose}>✕</Text>
+                  <Ionicons name="close" size={20} color="#6B7280" />
                 </TouchableOpacity>
               </View>
               <FlatList

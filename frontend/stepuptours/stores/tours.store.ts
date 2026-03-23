@@ -119,20 +119,38 @@ export const useToursStore = create<ToursState>((set, get) => ({
     }
   },
 
-  updateActivity: async (userId, tourId, updates) => {
-    // Optimistic update: apply changes immediately, rollback on error
-    const prev = get().currentActivity;
-    if (prev) {
-      set({ currentActivity: { ...prev, ...updates } });
+updateActivity: async (userId, tourId, updates) => {
+  const prev = get().currentActivity;
+  if (prev) {
+    set({ currentActivity: { ...prev, ...updates } });
+  }
+  try {
+    console.log('→ updateActivity llamado con:', { userId, tourId, updates });
+    console.log('→ currentTourRatingCount:', get().currentTour?.ratingCount);
+    
+    const activity = await upsertTourActivity(
+      userId,
+      tourId,
+      updates,
+      get().currentTour?.ratingCount
+    );
+    
+    console.log('→ activity guardada:', activity);
+    set({ currentActivity: activity });
+
+    if (updates.userRating !== undefined && !prev?.userRating) {
+      console.log('→ incrementando ratingCount');
+      set((state) => ({
+        currentTour: state.currentTour
+          ? { ...state.currentTour, ratingCount: (state.currentTour.ratingCount ?? 0) + 1 }
+          : null,
+      }));
     }
-    try {
-      const activity = await upsertTourActivity(userId, tourId, updates);
-      set({ currentActivity: activity });
-    } catch (err: any) {
-      // Rollback to previous state on error
-      set({ currentActivity: prev, error: err.message ?? 'Error al actualizar actividad' });
-    }
-  },
+  } catch (err: any) {
+    console.error('→ updateActivity error:', err);
+    set({ currentActivity: prev, error: err.message ?? 'Error al actualizar actividad' });
+  }
+},
 
   fetchUserActivities: async (userId) => {
     try {

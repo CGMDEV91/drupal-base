@@ -27,7 +27,6 @@ import Footer from '../../../components/layout/Footer';
 
 const AMBER = '#F59E0B';
 
-// Static hero: a traveller exploring a city at dusk — always visible, no async dependency.
 const HERO_IMAGE =
   'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1920&q=80';
 
@@ -147,7 +146,6 @@ function DesktopChipRow({
   return (
     <View style={styles.desktopChipWrapper}>
       <View style={styles.desktopChipInner}>
-        {/* Sort */}
         <View ref={sortRef}>
           <TouchableOpacity
             style={[styles.chip, filters.sort && styles.chipActive]}
@@ -159,7 +157,6 @@ function DesktopChipRow({
             <Ionicons name="chevron-down" size={11} color={filters.sort ? 'rgba(255,255,255,0.7)' : '#9CA3AF'} />
           </TouchableOpacity>
         </View>
-        {/* Country */}
         <View ref={countryRef}>
           <TouchableOpacity
             style={[styles.chip, filters.country && styles.chipActive]}
@@ -173,7 +170,6 @@ function DesktopChipRow({
             <Ionicons name="chevron-down" size={11} color={filters.country ? 'rgba(255,255,255,0.7)' : '#9CA3AF'} />
           </TouchableOpacity>
         </View>
-        {/* City */}
         <View ref={cityRef}>
           <TouchableOpacity
             style={[styles.chip, filters.city && styles.chipActive]}
@@ -187,7 +183,6 @@ function DesktopChipRow({
             <Ionicons name="chevron-down" size={11} color={filters.city ? 'rgba(255,255,255,0.7)' : '#9CA3AF'} />
           </TouchableOpacity>
         </View>
-        {/* Clear */}
         {hasActive && (
           <TouchableOpacity style={styles.clearChip} onPress={onClear} activeOpacity={0.7}>
             <Ionicons name="close-circle" size={14} color="#EF4444" />
@@ -196,7 +191,6 @@ function DesktopChipRow({
         )}
       </View>
 
-      {/* Floating dropdown */}
       {openChip && ddConfig && (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
           <Pressable style={StyleSheet.absoluteFill} onPress={close}>
@@ -255,7 +249,6 @@ function MobileFilterBar({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  // Pending state — only committed on "Aplicar"
   const [pendingSort, setPendingSort] = useState<TourFilters['sort']>(filters.sort);
   const [pendingCountry, setPendingCountry] = useState<string | undefined>(filters.country);
   const [pendingCity, setPendingCity] = useState<string | undefined>(filters.city);
@@ -297,7 +290,6 @@ function MobileFilterBar({
 
   return (
     <>
-      {/* Trigger bar */}
       <View style={[styles.mobileFilterBar, { paddingHorizontal: cardPadding }]}>
         <TouchableOpacity style={styles.mobileFilterTrigger} onPress={openModal} activeOpacity={0.7}>
           <Ionicons name="options-outline" size={15} color="#374151" />
@@ -317,11 +309,9 @@ function MobileFilterBar({
         )}
       </View>
 
-      {/* Modal — drops from top, below navbar */}
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <Pressable style={styles.mobileModalBackdrop} onPress={close}>
           <Pressable style={styles.mobileModalSheet} onPress={() => {}}>
-            {/* Header with Apply / Clear */}
             <View style={styles.mobileModalHeader}>
               <TouchableOpacity onPress={handleClearPending} activeOpacity={0.7} style={styles.mobileModalClearBtn}>
                 <Text style={styles.mobileModalClearText}>{t('filter.clear')}</Text>
@@ -332,7 +322,6 @@ function MobileFilterBar({
               </TouchableOpacity>
             </View>
             <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
-              {/* Sort section */}
               <View style={styles.mobileSection}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.sort')}</Text>
                 {sortOptions.map((o) => {
@@ -351,7 +340,6 @@ function MobileFilterBar({
                   );
                 })}
               </View>
-              {/* Country section */}
               <View style={styles.mobileSection}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.country')}</Text>
                 <View style={styles.mobileSectionSearch}>
@@ -390,7 +378,6 @@ function MobileFilterBar({
                   );
                 })}
               </View>
-              {/* City section */}
               <View style={[styles.mobileSection, { paddingBottom: 32 }]}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.city')}</Text>
                 <View style={styles.mobileSectionSearch}>
@@ -460,7 +447,6 @@ export default function HomePage() {
     if (user) fetchUserActivities(user.id);
   }, [user?.id]);
 
-  // Responsive columns
   const cols = width >= 768 ? 3 : width >= 640 ? 2 : 1;
   const GRID_MAX_WIDTH = 1200;
   const PADDING = width >= 768 ? 32 : 16;
@@ -483,7 +469,6 @@ export default function HomePage() {
     fetchTours({ search, page: 1 });
   };
 
-  // Live filter handlers — apply immediately, no "Apply" button
   const handleCountrySelect = (country: string | null) => {
     const next = country ? { country, city: undefined } : { country: undefined, city: undefined };
     setFilters(next);
@@ -520,10 +505,6 @@ export default function HomePage() {
     fetchTours({ ...filters, ...next });
   };
 
-  // Hero: use first tour's image once loaded; otherwise the static Unsplash photo.
-  const heroImage = tours.length > 0 && tours[0].image ? tours[0].image : HERO_IMAGE;
-  const hasActiveFilters = !!(filters.country || filters.city || filters.sort || filters.search);
-
   return (
     <View style={styles.root}>
       <FlatList
@@ -539,6 +520,7 @@ export default function HomePage() {
                 width: '100%',
                 paddingHorizontal: PADDING,
                 justifyContent: 'space-between',
+                paddingBottom: 10,
               }
             : undefined
         }
@@ -558,28 +540,21 @@ export default function HomePage() {
             {/* ── HERO BANNER ── */}
             <View style={styles.banner}>
               <Image
-                source={{ uri: heroImage }}
+                source={{ uri: HERO_IMAGE }}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
                 transition={700}
               />
-              {/* Single overlay covering the full image */}
               <View style={styles.overlayBottom} />
-
-              {/* Content */}
               <View style={styles.bannerContent}>
-                {/* Decorative eyebrow */}
                 <View style={styles.bannerEyebrow}>
                   <View style={styles.eyebrowLine} />
                   <Ionicons name="airplane-outline" size={14} color="rgba(255,255,255,0.7)" />
                   <Text style={styles.eyebrowText}>STEPUP TOURS</Text>
                   <View style={styles.eyebrowLine} />
                 </View>
-
                 <Text style={styles.bannerTitle}>{t('home.heroTitle')}</Text>
                 <Text style={styles.bannerSubtitle}>{t('home.subtitle')}</Text>
-
-                {/* Search bar */}
                 <View style={[styles.searchBar, { width: Math.min(width - 48, 640) }]}>
                   <Ionicons name="search-outline" size={18} color="#9CA3AF" />
                   <TextInput
@@ -673,14 +648,14 @@ export default function HomePage() {
           )
         }
         ListFooterComponent={
-          <>
+          <View style={{ paddingTop: 24 }}>
             {hasMore && isLoading && (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
                 <ActivityIndicator size="small" color={AMBER} />
               </View>
             )}
             <Footer />
-          </>
+          </View>
         }
       />
     </View>
@@ -694,29 +669,24 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: AMBER, paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20 },
   btnPrimaryText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
-  // ── Hero Banner ────────────────────────────────────────────────────────────
   banner: {
     height: 340,
     position: 'relative',
     overflow: 'hidden',
     justifyContent: 'flex-end',
-    backgroundColor: '#1A2744', // while image loads
+    backgroundColor: '#1A2744',
   },
-  // Single overlay covering the full image
   overlayBottom: {
     position: 'absolute',
     top: 0, bottom: 0, left: 0, right: 0,
     backgroundColor: 'rgba(8,12,26,0.60)',
   },
-
   bannerContent: {
     paddingHorizontal: 24,
     paddingBottom: 32,
     alignItems: 'center',
     zIndex: 1,
   },
-
-  // Eyebrow row: line ✈ STEPUP TOURS line
   bannerEyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -734,7 +704,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     letterSpacing: 2.5,
   },
-
   bannerTitle: {
     fontSize: 30,
     fontWeight: '800',
@@ -759,8 +728,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: 0.1,
   },
-
-  // ── Search bar ─────────────────────────────────────────────────────────────
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -793,8 +760,6 @@ const styles = StyleSheet.create({
       } as any,
     }),
   },
-
-  // ── Desktop chip row ────────────────────────────────────────────────────────
   desktopChipWrapper: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -810,8 +775,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 32,
   },
-
-  // ── Mobile filter bar ───────────────────────────────────────────────────────
   mobileFilterBar: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -869,8 +832,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#EF4444',
   },
-
-  // ── Mobile modal ────────────────────────────────────────────────────────────
   mobileModalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.38)',
@@ -880,7 +841,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    marginTop: 56, // below navbar
+    marginTop: 56,
     ...(Platform.OS === 'web'
       ? ({ boxShadow: '0 8px 32px rgba(0,0,0,0.18)' } as any)
       : {
@@ -967,11 +928,9 @@ const styles = StyleSheet.create({
     color: '#D97706',
     fontWeight: '600',
   },
-
-  // ── Count pill ──────────────────────────────────────────────────────────────
   countPillRow: {
-    paddingTop: 16,
-    paddingBottom: 4,
+    paddingTop: 20,
+    paddingBottom: 16,
     maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
@@ -982,14 +941,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 4,
+    marginBottom: 5,
   },
   countPillText: {
     fontSize: 12,
     fontWeight: '400',
     color: '#6B7280',
   },
-
-  // ── Search inside dropdown/modal ───────────────────────────────────────────
   ddSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1025,8 +983,6 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     ...Platform.select({ web: { outlineWidth: 0, outlineStyle: 'none' } as any }),
   },
-
-  // ── Chip styles (shared) ───────────────────────────────────────────────────
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1048,7 +1004,6 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   chipTextActive: { color: '#FFFFFF' },
-
   clearChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1065,8 +1020,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#EF4444',
   },
-
-  // ── Desktop dropdown ───────────────────────────────────────────────────────
   desktopDropdown: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
@@ -1084,8 +1037,6 @@ const styles = StyleSheet.create({
           elevation: 12,
         }),
   },
-
-  // ── Shared dropdown option ─────────────────────────────────────────────────
   ddOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1108,8 +1059,6 @@ const styles = StyleSheet.create({
     color: '#D97706',
     fontWeight: '700',
   },
-
-  // ── Empty / Loading ────────────────────────────────────────────────────────
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

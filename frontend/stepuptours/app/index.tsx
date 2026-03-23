@@ -3,7 +3,7 @@ import { useLanguageStore } from '@/stores/language.store';
 
 export default function Index() {
   const currentLanguage = useLanguageStore((s) => s.currentLanguage);
-  const lang = currentLanguage?.id ?? 'en';
+  const lang = currentLanguage?.id ?? 'es';
   
   return <Redirect href={`/${lang}/`} />;
 }

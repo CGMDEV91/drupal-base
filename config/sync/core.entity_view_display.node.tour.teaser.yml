@@ -16,6 +16,7 @@ dependencies:
     - field.field.node.tour.field_featured_business_3
     - field.field.node.tour.field_image
     - field.field.node.tour.field_location
+    - field.field.node.tour.field_rating_count
     - image.style.medium
     - node.type.tour
   module:
@@ -54,4 +55,5 @@ hidden:
   field_featured_business_2: true
   field_featured_business_3: true
   field_location: true
+  field_rating_count: true
   langcode: true

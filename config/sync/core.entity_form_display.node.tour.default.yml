@@ -15,6 +15,7 @@ dependencies:
     - field.field.node.tour.field_featured_business_3
     - field.field.node.tour.field_image
     - field.field.node.tour.field_location
+    - field.field.node.tour.field_rating_count
     - image.style.thumbnail
     - node.type.tour
   module:
@@ -133,6 +134,13 @@ content:
     region: content
     settings:
       html5_geolocation: false
+    third_party_settings: {  }
+  field_rating_count:
+    type: number
+    weight: 132
+    region: content
+    settings:
+      placeholder: ''
     third_party_settings: {  }
   langcode:
     type: language_select

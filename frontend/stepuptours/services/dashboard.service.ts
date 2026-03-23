@@ -52,7 +52,7 @@ export async function createTour(data: {
         title: data.title,
         field_description: { value: data.description, format: 'basic_html' },
         field_duration: data.duration,
-        status: false, // draft
+
       },
       relationships,
     },

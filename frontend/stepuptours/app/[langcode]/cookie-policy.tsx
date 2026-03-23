@@ -10,18 +10,18 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import PageBanner from '../../components/layout/PageBanner';
+import Footer from '../../components/layout/Footer';
 
 export default function CookiePolicyScreen() {
   const { t } = useTranslation();
 
   return (
     <View style={styles.root}>
-      <PageBanner icon="document-text" iconBgColor="#6366F1" title={t('legal.cookiePolicy')} />
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <PageBanner icon="document-text" iconBgColor="#6366F1" title={t('legal.cookiePolicy')} />
         <View style={styles.inner}>
 
           <Text style={styles.lastUpdated}>Last updated: March 2026</Text>
@@ -154,6 +154,7 @@ export default function CookiePolicyScreen() {
           </View>
 
         </View>
+        <Footer />
       </ScrollView>
     </View>
   );
@@ -167,7 +168,6 @@ const styles = StyleSheet.create({
 
   // Scroll content: centred on desktop
   scrollContent: {
-    paddingVertical: 24,
     paddingBottom: 48,
   },
   inner: {
@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
     paddingHorizontal: 20,
+    paddingTop: 24,
   },
 
   lastUpdated: {

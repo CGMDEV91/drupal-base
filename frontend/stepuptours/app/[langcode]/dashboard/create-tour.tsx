@@ -191,26 +191,27 @@ export default function CreateTourScreen() {
     );
   }
 
-  const contentStyle = isDesktop
-    ? { maxWidth: CONTENT_MAX_WIDTH, width: '100%' as const, alignSelf: 'center' as const }
-    : {};
+  const contentStyle = {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    ...(isDesktop ? { maxWidth: CONTENT_MAX_WIDTH, width: '100%' as const, alignSelf: 'center' as const } : {}),
+  };
 
   return (
     <View style={styles.screen}>
-      <PageBanner
-        icon="add-circle-outline"
-        iconBgColor={AMBER}
-        title={t('createTour.title')}
-        subtitle={t('createTour.subtitle')}
-        showBack
-      />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <PageBanner
+          icon="add-circle-outline"
+          iconBgColor={AMBER}
+          title={t('createTour.title')}
+          subtitle={t('createTour.subtitle')}
+          showBack
+        />
         <View style={contentStyle}>
 
           {/* Section 1: Basic Info */}
@@ -471,7 +472,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F9FAFB' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48 },
+  scrollContent: { paddingBottom: 48 },
 
   section: {
     backgroundColor: '#FFFFFF',

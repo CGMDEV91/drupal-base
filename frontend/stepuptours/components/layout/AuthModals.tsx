@@ -1,5 +1,5 @@
 // components/layout/AuthModals.tsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  TextInput as RNTextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/auth.store';
 
@@ -23,7 +25,8 @@ interface Props {
 
 // ── Campo de texto reutilizable ───────────────────────────────────────────────
 function Field({
-  label, value, onChangeText, placeholder, secureTextEntry, autoCapitalize, keyboardType, error,
+  label, value, onChangeText, placeholder, secureTextEntry, autoCapitalize,
+  keyboardType, error, onSubmitEditing, returnKeyType, inputRef,
 }: {
   label: string;
   value: string;
@@ -33,6 +36,9 @@ function Field({
   autoCapitalize?: 'none' | 'sentences';
   keyboardType?: 'default' | 'email-address';
   error?: string;
+  onSubmitEditing?: () => void;
+  returnKeyType?: 'next' | 'go' | 'done';
+  inputRef?: React.RefObject<RNTextInput>;
 }) {
   const [showPass, setShowPass] = useState(false);
   const isPassword = secureTextEntry;
@@ -49,6 +55,7 @@ function Field({
         paddingHorizontal: 14,
       }}>
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -56,16 +63,24 @@ function Field({
           secureTextEntry={isPassword && !showPass}
           autoCapitalize={autoCapitalize ?? 'none'}
           keyboardType={keyboardType ?? 'default'}
+          onSubmitEditing={onSubmitEditing}
+          returnKeyType={returnKeyType ?? 'done'}
+          blurOnSubmit={returnKeyType !== 'next'}
           style={{
             flex: 1,
             fontSize: 14,
             color: '#111827',
             paddingVertical: Platform.OS === 'web' ? 12 : 10,
+            ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
           }}
         />
         {isPassword && (
           <TouchableOpacity onPress={() => setShowPass((v) => !v)} style={{ padding: 4 }}>
-            <Text style={{ fontSize: 16, color: '#9CA3AF' }}>{showPass ? '🙈' : '👁️'}</Text>
+            <Ionicons
+              name={showPass ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color="#9CA3AF"
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -83,6 +98,7 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
+  const passwordRef = useRef<RNTextInput>(null);
 
   const validate = () => {
     const errors: typeof fieldErrors = {};
@@ -108,14 +124,15 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
           <Text style={modalStyles.subtitle}>{t('auth.loginSubtitle')}</Text>
         </View>
         <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
-          <Text style={modalStyles.closeBtnText}>✕</Text>
+          <Ionicons name="close" size={16} color="#6B7280" />
         </TouchableOpacity>
       </View>
 
       {/* Error global */}
       {error ? (
         <View style={modalStyles.errorBanner}>
-          <Text style={modalStyles.errorBannerText}>⚠️ {error}</Text>
+          <Ionicons name="alert-circle" size={14} color="#B91C1C" style={{ marginRight: 6 }} />
+          <Text style={modalStyles.errorBannerText}>{error}</Text>
         </View>
       ) : null}
 
@@ -126,6 +143,8 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
         onChangeText={setUsername}
         placeholder={t('auth.usernamePlaceholder')}
         error={fieldErrors.username}
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
       />
       <Field
         label={t('auth.password')}
@@ -134,6 +153,9 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
         placeholder={t('auth.passwordPlaceholder')}
         secureTextEntry
         error={fieldErrors.password}
+        inputRef={passwordRef}
+        returnKeyType="go"
+        onSubmitEditing={handleSubmit}
       />
 
       {/* Botón principal */}
@@ -171,6 +193,9 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string; email?: string; password?: string; confirm?: string;
   }>({});
+  const emailRef = useRef<RNTextInput>(null);
+  const passwordRef = useRef<RNTextInput>(null);
+  const confirmRef = useRef<RNTextInput>(null);
 
   const validate = () => {
     const errors: typeof fieldErrors = {};
@@ -201,14 +226,15 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
           <Text style={modalStyles.subtitle}>{t('auth.joinSubtitle')}</Text>
         </View>
         <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
-          <Text style={modalStyles.closeBtnText}>✕</Text>
+          <Ionicons name="close" size={16} color="#6B7280" />
         </TouchableOpacity>
       </View>
 
       {/* Error global */}
       {error ? (
         <View style={modalStyles.errorBanner}>
-          <Text style={modalStyles.errorBannerText}>⚠️ {error}</Text>
+          <Ionicons name="alert-circle" size={14} color="#B91C1C" style={{ marginRight: 6 }} />
+          <Text style={modalStyles.errorBannerText}>{error}</Text>
         </View>
       ) : null}
 
@@ -219,6 +245,8 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         onChangeText={setUsername}
         placeholder={t('auth.usernamePlaceholder')}
         error={fieldErrors.username}
+        returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
       />
       <Field
         label={t('auth.email')}
@@ -227,6 +255,9 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         placeholder={t('auth.emailPlaceholder')}
         keyboardType="email-address"
         error={fieldErrors.email}
+        inputRef={emailRef}
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
       />
       <Field
         label={t('auth.password')}
@@ -235,6 +266,9 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         placeholder={t('auth.passwordPlaceholder')}
         secureTextEntry
         error={fieldErrors.password}
+        inputRef={passwordRef}
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
       />
       <Field
         label={t('auth.confirmPassword')}
@@ -243,6 +277,9 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         placeholder={t('auth.confirmPasswordPlaceholder')}
         secureTextEntry
         error={fieldErrors.confirm}
+        inputRef={confirmRef}
+        returnKeyType="go"
+        onSubmitEditing={handleSubmit}
       />
 
       {/* Botón principal */}
@@ -345,12 +382,13 @@ const modalStyles = {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#F3F4F6', alignItems: 'center' as const, justifyContent: 'center' as const,
   },
-  closeBtnText: { fontSize: 13, color: '#6B7280' },
   errorBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12, marginBottom: 16,
     borderWidth: 1, borderColor: '#FECACA',
   },
-  errorBannerText: { color: '#B91C1C', fontSize: 13 },
+  errorBannerText: { color: '#B91C1C', fontSize: 13, flex: 1 },
   btnPrimary: {
     backgroundColor: '#F59E0B',
     paddingVertical: 14, borderRadius: 14,

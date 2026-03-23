@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import Footer from '../../components/layout/Footer';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { getUserActivitiesWithTours, upsertTourActivity } from '../../services/tours.service';
@@ -181,6 +182,7 @@ export default function FavouritesScreen() {
           </TouchableOpacity>
         </View>
       }
+      ListFooterComponent={<Footer />}
     />
   );
 }

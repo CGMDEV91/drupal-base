@@ -32,6 +32,7 @@ const TOUR_FIELDS = {
     'field_description',
     'field_image',
     'field_average_rate',
+    'field_rating_count',
     'field_duration',
     'field_donation_count',
     'field_donation_total',
@@ -63,6 +64,7 @@ const TOUR_CARD_FIELDS = {
     'title',
     'field_image',
     'field_average_rate',
+    'field_rating_count',
     'field_duration',
     'field_donation_count',
     'field_city',
@@ -78,16 +80,9 @@ const TOUR_CARD_INCLUDE = ['field_image', 'field_city', 'field_country'];
 
 // ── Batch step count helper ───────────────────────────────────────────────────
 
-/**
- * Fetches step counts for a list of tour IDs in a single JSON:API request.
- * Uses drupalGetRaw which deserializes via Jsona, so step.field_tour.id is
- * the UUID of the parent tour.
- * Returns a map of tourId -> stepCount.
- */
 async function batchGetStepCounts(tourIds: string[]): Promise<Record<string, number>> {
   if (tourIds.length === 0) return {};
 
-  // Build IN filter — Drupal JSON:API format for multiple values
   const filterParts = tourIds.map(
     (id, i) =>
       `filter[tid][condition][path]=field_tour.id` +
@@ -108,7 +103,6 @@ async function batchGetStepCounts(tourIds: string[]): Promise<Record<string, num
 
     const counts: Record<string, number> = {};
     for (const step of steps) {
-      // drupalGetRaw uses Jsona, so field_tour is already deserialized as an object
       const tourId = (step as any).field_tour?.id;
       if (tourId) {
         counts[tourId] = (counts[tourId] ?? 0) + 1;
@@ -129,8 +123,7 @@ export async function getTours(filters: TourFilters = {}): Promise<PaginatedResu
   if (country) drupalFilters['field_country.name'] = country;
   if (city) drupalFilters['field_city.name'] = city;
 
-  // Build sort param
-  let sortParam = 'sort=-field_average_rate'; // default: best rating
+  let sortParam = 'sort=-field_average_rate';
   if (sort === 'alphabetical') sortParam = 'sort=title';
   else if (sort === 'popular') sortParam = 'sort=-field_donation_count';
 
@@ -170,7 +163,6 @@ export async function getTourById(id: string): Promise<Tour> {
     buildInclude([...TOUR_INCLUDE, 'uid']),
   ].join('&');
 
-  // drupalGet uses Jsona — raw.id is already the UUID
   const raw = await drupalGet<any>(`/node/tour/${id}`, params);
   const tour = mapDrupalTour(raw);
 
@@ -235,15 +227,27 @@ export async function getTourActivity(
 export async function upsertTourActivity(
   userId: string,
   tourId: string,
-  updates: Partial<Pick<TourActivity, 'isFavorite' | 'isSaved' | 'isCompleted' | 'userRating' | 'stepsCompleted'>>
+  updates: Partial<Pick<TourActivity, 'isFavorite' | 'isSaved' | 'isCompleted' | 'userRating' | 'stepsCompleted'>>,
+  currentTourRatingCount?: number
 ): Promise<TourActivity> {
   const existing = await getTourActivity(userId, tourId);
+  const isNewRating = updates.userRating !== undefined && !existing?.userRating;
 
-  const attributes: Record<string, any> = {};
-  if (updates.isFavorite !== undefined) attributes.field_is_favorite = updates.isFavorite;
-  if (updates.isSaved !== undefined) attributes.field_is_saved = updates.isSaved;
-  if (updates.isCompleted !== undefined) attributes.field_is_completed = updates.isCompleted;
-  if (updates.userRating !== undefined) attributes.field_user_rating = updates.userRating;
+const attributes: Record<string, any> = {};
+if (updates.isFavorite !== undefined) attributes.field_is_favorite = updates.isFavorite;
+if (updates.isSaved !== undefined) attributes.field_is_saved = updates.isSaved;
+if (updates.isCompleted !== undefined) {
+  attributes.field_is_completed = updates.isCompleted;
+  if (updates.isCompleted) {
+    attributes.field_completed_at = Math.floor(Date.now() / 1000);
+  }
+}
+if (updates.userRating !== undefined) {
+  attributes.field_user_rating = updates.userRating;
+  if (isNewRating) {
+    attributes.field_rated_at = Math.floor(Date.now() / 1000);
+  }
+}
 
   const relationships: Record<string, any> = {
     field_user: { data: { type: 'user--user', id: userId } },
@@ -256,6 +260,8 @@ export async function upsertTourActivity(
     };
   }
 
+  let activity: TourActivity;
+
   if (existing) {
     const raw = await drupalPatch<any>(`/node/tour_user_activity/${existing.id}`, {
       data: {
@@ -265,17 +271,36 @@ export async function upsertTourActivity(
         relationships,
       },
     });
-    return mapDrupalActivity(raw);
+    activity = mapDrupalActivity(raw);
+  } else {
+    const raw = await drupalPost<any>('/node/tour_user_activity', {
+      data: {
+        type: 'node--tour_user_activity',
+        attributes,
+        relationships,
+      },
+    });
+    activity = mapDrupalActivity(raw);
   }
 
-  const raw = await drupalPost<any>('/node/tour_user_activity', {
-    data: {
-      type: 'node--tour_user_activity',
-      attributes,
-      relationships,
-    },
-  });
-  return mapDrupalActivity(raw);
+  // Incrementar ratingCount solo cuando es un rating nuevo
+  if (isNewRating && currentTourRatingCount !== undefined) {
+    try {
+      await drupalPatch(`/node/tour/${tourId}`, {
+        data: {
+          type: 'node--tour',
+          id: tourId,
+          attributes: {
+            field_rating_count: currentTourRatingCount + 1,
+          },
+        },
+      });
+    } catch {
+      // No crítico
+    }
+  }
+
+  return activity;
 }
 
 // ── Obtener todos los tours con actividad del usuario ─────────────────────────
@@ -297,6 +322,7 @@ export async function getUserTourActivities(userId: string): Promise<TourActivit
         'title',
         'field_image',
         'field_average_rate',
+        'field_rating_count',
         'field_duration',
         'field_donation_count',
         'field_city',
@@ -316,8 +342,6 @@ export async function getUserTourActivities(userId: string): Promise<TourActivit
 }
 
 // ── Obtener actividades con datos de tour embebidos (una sola petición) ───────
-// Usa ?include=field_tour,... para obtener los datos del tour sin llamadas extra.
-// Devuelve pares { activity, tour } listos para usar en la UI.
 
 export interface ActivityWithTour {
   activity: TourActivity;
@@ -341,6 +365,7 @@ export async function getUserActivitiesWithTours(userId: string): Promise<Activi
         'title',
         'field_image',
         'field_average_rate',
+        'field_rating_count',
         'field_duration',
         'field_donation_count',
         'field_city',
@@ -366,7 +391,6 @@ export async function getUserActivitiesWithTours(userId: string): Promise<Activi
     }
   }
 
-  // Enrich tours with actual step counts in a single batch request
   if (results.length > 0) {
     const tourIds = results.map((r) => r.tour.id);
     const stepCounts = await batchGetStepCounts(tourIds);
@@ -378,7 +402,7 @@ export async function getUserActivitiesWithTours(userId: string): Promise<Activi
   return results;
 }
 
-// ── Obtener tours por lista de UUIDs (para páginas de favoritos/completados) ──
+// ── Obtener tours por lista de UUIDs ──────────────────────────────────────────
 
 export async function getToursByIds(ids: string[]): Promise<Tour[]> {
   if (ids.length === 0) return [];
@@ -421,8 +445,6 @@ export async function getCountries(): Promise<{ id: string; name: string }[]> {
 // ── Obtener ciudades por país ─────────────────────────────────────────────────
 
 export async function getCitiesByCountry(countryName?: string): Promise<{ id: string; name: string }[]> {
-  // Use drupalGetJsonApi (raw, no Jsona) to avoid relationship-resolution errors:
-  // cities have a field_country entity ref that Jsona fails to resolve without includes.
   const parts = ['sort=name', 'page[limit]=200', 'fields[taxonomy_term--cities]=name'];
   if (countryName) {
     parts.push(`filter[field_country.name]=${encodeURIComponent(countryName)}`);

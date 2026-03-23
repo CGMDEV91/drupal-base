@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import Footer from '../../components/layout/Footer';
 import { Image } from 'expo-image';
 import CountryFlag from 'react-native-country-flag';
 import { getRanking } from '../../services/ranking.service';
@@ -234,6 +235,7 @@ export default function RankingScreen() {
         {/* Rows */}
         {renderContent()}
       </View>
+      <Footer />
     </ScrollView>
   );
 }

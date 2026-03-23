@@ -25,6 +25,7 @@ import { useLanguageStore } from '../../stores/language.store';
 import { getUserTourActivities } from '../../services/tours.service';
 import { updatePassword } from '../../services/user.service';
 import BackButton from '../../components/layout/BackButton';
+import Footer from '../../components/layout/Footer';
 import type { TourActivity } from '../../types';
 
 const AMBER = '#F59E0B';
@@ -464,6 +465,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        <Footer />
       </ScrollView>
 
       {/* Modales fuera del scroll — son overlays */}

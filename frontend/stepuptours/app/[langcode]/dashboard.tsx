@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import Footer from '../../components/layout/Footer';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { MyToursTab } from '../../components/dashboard/MyToursTab';
@@ -144,6 +145,7 @@ export default function DashboardScreen() {
             {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
             {activeTab === 'donations' && <DonationsTab userId={user.id} />}
           </View>
+          <Footer />
         </ScrollView>
       ) : (
         // ── Desktop: pills sticky + contenido en scroll ───────────────────
@@ -161,6 +163,7 @@ export default function DashboardScreen() {
               {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
               {activeTab === 'donations' && <DonationsTab userId={user.id} />}
             </View>
+            <Footer />
           </ScrollView>
         </>
       )}
