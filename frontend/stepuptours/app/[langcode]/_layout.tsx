@@ -1,7 +1,6 @@
 // app/[langcode]/_layout.tsx
 // Valida el langcode de la URL, sincroniza stores, renderiza Navbar
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Slot, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useLanguageStore } from '../../stores/language.store';
@@ -32,8 +31,18 @@ export default function LangcodeLayout() {
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
 
+  // ── Guard: no navegar hasta que el Root Layout esté montado ──────────────
+  // router.replace() llamado en el primer render (o síncrono con él) lanza
+  // "Attempted to navigate before mounting the Root Layout". El estado `ready`
+  // garantiza que cualquier navegación ocurre como mínimo en el segundo ciclo.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
   // Validar y sincronizar langcode
   useEffect(() => {
+    if (!ready) return;
     if (!langcode || languages.length === 0) return;
 
     const isValid = languages.some((l) => l.id === langcode);
@@ -42,14 +51,14 @@ export default function LangcodeLayout() {
       router.replace(`/en/${restPath}` as any);
       return;
     }
-
     if (currentLanguage?.id !== langcode) {
       setLanguageByCode(langcode);
     }
-  }, [langcode, languages]);
+  }, [ready, langcode, languages]);
 
   // Redirect to home after logout from protected pages
   useEffect(() => {
+    if (!ready) return;
     if (!isAuthLoading && !user && langcode) {
       const protectedSegments = ['profile', 'favourites', 'completed', 'dashboard'];
       const currentSegment = segments[segments.length - 1];
@@ -57,16 +66,14 @@ export default function LangcodeLayout() {
         router.replace(`/${langcode}` as any);
       }
     }
-  }, [user, isAuthLoading, langcode, segments]);
+  }, [ready, user, isAuthLoading, langcode, segments]);
 
   return (
     <View style={{ flex: 1 }}>
       <Navbar onOpenAuth={(mode) => openAuthModal(mode)} />
-
       <View style={{ flex: 1 }}>
         <Slot />
       </View>
-
       <AuthModals
         visible={pendingAuthModal}
         onClose={closeAuthModal}
@@ -76,7 +83,6 @@ export default function LangcodeLayout() {
         visible={contactModalOpen}
         onClose={closeContactModal}
       />
-
       {/* Cookie consent banner — position: absolute, renders above content */}
       <CookieBanner />
     </View>

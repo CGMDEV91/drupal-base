@@ -1,7 +1,7 @@
 // app/[langcode]/dashboard/create-tour.tsx
 // Create Tour page — professional role only
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,16 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
+  Modal,
+  FlatList,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../stores/auth.store';
+import { useToursStore } from '../../../stores/tours.store';
+import { useLanguageStore } from '../../../stores/language.store';
 import { createTour, createTourStep, getActiveSubscription } from '../../../services/dashboard.service';
 import PageBanner from '../../../components/layout/PageBanner';
 import type { Subscription } from '../../../types';
@@ -58,9 +63,73 @@ export default function CreateTourScreen() {
   // ── Tour basic info ──────────────────────────────────────────────────────
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [city, setCity] = useState('');
   const [duration, setDuration] = useState('');
-  const [language, setLanguage] = useState('es');
+
+  // ── Desktop dropdown ─────────────────────────────────────────────────────
+  const cityBtnRef = useRef<View>(null);
+  const langBtnRef = useRef<View>(null);
+  const [ddConfig, setDdConfig] = useState<{
+    type: 'city' | 'lang';
+    x: number;
+    y: number;
+    minWidth: number;
+  } | null>(null);
+  const [ddSearch, setDdSearch] = useState('');
+
+  const openPicker = useCallback(
+    (type: 'city' | 'lang') => {
+      if (!isDesktop) {
+        if (type === 'city') setCityPickerVisible(true);
+        else setLangPickerVisible(true);
+        return;
+      }
+      const ref = type === 'city' ? cityBtnRef : langBtnRef;
+      ref.current?.measureInWindow((x, y, w, h) => {
+        setDdSearch('');
+        setDdConfig({ type, x, y: y + h + 4, minWidth: Math.max(w, 220) });
+      });
+    },
+    [isDesktop]
+  );
+
+  const closeDd = useCallback(() => setDdConfig(null), []);
+
+  // ── City picker ──────────────────────────────────────────────────────────
+  const [cityId, setCityId] = useState('');
+  const [cityLabel, setCityLabel] = useState('');
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+
+  const { cities, fetchCities } = useToursStore();
+
+  useEffect(() => {
+    if (cities.length === 0) {
+      fetchCities();
+    }
+  }, []);
+
+  const filteredCities = cities.filter((c) =>
+    c.name.toLowerCase().includes(citySearch.toLowerCase())
+  );
+
+  // ── Language picker ──────────────────────────────────────────────────────
+  const [languageCode, setLanguageCode] = useState('es');
+  const [languageLabel, setLanguageLabel] = useState('');
+  const [langPickerVisible, setLangPickerVisible] = useState(false);
+  const [langSearch, setLangSearch] = useState('');
+
+  const { languages, fetchLanguages } = useLanguageStore();
+
+  useEffect(() => {
+    if (languages.length === 0) {
+      fetchLanguages();
+    }
+  }, []);
+
+  const filteredLanguages = languages.filter((l) =>
+    l.name.toLowerCase().includes(langSearch.toLowerCase()) ||
+    l.id.toLowerCase().includes(langSearch.toLowerCase())
+  );
 
   // ── Tour steps ──────────────────────────────────────────────────────────
   const [steps, setSteps] = useState<StepEntry[]>([]);
@@ -159,6 +228,7 @@ export default function CreateTourScreen() {
         title: title.trim(),
         description: description.trim(),
         duration: parseInt(duration, 10) || 0,
+        cityId: cityId || undefined,
       });
 
       for (let i = 0; i < steps.length; i++) {
@@ -181,7 +251,7 @@ export default function CreateTourScreen() {
     } finally {
       setSaving(false);
     }
-  }, [title, description, duration, steps, langcode, router, t]);
+  }, [title, description, duration, cityId, steps, langcode, router, t]);
 
   if (isAuthLoading || !user || !isProfessional) {
     return (
@@ -245,13 +315,17 @@ export default function CreateTourScreen() {
             <View style={styles.row}>
               <View style={styles.rowField}>
                 <Text style={styles.label}>{t('createTour.field.city')}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder={t('createTour.placeholder.city')}
-                  placeholderTextColor="#9CA3AF"
-                />
+                <View ref={cityBtnRef} collapsable={false}>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => openPicker('city')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: cityLabel ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                      {cityLabel || t('createTour.placeholder.city')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <View style={styles.rowField}>
                 <Text style={styles.label}>{t('createTour.field.duration')}</Text>
@@ -266,15 +340,17 @@ export default function CreateTourScreen() {
               </View>
               <View style={styles.rowField}>
                 <Text style={styles.label}>{t('createTour.field.language')}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={language}
-                  onChangeText={setLanguage}
-                  placeholder="es"
-                  placeholderTextColor="#9CA3AF"
-                  autoCapitalize="none"
-                  maxLength={5}
-                />
+                <View ref={langBtnRef} collapsable={false}>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => openPicker('lang')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: languageLabel ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                      {languageLabel || languageCode}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -464,6 +540,197 @@ export default function CreateTourScreen() {
           <View style={{ height: 32 }} />
         </View>
       </ScrollView>
+
+      {/* Mobile bottom-sheet pickers */}
+      {!isDesktop && (
+        <>
+          <Modal
+            visible={cityPickerVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setCityPickerVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <Pressable style={styles.modalBackdrop} onPress={() => setCityPickerVisible(false)} />
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalHeaderTitle}>{t('createTour.field.city')}</Text>
+                  <TouchableOpacity onPress={() => setCityPickerVisible(false)} activeOpacity={0.7}>
+                    <Ionicons name="close" size={22} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.pickerSearch}
+                  value={citySearch}
+                  onChangeText={setCitySearch}
+                  placeholder={t('createTour.placeholder.city')}
+                  placeholderTextColor="#9CA3AF"
+                  autoFocus
+                  {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+                />
+                <FlatList
+                  data={[{ id: '', name: t('createTour.placeholder.city') }, ...filteredCities]}
+                  keyExtractor={(item) => item.id || '__clear__'}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.pickerItem}
+                      onPress={() => {
+                        setCityId(item.id);
+                        setCityLabel(item.id ? item.name : '');
+                        setCityPickerVisible(false);
+                        setCitySearch('');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerItemText, !item.id && styles.pickerItemClear]}>
+                        {item.name}
+                      </Text>
+                      {cityId === item.id && item.id !== '' && (
+                        <Ionicons name="checkmark" size={18} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={langPickerVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setLangPickerVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <Pressable style={styles.modalBackdrop} onPress={() => setLangPickerVisible(false)} />
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalHeaderTitle}>{t('createTour.field.language')}</Text>
+                  <TouchableOpacity onPress={() => setLangPickerVisible(false)} activeOpacity={0.7}>
+                    <Ionicons name="close" size={22} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.pickerSearch}
+                  value={langSearch}
+                  onChangeText={setLangSearch}
+                  placeholder={t('createTour.field.language')}
+                  placeholderTextColor="#9CA3AF"
+                  autoFocus
+                  {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+                />
+                <FlatList
+                  data={filteredLanguages}
+                  keyExtractor={(item) => item.id}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.pickerItem}
+                      onPress={() => {
+                        setLanguageCode(item.id);
+                        setLanguageLabel(item.name);
+                        setLangPickerVisible(false);
+                        setLangSearch('');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.pickerItemText}>{item.name}</Text>
+                      {languageCode === item.id && (
+                        <Ionicons name="checkmark" size={18} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
+
+      {/* Desktop dropdown */}
+      {isDesktop && ddConfig && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={closeDd}
+        >
+          <Pressable style={styles.ddBackdrop} onPress={closeDd} focusable={false} />
+          <View
+            style={[
+              styles.ddDropdown,
+              { top: ddConfig.y, left: ddConfig.x, minWidth: ddConfig.minWidth },
+            ]}
+          >
+            {/* Search bar */}
+            <View style={styles.ddSearchBar}>
+              <Ionicons name="search-outline" size={15} color="#9CA3AF" />
+              <TextInput
+                style={styles.ddSearchInput}
+                value={ddSearch}
+                onChangeText={setDdSearch}
+                placeholder={ddConfig.type === 'city' ? t('createTour.placeholder.city') : t('createTour.field.language')}
+                placeholderTextColor="#9CA3AF"
+                autoFocus
+                {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+              />
+            </View>
+            <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
+              {ddConfig.type === 'city' ? (
+                <>
+                  {[{ id: '', name: t('createTour.placeholder.city') }, ...cities.filter((c) =>
+                    c.name.toLowerCase().includes(ddSearch.toLowerCase())
+                  )].map((item) => (
+                    <TouchableOpacity
+                      key={item.id || '__clear__'}
+                      style={[styles.ddOption, cityId === item.id && item.id !== '' && styles.ddOptionActive]}
+                      onPress={() => {
+                        setCityId(item.id);
+                        setCityLabel(item.id ? item.name : '');
+                        closeDd();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.ddOptionText, cityId === item.id && item.id !== '' && styles.ddOptionTextActive, !item.id && styles.pickerItemClear]}>
+                        {item.name}
+                      </Text>
+                      {cityId === item.id && item.id !== '' && (
+                        <Ionicons name="checkmark" size={16} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {languages.filter((l) =>
+                    l.name.toLowerCase().includes(ddSearch.toLowerCase()) ||
+                    l.id.toLowerCase().includes(ddSearch.toLowerCase())
+                  ).map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.ddOption, languageCode === item.id && styles.ddOptionActive]}
+                      onPress={() => {
+                        setLanguageCode(item.id);
+                        setLanguageLabel(item.name);
+                        closeDd();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.ddOptionText, languageCode === item.id && styles.ddOptionTextActive]}>
+                        {item.name}
+                      </Text>
+                      {languageCode === item.id && (
+                        <Ionicons name="checkmark" size={16} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -572,4 +839,55 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+
+  // Modal / picker styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    paddingBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalHeaderTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  pickerSearch: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    backgroundColor: '#F9FAFB',
+    fontSize: 14,
+    color: '#111827',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  pickerItemText: { fontSize: 15, color: '#111827' },
+  pickerItemClear: { color: '#9CA3AF' },
 });

@@ -86,7 +86,11 @@
       "Bash(git -C '//wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours' diff b7b4ddd 816e048 -- \"frontend/stepuptours/components/tour/CompletionPopup.tsx\")",
       "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app --include=*.tsx -n)",
       "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" frontend/stepuptours/app --include=*.tsx -n)",
-      "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" frontend/stepuptours/components --include=*.tsx -n)"
+      "Bash(grep -r \"🎉\\\\|🏆\\\\|⚡\\\\|✨\\\\|🌍\\\\|📍\\\\|⭐\\\\|🔒\\\\|💳\\\\|😊\\\\|🙈\\\\|👁️\\\\|✕\\\\|⚠️\" frontend/stepuptours/components --include=*.tsx -n)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend -name *.json)",
+      "Bash(xargs ls:*)",
+      "Bash(/usr/local/bin/ddev drush:*)",
+      "Bash(wsl ddev:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

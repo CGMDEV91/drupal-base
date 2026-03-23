@@ -1,7 +1,7 @@
 // app/[langcode]/profile.tsx
 // User Profile page — auth-protected
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -54,64 +55,139 @@ function StatCard({ label, value, iconName, iconBg, iconColor, isDesktop }: Stat
   );
 }
 
-// ── Simple picker modal ───────────────────────────────────────────────────────
+// ── Picker ────────────────────────────────────────────────────────────────────
 interface PickerItem {
   id: string;
   label: string;
 }
 
-interface PickerModalProps {
+interface PickerProps {
   visible: boolean;
   title: string;
   items: PickerItem[];
   selectedId: string;
   onSelect: (id: string, label: string) => void;
   onClose: () => void;
+  isDesktop: boolean;
+  anchorRef: React.RefObject<any>;
 }
 
-function PickerModal({ visible, title, items, selectedId, onSelect, onClose }: PickerModalProps) {
+function Picker({ visible, title, items, selectedId, onSelect, onClose, isDesktop, anchorRef }: PickerProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dropdownPos, setDropdownPos] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    listMaxHeight: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setSearchQuery('');
+      if (isDesktop && anchorRef.current) {
+        anchorRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+          // Espacio disponible desde el borde inferior del botón hasta el fondo
+          // de la ventana, con 16 px de margen de seguridad
+          const screenHeight =
+            Platform.OS === 'web' && typeof window !== 'undefined'
+              ? window.innerHeight
+              : 800;
+          const dropdownTop = y + h + 4;
+          const availableSpace = screenHeight - dropdownTop - 16;
+          // searchBar ocupa ~64 px (padding + input 40 px)
+          const listMaxHeight = Math.min(280, Math.max(80, availableSpace - 64));
+          setDropdownPos({ x, y: dropdownTop, width: w, listMaxHeight });
+        });
+      }
+    }
+  }, [visible, isDesktop]);
+
+  const filteredItems = items.filter((item) =>
+    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const searchBar = (
+    <View style={styles.searchWrapper}>
+      <View style={styles.searchRow}>
+        <Ionicons name="search-outline" size={16} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search..."
+          placeholderTextColor="#9CA3AF"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+    </View>
+  );
+
+  const renderOptionList = (listMaxHeight: number) => (
+    <FlatList
+      data={filteredItems}
+      keyExtractor={(item) => item.id}
+      style={{ maxHeight: listMaxHeight }}
+      keyboardShouldPersistTaps="handled"
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={[styles.pickerItem, item.id === selectedId && styles.pickerItemSelected]}
+          onPress={() => { onSelect(item.id, item.label); onClose(); }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.pickerItemText, item.id === selectedId && styles.pickerItemTextSelected]}>
+            {item.label}
+          </Text>
+          {item.id === selectedId && <Ionicons name="checkmark" size={18} color={AMBER_DARK} />}
+        </TouchableOpacity>
+      )}
+    />
+  );
+
+  // ── Desktop: dropdown flotante anclado al botón, altura dinámica ──────────
+  if (isDesktop) {
+    if (!visible || !dropdownPos) return null;
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <Pressable
+            style={[
+              styles.desktopDropdown,
+              {
+                left: dropdownPos.x,
+                top: dropdownPos.y,
+                width: dropdownPos.width,
+              },
+            ]}
+          >
+            {searchBar}
+            {renderOptionList(dropdownPos.listMaxHeight)}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
+  // ── Mobile: modal centrado que ocupa toda la pantalla ─────────────────────
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.modalSheet}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.mobileOverlay}>
+        {/* Backdrop */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        {/* Panel */}
+        <View style={styles.mobilePanel}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={22} color="#374151" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={items}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.pickerItem, item.id === selectedId && styles.pickerItemSelected]}
-                onPress={() => {
-                  onSelect(item.id, item.label);
-                  onClose();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.pickerItemText,
-                    item.id === selectedId && styles.pickerItemTextSelected,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-                {item.id === selectedId && (
-                  <Ionicons name="checkmark" size={18} color={AMBER_DARK} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
+          {searchBar}
+          {renderOptionList(400)}
         </View>
       </View>
     </Modal>
@@ -132,43 +208,48 @@ export default function ProfileScreen() {
   const countries = useToursStore((s) => s.countries);
   const fetchCountries = useToursStore((s) => s.fetchCountries);
   const languages = useLanguageStore((s) => s.languages);
+  const fetchLanguages = useLanguageStore((s) => s.fetchLanguages);
 
-  // ── Stats state ──────────────────────────────────────────────────────────
   const [activities, setActivities] = useState<TourActivity[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // ── Form state ───────────────────────────────────────────────────────────
   const [publicName, setPublicName] = useState(user?.publicName ?? '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedLangCode, setSelectedLangCode] = useState(user?.preferredLanguage ?? 'en');
   const [selectedLangLabel, setSelectedLangLabel] = useState(
-    languages.find((l) => l.id === (user?.preferredLanguage ?? 'en'))?.label ?? (user?.preferredLanguage ?? 'en')
+    languages.find((l) => l.id === (user?.preferredLanguage ?? 'en'))?.name ?? (user?.preferredLanguage ?? 'en')
   );
   const [selectedCountryId, setSelectedCountryId] = useState(user?.country?.id ?? '');
   const [selectedCountryLabel, setSelectedCountryLabel] = useState(user?.country?.name ?? '');
 
-  // ── UI state ─────────────────────────────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [langPickerVisible, setLangPickerVisible] = useState(false);
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
 
-  // ── Redirect unauthenticated users ────────────────────────────────────────
-  useEffect(() => {
-    if (!user && !isAuthLoading) {
-      const timer = setTimeout(() => {
-        router.replace(`/${langcode}` as any);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [user, isAuthLoading, langcode]);
+  // Guard: evita router.replace antes de que el Root Layout esté montado
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
 
-  // ── Load data ────────────────────────────────────────────────────────────
+  // Refs for anchor measurement
+  const langButtonRef = useRef<any>(null);
+  const countryButtonRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!user && !isAuthLoading) {
+      router.replace(`/${langcode}` as any);
+    }
+  }, [ready, user, isAuthLoading, langcode]);
+
   useEffect(() => {
     fetchCountries();
-  }, [fetchCountries]);
+    if (languages.length === 0) {
+      fetchLanguages();
+    }
+  }, [fetchCountries, fetchLanguages]);
 
   const fetchStats = useCallback(async () => {
     if (!user) return;
@@ -177,7 +258,7 @@ export default function ProfileScreen() {
       const data = await getUserTourActivities(user.id);
       setActivities(data);
     } catch {
-      // Non-critical — stats remain empty
+      // Non-critical
     } finally {
       setStatsLoading(false);
     }
@@ -187,32 +268,27 @@ export default function ProfileScreen() {
     fetchStats();
   }, [fetchStats]);
 
-  // Sync form when user changes (e.g. after save)
   useEffect(() => {
     if (user) {
       setPublicName(user.publicName);
       const langCode = user.preferredLanguage ?? 'en';
       setSelectedLangCode(langCode);
-      setSelectedLangLabel(
-        languages.find((l) => l.id === langCode)?.label ?? langCode
-      );
+      setSelectedLangLabel(languages.find((l) => l.id === langCode)?.name ?? langCode);
       setSelectedCountryId(user.country?.id ?? '');
       setSelectedCountryLabel(user.country?.name ?? '');
     }
   }, [user, languages]);
 
-  // ── Derived stats ────────────────────────────────────────────────────────
   const toursCompleted = activities.filter((a) => a.isCompleted).length;
   const ratingsGiven = activities.filter((a) => a.userRating !== null).length;
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString(langcode ?? 'en', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
     : '—';
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!user) return;
 
@@ -249,29 +325,15 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [
-    user,
-    publicName,
-    newPassword,
-    confirmPassword,
-    selectedLangCode,
-    selectedCountryId,
-    updateProfile,
-    t,
-  ]);
+  }, [user, publicName, newPassword, confirmPassword, selectedLangCode, selectedCountryId, updateProfile, t]);
 
-  // ── Country picker items ─────────────────────────────────────────────────
   const countryItems: PickerItem[] = [
     { id: '', label: t('profile.selectCountry') },
     ...countries.map((c) => ({ id: c.id, label: c.name })),
   ];
 
-  const langItems: PickerItem[] = languages.map((l) => ({
-    id: l.id,
-    label: l.label,
-  }));
+  const langItems: PickerItem[] = languages.map((l) => ({ id: l.id, label: l.name }));
 
-  // ── Auth loading or redirecting ──────────────────────────────────────────
   if (isAuthLoading || !user) {
     return (
       <View style={styles.authGateLoading}>
@@ -280,7 +342,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // ── Derived initials for avatar ───────────────────────────────────────────
   const displayName = user.publicName || user.username || '';
   const initials = displayName
     .split(' ')
@@ -289,7 +350,6 @@ export default function ProfileScreen() {
     .toUpperCase()
     .slice(0, 2) || '?';
 
-  // ── Main render ──────────────────────────────────────────────────────────
   return (
     <View style={styles.root}>
       <ScrollView
@@ -297,7 +357,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Dark navy profile banner — dentro del scroll ── */}
+        {/* ── Dark navy profile banner ── */}
         <View style={styles.profileBanner}>
           <View style={styles.bannerBackBtn}>
             <BackButton />
@@ -306,60 +366,29 @@ export default function ProfileScreen() {
             <Text style={styles.avatarInitials}>{initials}</Text>
           </View>
           <Text style={styles.bannerName}>{displayName}</Text>
-          {user.email ? (
-            <Text style={styles.bannerEmail}>{user.email}</Text>
-          ) : null}
+          {user.email ? <Text style={styles.bannerEmail}>{user.email}</Text> : null}
           <View style={styles.xpBadge}>
             <Text style={styles.xpBadgeText}>{user.experiencePoints} XP</Text>
           </View>
         </View>
 
         <View style={[styles.contentWrapper, { maxWidth: CONTENT_MAX_WIDTH }]}>
-
-          {/* ── Stats section ─────────────────────────────────────────────── */}
+          {/* ── Stats section ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('profile.stats')}</Text>
             {statsLoading ? (
               <ActivityIndicator size="small" color={AMBER} style={styles.statsLoader} />
             ) : (
               <View style={[styles.statsGrid, isDesktop && styles.statsGridDesktop]}>
-                <StatCard
-                  label={t('profile.stats.toursCompleted')}
-                  value={toursCompleted}
-                  iconName="trophy"
-                  iconBg="#FEF3C7"
-                  iconColor="#F59E0B"
-                  isDesktop={isDesktop}
-                />
-                <StatCard
-                  label={t('profile.stats.ratingsGiven')}
-                  value={ratingsGiven}
-                  iconName="location"
-                  iconBg="#D1FAE5"
-                  iconColor="#22C55E"
-                  isDesktop={isDesktop}
-                />
-                <StatCard
-                  label={t('profile.stats.memberSince')}
-                  value={memberSince}
-                  iconName="calendar"
-                  iconBg="#EDE9FE"
-                  iconColor="#8B5CF6"
-                  isDesktop={isDesktop}
-                />
-                <StatCard
-                  label={t('profile.stats.xp')}
-                  value={user.experiencePoints}
-                  iconName="globe"
-                  iconBg="#DBEAFE"
-                  iconColor="#3B82F6"
-                  isDesktop={isDesktop}
-                />
+                <StatCard label={t('profile.stats.toursCompleted')} value={toursCompleted} iconName="trophy" iconBg="#FEF3C7" iconColor="#F59E0B" isDesktop={isDesktop} />
+                <StatCard label={t('profile.stats.ratingsGiven')} value={ratingsGiven} iconName="location" iconBg="#D1FAE5" iconColor="#22C55E" isDesktop={isDesktop} />
+                <StatCard label={t('profile.stats.memberSince')} value={memberSince} iconName="calendar" iconBg="#EDE9FE" iconColor="#8B5CF6" isDesktop={isDesktop} />
+                <StatCard label={t('profile.stats.xp')} value={user.experiencePoints} iconName="globe" iconBg="#DBEAFE" iconColor="#3B82F6" isDesktop={isDesktop} />
               </View>
             )}
           </View>
 
-          {/* ── Edit section ──────────────────────────────────────────────── */}
+          {/* ── Edit section ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('profile.edit')}</Text>
 
@@ -395,9 +424,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={[
                   styles.input,
-                  newPassword && confirmPassword && newPassword !== confirmPassword
-                    ? styles.inputError
-                    : null,
+                  newPassword && confirmPassword && newPassword !== confirmPassword ? styles.inputError : null,
                 ]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -412,6 +439,7 @@ export default function ProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t('profile.edit.language')}</Text>
               <TouchableOpacity
+                ref={langButtonRef}
                 style={styles.pickerButton}
                 onPress={() => setLangPickerVisible(true)}
                 activeOpacity={0.7}
@@ -426,6 +454,7 @@ export default function ProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t('profile.edit.country')}</Text>
               <TouchableOpacity
+                ref={countryButtonRef}
                 style={styles.pickerButton}
                 onPress={() => setCountryPickerVisible(true)}
                 activeOpacity={0.7}
@@ -465,32 +494,30 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
         <Footer />
       </ScrollView>
 
-      {/* Modales fuera del scroll — son overlays */}
-      <PickerModal
+      <Picker
         visible={langPickerVisible}
         title={t('profile.edit.language')}
         items={langItems}
         selectedId={selectedLangCode}
-        onSelect={(id, label) => {
-          setSelectedLangCode(id);
-          setSelectedLangLabel(label);
-        }}
+        onSelect={(id, label) => { setSelectedLangCode(id); setSelectedLangLabel(label); }}
         onClose={() => setLangPickerVisible(false)}
+        isDesktop={isDesktop}
+        anchorRef={langButtonRef}
       />
 
-      <PickerModal
+      <Picker
         visible={countryPickerVisible}
         title={t('profile.edit.country')}
         items={countryItems}
         selectedId={selectedCountryId}
-        onSelect={(id, label) => {
-          setSelectedCountryId(id);
-          setSelectedCountryLabel(id ? label : '');
-        }}
+        onSelect={(id, label) => { setSelectedCountryId(id); setSelectedCountryLabel(id ? label : ''); }}
         onClose={() => setCountryPickerVisible(false)}
+        isDesktop={isDesktop}
+        anchorRef={countryButtonRef}
       />
     </View>
   );
@@ -501,8 +528,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
-
-  // ── Dark navy profile banner ───────────────────────────────────────────────
   profileBanner: {
     backgroundColor: '#1E293B',
     paddingTop: 24,
@@ -554,30 +579,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-
-  // ── Auth loading ───────────────────────────────────────────────────────────
   authGateLoading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F9FAFB',
   },
-
-  // ── Scroll / layout ────────────────────────────────────────────────────────
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 48,
-    alignItems: 'center',
+    paddingBottom: 0,
   },
   contentWrapper: {
     width: '100%',
     paddingHorizontal: 16,
     paddingTop: 20,
+    alignSelf: 'center',
   },
-
-  // ── Sections ───────────────────────────────────────────────────────────────
   section: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -595,8 +614,6 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
-
-  // ── Stats grid ─────────────────────────────────────────────────────────────
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -608,8 +625,6 @@ const styles = StyleSheet.create({
   statsLoader: {
     marginVertical: 16,
   },
-
-  // ── Stat card ──────────────────────────────────────────────────────────────
   statCard: {
     flex: 1,
     minWidth: '45%',
@@ -642,8 +657,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-
-  // ── Form fields ────────────────────────────────────────────────────────────
   fieldGroup: {
     marginBottom: 16,
   },
@@ -682,8 +695,6 @@ const styles = StyleSheet.create({
     color: '#111827',
     flex: 1,
   },
-
-  // ── Feedback ───────────────────────────────────────────────────────────────
   feedbackError: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -714,8 +725,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-
-  // ── Buttons ────────────────────────────────────────────────────────────────
   btnAmber: {
     backgroundColor: AMBER,
     paddingHorizontal: 20,
@@ -739,22 +748,26 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.6,
   },
-
-  // ── Picker modal ───────────────────────────────────────────────────────────
-  modalOverlay: {
+  // ── Mobile modal (pantalla completa centrado) ──────────────────────────────
+  mobileOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalSheet: {
+  mobilePanel: {
+    width: '100%',
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '60%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderRadius: 16,
+    maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 16,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -770,6 +783,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  // ── Desktop dropdown ───────────────────────────────────────────────────────
+  desktopDropdown: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? ({ boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } as any)
+      : {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.14,
+        shadowRadius: 20,
+        elevation: 12,
+      }),
+  },
+  // ── Shared search ──────────────────────────────────────────────────────────
+  searchWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    backgroundColor: '#F9FAFB',
+    height: 40,
+    paddingHorizontal: 14,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    height: 40,
+  },
+  // ── Shared picker items ────────────────────────────────────────────────────
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',

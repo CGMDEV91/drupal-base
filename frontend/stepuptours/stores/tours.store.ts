@@ -125,21 +125,16 @@ updateActivity: async (userId, tourId, updates) => {
     set({ currentActivity: { ...prev, ...updates } });
   }
   try {
-    console.log('→ updateActivity llamado con:', { userId, tourId, updates });
-    console.log('→ currentTourRatingCount:', get().currentTour?.ratingCount);
-    
     const activity = await upsertTourActivity(
       userId,
       tourId,
       updates,
       get().currentTour?.ratingCount
     );
-    
-    console.log('→ activity guardada:', activity);
+
     set({ currentActivity: activity });
 
     if (updates.userRating !== undefined && !prev?.userRating) {
-      console.log('→ incrementando ratingCount');
       set((state) => ({
         currentTour: state.currentTour
           ? { ...state.currentTour, ratingCount: (state.currentTour.ratingCount ?? 0) + 1 }
@@ -148,7 +143,7 @@ updateActivity: async (userId, tourId, updates) => {
     }
   } catch (err: any) {
     console.error('→ updateActivity error:', err);
-    set({ currentActivity: prev, error: err.message ?? 'Error al actualizar actividad' });
+    set({ currentActivity: prev, error: err.message ?? 'Error updating Tour activity' });
   }
 },
 

@@ -45,9 +45,11 @@ class UserRegisterController extends ControllerBase {
       ));
     }
 
-    $name = trim((string) ($data['name'] ?? ''));
-    $mail = trim((string) ($data['mail'] ?? ''));
-    $pass = (string) ($data['pass'] ?? '');
+    $name        = trim((string) ($data['name'] ?? ''));
+    $mail        = trim((string) ($data['mail'] ?? ''));
+    $pass        = (string) ($data['pass'] ?? '');
+    $public_name = trim((string) ($data['field_public_name'] ?? ''));
+    $role        = trim((string) ($data['role'] ?? ''));
 
     // ── Validación básica ─────────────────────────────────────────────────────
     $errors = [];
@@ -114,6 +116,14 @@ class UserRegisterController extends ControllerBase {
         'status' => ($register_setting === 'visitors') ? 1 : 0,
         'langcode' => \Drupal::languageManager()->getCurrentLanguage()->getId(),
       ]);
+
+      if ($public_name !== '') {
+        $user->set('field_public_name', $public_name);
+      }
+
+      if ($role === 'professional') {
+        $user->addRole('professional');
+      }
 
       $violations = $user->validate();
       if (count($violations) > 0) {

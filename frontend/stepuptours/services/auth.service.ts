@@ -147,13 +147,23 @@ export async function restoreSession(): Promise<AuthSession | null> {
 
 export async function register(data: {
   username: string;
+  publicName?: string;
   email: string;
   password: string;
+  role?: 'professional';
 }): Promise<AuthSession> {
   try {
+    const payload: Record<string, string> = {
+      name: data.username,
+      mail: data.email,
+      pass: data.password,
+    };
+    if (data.publicName) payload.field_public_name = data.publicName;
+    if (data.role === 'professional') payload.role = 'professional';
+
     await axios.post(
       `${BASE_URL}/api/user/register`,
-      { name: data.username, mail: data.email, pass: data.password },
+      payload,
       { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {

@@ -100,43 +100,62 @@ export default function TourDetailScreen() {
     } catch {}
   };
 
-  // CTA logic
+  // CTA logic — driven by step count comparison
   const getCtaConfig = useCallback(() => {
-  if (!user) {
-    return {
-      label: t('tour.start'),
-      onPress: () => openAuthModal('register'),
-    };
-  }
+    if (!user) {
+      return {
+        label: t('tour.start'),
+        onPress: () => openAuthModal('register'),
+      };
+    }
 
-  const isCompleted = activity?.isCompleted || !!activity?.completedAt;
-  const stepsCompletedCount = activity?.stepsCompleted?.length ?? 0;
+    const totalSteps = steps.length;
+    const completedCount = activity?.stepsCompleted?.length ?? 0;
 
-  // Tour completado y sin steps en progreso (completado limpio o reseteado) → "Start again"
-  if (isCompleted && stepsCompletedCount === 0) {
-    return {
-      label: t('tour.startAgain'),
-      onPress: async () => {
-        await updateActivity(user.id, id!, { stepsCompleted: [] });
-        router.push(`/${langcode}/tour/${id}/steps`);
-      },
-    };
-  }
+    // Never started
+    if (!activity) {
+      return {
+        label: t('tour.start'),
+        onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
+      };
+    }
 
-  // Tiene steps completados (en progreso o completado+reseteado a medias) → "Continue"
-  if (stepsCompletedCount > 0) {
+    // Steps reset after completion — tour still marked completed
+    if (completedCount === 0 && (activity.isCompleted || !!activity.completedAt)) {
+      return {
+        label: t('tour.startAgain'),
+        onPress: async () => {
+          await updateActivity(user.id, id!, { stepsCompleted: [] });
+          router.push(`/${langcode}/tour/${id}/steps`);
+        },
+      };
+    }
+
+    // Genuinely not started
+    if (completedCount === 0) {
+      return {
+        label: t('tour.start'),
+        onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
+      };
+    }
+
+    // All steps completed → offer restart (reset stepsCompleted only, tour stays completed)
+    if (totalSteps > 0 && completedCount >= totalSteps) {
+      return {
+        label: t('tour.startAgain'),
+        onPress: async () => {
+          await updateActivity(user.id, id!, { stepsCompleted: [] });
+          router.push(`/${langcode}/tour/${id}/steps`);
+        },
+      };
+    }
+
+    // Some steps done but not all → continue
     return {
       label: t('tour.continue'),
       onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
     };
-  }
-
-  // Sin actividad o ningún step completado → "Start tour"
-  return {
-    label: t('tour.start'),
-    onPress: () => router.push(`/${langcode}/tour/${id}/steps`),
-  };
-}, [user, activity, id, langcode, router, t, openAuthModal]);
+  }, [user, activity, steps, id, langcode, router, t, openAuthModal, updateActivity]);
 
   if (isLoadingDetail || !tour) {
     return (
@@ -153,8 +172,6 @@ export default function TourDetailScreen() {
   const featuredBusinesses = tour.featuredBusinesses.filter(
     (b): b is NonNullable<typeof b> => b !== null,
   );
-
-  console.log(tour)
 
   return (
     <View style={styles.screen}>

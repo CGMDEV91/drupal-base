@@ -11,6 +11,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
+  useWindowDimensions,
   TextInput as RNTextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -92,7 +94,7 @@ function Field({
 }
 
 // ── Modal Login ───────────────────────────────────────────────────────────────
-function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () => void }) {
+function LoginModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean }) {
   const { signIn, isLoading, error, clearError } = useAuthStore();
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
@@ -116,7 +118,7 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
   };
 
   return (
-    <View style={modalStyles.sheet}>
+    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen]}>
       {/* Cabecera */}
       <View style={modalStyles.header}>
         <View>
@@ -183,24 +185,30 @@ function LoginModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () =
 }
 
 // ── Modal Registro ────────────────────────────────────────────────────────────
-function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: () => void }) {
+function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean }) {
   const { signUp, isLoading, error, clearError } = useAuthStore();
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
+  const [publicName, setPublicName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [role, setRole] = useState<'traveller' | 'professional'>('traveller');
   const [fieldErrors, setFieldErrors] = useState<{
-    username?: string; email?: string; password?: string; confirm?: string;
+    username?: string; publicName?: string; email?: string; password?: string; confirm?: string;
   }>({});
+  const publicNameRef = useRef<RNTextInput>(null);
   const emailRef = useRef<RNTextInput>(null);
   const passwordRef = useRef<RNTextInput>(null);
   const confirmRef = useRef<RNTextInput>(null);
 
   const validate = () => {
     const errors: typeof fieldErrors = {};
-    if (!username.trim()) errors.username = t('auth.usernameRequired');
-    else if (username.trim().length < 3) errors.username = t('auth.usernameMinLength');
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) errors.username = t('auth.usernameRequired');
+    else if (trimmedUsername.length < 3) errors.username = t('auth.usernameMinLength');
+    else if (/\s/.test(trimmedUsername)) errors.username = t('auth.usernameNoSpaces');
+    else if (!/^[a-zA-Z0-9@.\-_]+$/.test(trimmedUsername)) errors.username = t('auth.usernameInvalidChars');
     if (!email.trim()) errors.email = t('auth.emailRequired');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = t('auth.emailInvalid');
     if (!password) errors.password = t('auth.passwordRequired');
@@ -213,12 +221,18 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
   const handleSubmit = async () => {
     clearError();
     if (!validate()) return;
-    await signUp({ username: username.trim(), email: email.trim(), password });
+    await signUp({
+      username: username.trim(),
+      publicName: publicName.trim() || undefined,
+      email: email.trim(),
+      password,
+      role: role === 'professional' ? 'professional' : undefined,
+    });
     if (!useAuthStore.getState().error) onClose();
   };
 
   return (
-    <View style={modalStyles.sheet}>
+    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen]}>
       {/* Cabecera */}
       <View style={modalStyles.header}>
         <View>
@@ -238,6 +252,43 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         </View>
       ) : null}
 
+      {/* Selector de rol */}
+      <View style={roleStyles.container}>
+        <Text style={roleStyles.label}>{t('auth.roleLabel')}</Text>
+        <View style={roleStyles.row}>
+          <TouchableOpacity
+            style={[roleStyles.card, role === 'traveller' && roleStyles.cardSelected]}
+            onPress={() => setRole('traveller')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="person-outline"
+              size={22}
+              color={role === 'traveller' ? '#F59E0B' : '#9CA3AF'}
+            />
+            <Text style={[roleStyles.cardTitle, role === 'traveller' && roleStyles.cardTitleSelected]}>
+              {t('auth.roleTraveller')}
+            </Text>
+            <Text style={roleStyles.cardHint}>{t('auth.roleTravellerHint')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[roleStyles.card, role === 'professional' && roleStyles.cardSelected]}
+            onPress={() => setRole('professional')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="briefcase-outline"
+              size={22}
+              color={role === 'professional' ? '#F59E0B' : '#9CA3AF'}
+            />
+            <Text style={[roleStyles.cardTitle, role === 'professional' && roleStyles.cardTitleSelected]}>
+              {t('auth.roleProfessional')}
+            </Text>
+            <Text style={roleStyles.cardHint}>{t('auth.roleProfessionalHint')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Campos */}
       <Field
         label={t('auth.username')}
@@ -245,6 +296,17 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
         onChangeText={setUsername}
         placeholder={t('auth.usernamePlaceholder')}
         error={fieldErrors.username}
+        returnKeyType="next"
+        onSubmitEditing={() => publicNameRef.current?.focus()}
+      />
+      <Field
+        label={t('auth.publicName')}
+        value={publicName}
+        onChangeText={setPublicName}
+        placeholder={t('auth.publicNamePlaceholder')}
+        autoCapitalize="sentences"
+        error={fieldErrors.publicName}
+        inputRef={publicNameRef}
         returnKeyType="next"
         onSubmitEditing={() => emailRef.current?.focus()}
       />
@@ -309,52 +371,82 @@ function RegisterModal({ onClose, onSwitch }: { onClose: () => void; onSwitch: (
 // ── Componente principal ──────────────────────────────────────────────────────
 export function AuthModals({ visible, onClose, onSwitch }: Props) {
   const { clearError } = useAuthStore();
+  const { height, width } = useWindowDimensions();
+  const isMobile = width < 768;
 
   const handleClose = () => {
     clearError();
     onClose();
   };
 
+  const loginModal = (
+    <LoginModal
+      onClose={handleClose}
+      onSwitch={() => { clearError(); onSwitch('register'); }}
+      fullscreen={isMobile}
+    />
+  );
+  const registerModal = (
+    <RegisterModal
+      onClose={handleClose}
+      onSwitch={() => { clearError(); onSwitch('login'); }}
+      fullscreen={isMobile}
+    />
+  );
+
   return (
     <Modal
       visible={visible !== null}
       transparent
-      animationType="fade"
+      animationType={isMobile ? 'slide' : 'fade'}
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <Pressable
-          onPress={handleClose}
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}
-        >
-          <Pressable style={{ width: '100%', maxWidth: 440 }} onPress={() => {}}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+        {isMobile ? (
+          // ── Mobile: fullscreen ──────────────────────────────────────────
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1, backgroundColor: '#fff' }}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
+            {visible === 'login' ? loginModal : registerModal}
+          </ScrollView>
+        ) : (
+          // ── Desktop: centred card ───────────────────────────────────────
+          <Pressable
+            onPress={handleClose}
+            focusable={false}
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.45)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 20,
+            }}
+          >
+            <Pressable
+              style={{
+                width: '100%',
+                maxWidth: 440,
+                maxHeight: height * 0.9,
+                borderRadius: 24,
+                overflow: 'hidden',
+              }}
+              onPress={() => {}}
             >
-              {visible === 'login' ? (
-                <LoginModal
-                  onClose={handleClose}
-                  onSwitch={() => { clearError(); onSwitch('register'); }}
-                />
-              ) : (
-                <RegisterModal
-                  onClose={handleClose}
-                  onSwitch={() => { clearError(); onSwitch('login'); }}
-                />
-              )}
-            </ScrollView>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {visible === 'login' ? loginModal : registerModal}
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        )}
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -369,6 +461,11 @@ const modalStyles = {
     ...(Platform.OS === 'web'
       ? { boxShadow: '0 20px 60px rgba(0,0,0,0.18)' } as any
       : { elevation: 16 }),
+  },
+  sheetFullscreen: {
+    borderRadius: 0,
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 52 : 28,
   },
   header: {
     flexDirection: 'row' as const,
@@ -404,3 +501,50 @@ const modalStyles = {
   switchText: { fontSize: 14, color: '#6B7280' },
   switchLink: { fontSize: 14, color: '#F59E0B', fontWeight: '600' as const },
 };
+
+// ── Estilos del selector de rol ───────────────────────────────────────────────
+const roleStyles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  card: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+  },
+  cardSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  cardTitleSelected: {
+    color: '#D97706',
+  },
+  cardHint: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+});

@@ -16,7 +16,7 @@ interface AuthState {
 
   // Actions
   signIn: (credentials: AuthCredentials) => Promise<void>;
-  signUp: (data: { username: string; email: string; password: string }) => Promise<void>;
+  signUp: (data: { username: string; publicName?: string; email: string; password: string; role?: 'professional' }) => Promise<void>;
   signOut: () => Promise<void>;
   restore: () => Promise<void>;
   clearError: () => void;
