@@ -58,53 +58,50 @@ export function LanguageSelector() {
         <Text style={styles.triggerChevron}>{open ? '▲' : '▼'}</Text>
       </TouchableOpacity>
 
-      <Modal
-        visible={open}
-        transparent
-        animationType={isMobile ? 'slide' : 'fade'}
-        onRequestClose={() => setOpen(false)}
-      >
-        <Pressable
-          onPress={() => setOpen(false)}
-          style={styles.backdrop}
+      {isMobile ? (
+        // ── Mobile: pantalla completa ──────────────────────────────────────
+        <Modal
+          visible={open}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setOpen(false)}
         >
-          {isMobile ? (
-            // ── Mobile: sheet que cae desde el navbar hacia abajo ──
-            <Pressable style={styles.mobileSheet} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.sheetHeader}>
-                <Text style={styles.sheetHeaderText}>Idioma</Text>
-                <TouchableOpacity onPress={() => setOpen(false)} hitSlop={8}>
-                  <Ionicons name="close" size={20} color="#6B7280" />
+          <View style={styles.mobileFullscreen}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetHeaderText}>Idioma</Text>
+              <TouchableOpacity onPress={() => setOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={list}
+              keyExtractor={(item) => item.id}
+              style={{ flex: 1 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleSelect(item)}
+                  activeOpacity={0.7}
+                  style={[styles.option, active.id === item.id && styles.optionActive]}
+                >
+                  <CountryFlag isoCode={langCodeToCountryCode(item.id)} size={18} />
+                  <Text style={[styles.optionText, active.id === item.id && styles.optionTextActive]}>
+                    {item.name}
+                  </Text>
+                  {active.id === item.id && <Text style={styles.optionCheck}>✓</Text>}
                 </TouchableOpacity>
-              </View>
-              <FlatList
-                data={list}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => handleSelect(item)}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.option,
-                      active.id === item.id && styles.optionActive,
-                    ]}
-                  >
-                    <CountryFlag isoCode={langCodeToCountryCode(item.id)} size={18} />
-                    <Text style={[
-                      styles.optionText,
-                      active.id === item.id && styles.optionTextActive,
-                    ]}>
-                      {item.name}
-                    </Text>
-                    {active.id === item.id && (
-                      <Text style={styles.optionCheck}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </Pressable>
-          ) : (
-            // ── Desktop: dropdown flotante ──
+              )}
+            />
+          </View>
+        </Modal>
+      ) : (
+        // ── Desktop: dropdown flotante ─────────────────────────────────────
+        <Modal
+          visible={open}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setOpen(false)}
+        >
+          <Pressable onPress={() => setOpen(false)} style={styles.backdrop}>
             <View style={styles.desktopDropdown}>
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetHeaderText}>Idioma</Text>
@@ -116,28 +113,20 @@ export function LanguageSelector() {
                   <TouchableOpacity
                     onPress={() => handleSelect(item)}
                     activeOpacity={0.7}
-                    style={[
-                      styles.option,
-                      active.id === item.id && styles.optionActive,
-                    ]}
+                    style={[styles.option, active.id === item.id && styles.optionActive]}
                   >
                     <CountryFlag isoCode={langCodeToCountryCode(item.id)} size={12} />
-                    <Text style={[
-                      styles.optionText,
-                      active.id === item.id && styles.optionTextActive,
-                    ]}>
+                    <Text style={[styles.optionText, active.id === item.id && styles.optionTextActive]}>
                       {item.name}
                     </Text>
-                    {active.id === item.id && (
-                      <Text style={styles.optionCheck}>✓</Text>
-                    )}
+                    {active.id === item.id && <Text style={styles.optionCheck}>✓</Text>}
                   </TouchableOpacity>
                 )}
               />
             </View>
-          )}
-        </Pressable>
-      </Modal>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -172,14 +161,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start', // sheet cae desde arriba
   },
 
-  // ── Mobile sheet ──────────────────────────────────────────────────────────
-  mobileSheet: {
+  // ── Mobile fullscreen ─────────────────────────────────────────────────────
+  mobileFullscreen: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#fff',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    paddingBottom: 16,
-    width: '100%',
-    marginTop: 56, // altura del navbar
+    paddingTop: Platform.OS === 'ios' ? 52 : 28,
   },
 
   // ── Desktop dropdown ──────────────────────────────────────────────────────

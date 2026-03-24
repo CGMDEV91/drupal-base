@@ -275,6 +275,9 @@
   "admin.settings.stripeKeysNote": "Las claves secreta y webhook son solo escritura. Una vez guardadas no se pueden leer de vuelta — solo se muestra su estado.",
   "admin.settings.stripeDashboardHint": "Encuentra tus claves en dashboard.stripe.com → Developers → API keys",
 
+  "admin.settings.tabs.general": "General",
+  "admin.settings.tabs.stripe": "Stripe",
+
   "home.heroTitle": "Descubre tu próxima aventura",
   "home.searchPlaceholder": "Buscar tours...",
   "home.allCountries": "Todos",

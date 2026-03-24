@@ -24,7 +24,6 @@ import { TourCard } from '../../../components/tour/TourCard';
 import { Ionicons } from '@expo/vector-icons';
 import type { TourFilters } from '../../../types';
 import Footer from '../../../components/layout/Footer';
-
 const AMBER = '#F59E0B';
 
 const HERO_IMAGE =
@@ -235,6 +234,7 @@ interface MobileFilterBarProps {
   cities: { id: string; name: string }[];
   onApplyAll: (sort: TourFilters['sort'], country: string | null, city: string | null) => void;
   onClear: () => void;
+  onFetchCities: (country?: string) => void;
   cardPadding: number;
 }
 
@@ -244,16 +244,17 @@ function MobileFilterBar({
   cities,
   onApplyAll,
   onClear,
+  onFetchCities,
   cardPadding,
 }: MobileFilterBarProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-
   const [pendingSort, setPendingSort] = useState<TourFilters['sort']>(filters.sort);
   const [pendingCountry, setPendingCountry] = useState<string | undefined>(filters.country);
   const [pendingCity, setPendingCity] = useState<string | undefined>(filters.city);
   const [countrySearch, setCountrySearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
+  const [expandedSection, setExpandedSection] = useState<'sort' | 'country' | 'city' | null>(null);
 
   const sortOptions: { key: NonNullable<TourFilters['sort']>; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'rating', label: t('filter.sortRating'), icon: 'star-outline' },
@@ -263,6 +264,7 @@ function MobileFilterBar({
 
   const activeCount = [filters.sort, filters.country, filters.city].filter(Boolean).length;
   const hasActive = activeCount > 0;
+  const currentSortLabel = sortOptions.find((o) => o.key === (pendingSort ?? 'rating'))?.label ?? '';
 
   const openModal = () => {
     setPendingSort(filters.sort);
@@ -270,6 +272,8 @@ function MobileFilterBar({
     setPendingCity(filters.city);
     setCountrySearch('');
     setCitySearch('');
+    setExpandedSection(null);
+    onFetchCities(filters.country);
     setOpen(true);
   };
 
@@ -286,6 +290,10 @@ function MobileFilterBar({
     setPendingCity(undefined);
     onClear();
     close();
+  };
+
+  const toggleSection = (section: 'sort' | 'country' | 'city') => {
+    setExpandedSection((prev) => (prev === section ? null : section));
   };
 
   return (
@@ -309,113 +317,162 @@ function MobileFilterBar({
         )}
       </View>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <Pressable style={styles.mobileModalBackdrop} onPress={close}>
-          <Pressable style={styles.mobileModalSheet} onPress={() => {}}>
-            <View style={styles.mobileModalHeader}>
-              <TouchableOpacity onPress={handleClearPending} activeOpacity={0.7} style={styles.mobileModalClearBtn}>
-                <Text style={styles.mobileModalClearText}>{t('filter.clear')}</Text>
-              </TouchableOpacity>
-              <Text style={styles.mobileModalTitle}>{t('filter.filters')}</Text>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+        <Pressable style={styles.mobileModalBackdrop} onPress={close} focusable={false} />
+        <View style={styles.mobileModalSheet}>
+          <View style={styles.mobileModalHeader}>
+            <TouchableOpacity onPress={handleClearPending} activeOpacity={0.7} style={styles.mobileModalClearBtn}>
+              <Text style={styles.mobileModalClearText}>{t('filter.clear')}</Text>
+            </TouchableOpacity>
+            <Text style={styles.mobileModalTitle}>{t('filter.filters')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <TouchableOpacity onPress={handleApply} activeOpacity={0.8} style={styles.mobileModalApplyBtn}>
                 <Text style={styles.mobileModalApplyText}>{t('filter.apply')}</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={close} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color="#6B7280" />
+              </TouchableOpacity>
             </View>
-            <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
-              <View style={styles.mobileSection}>
+          </View>
+
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+
+            {/* Sort section */}
+            <View style={styles.filterSection}>
+              <TouchableOpacity style={styles.filterSectionRow} onPress={() => toggleSection('sort')} activeOpacity={0.7}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.sort')}</Text>
-                {sortOptions.map((o) => {
-                  const isActive = (pendingSort ?? 'rating') === o.key;
-                  return (
-                    <TouchableOpacity
-                      key={o.key}
-                      style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
-                      onPress={() => setPendingSort(o.key)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name={o.icon} size={18} color={isActive ? AMBER : '#6B7280'} />
-                      <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{o.label}</Text>
-                      {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={styles.mobileSection}>
+                <View style={styles.filterSectionRight}>
+                  <Text style={styles.filterSectionValue} numberOfLines={1}>{currentSortLabel}</Text>
+                  <Ionicons name={expandedSection === 'sort' ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
+                </View>
+              </TouchableOpacity>
+              {expandedSection === 'sort' && sortOptions.map((o) => {
+                const isActive = (pendingSort ?? 'rating') === o.key;
+                return (
+                  <TouchableOpacity
+                    key={o.key}
+                    style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
+                    onPress={() => { setPendingSort(o.key); setExpandedSection(null); }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={o.icon} size={18} color={isActive ? AMBER : '#6B7280'} />
+                    <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{o.label}</Text>
+                    {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Country section */}
+            <View style={styles.filterSection}>
+              <TouchableOpacity style={styles.filterSectionRow} onPress={() => toggleSection('country')} activeOpacity={0.7}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.country')}</Text>
-                <View style={styles.mobileSectionSearch}>
-                  <Ionicons name="search-outline" size={14} color="#9CA3AF" />
-                  <TextInput
-                    style={styles.mobileSectionSearchInput}
-                    placeholder={t('filter.search')}
-                    placeholderTextColor="#C4C9D4"
-                    value={countrySearch}
-                    onChangeText={setCountrySearch}
-                  />
-                  {countrySearch.length > 0 && (
-                    <TouchableOpacity onPress={() => setCountrySearch('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                      <Ionicons name="close-circle" size={14} color="#C4C9D4" />
-                    </TouchableOpacity>
-                  )}
+                <View style={styles.filterSectionRight}>
+                  <Text style={styles.filterSectionValue} numberOfLines={1}>
+                    {pendingCountry || t('filter.selectCountry')}
+                  </Text>
+                  <Ionicons name={expandedSection === 'country' ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
                 </View>
-                {[{ id: 'all', name: t('filter.selectCountry') }, ...countries.filter((c) =>
-                  !countrySearch.trim() || c.name.toLowerCase().includes(countrySearch.trim().toLowerCase())
-                )].map((c) => {
-                  const isActive = c.id === 'all' ? !pendingCountry : pendingCountry === c.name;
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
-                      onPress={() => {
-                        setPendingCountry(c.id === 'all' ? undefined : c.name);
-                        if (c.id === 'all') setPendingCity(undefined);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="earth-outline" size={18} color={isActive ? AMBER : '#6B7280'} />
-                      <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{c.name}</Text>
-                      {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={[styles.mobileSection, { paddingBottom: 32 }]}>
+              </TouchableOpacity>
+              {expandedSection === 'country' && (
+                <>
+                  <View style={styles.mobileSectionSearch}>
+                    <Ionicons name="search-outline" size={14} color="#9CA3AF" />
+                    <TextInput
+                      style={styles.mobileSectionSearchInput}
+                      placeholder={t('filter.search')}
+                      placeholderTextColor="#C4C9D4"
+                      value={countrySearch}
+                      onChangeText={setCountrySearch}
+                    />
+                    {countrySearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setCountrySearch('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="close-circle" size={14} color="#C4C9D4" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView style={{ maxHeight: 220 }} bounces={false} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {[{ id: 'all', name: t('filter.selectCountry') }, ...countries.filter((c) =>
+                      !countrySearch.trim() || c.name.toLowerCase().includes(countrySearch.trim().toLowerCase())
+                    )].map((c) => {
+                      const isActive = c.id === 'all' ? !pendingCountry : pendingCountry === c.name;
+                      return (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
+                          onPress={() => {
+                            const newCountry = c.id === 'all' ? undefined : c.name;
+                            setPendingCountry(newCountry);
+                            if (!newCountry) setPendingCity(undefined);
+                            onFetchCities(newCountry);
+                            setExpandedSection(null);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="earth-outline" size={18} color={isActive ? AMBER : '#6B7280'} />
+                          <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{c.name}</Text>
+                          {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
+            </View>
+
+            {/* City section */}
+            <View style={[styles.filterSection, { marginBottom: 32 }]}>
+              <TouchableOpacity style={styles.filterSectionRow} onPress={() => toggleSection('city')} activeOpacity={0.7}>
                 <Text style={styles.mobileSectionLabel}>{t('filter.city')}</Text>
-                <View style={styles.mobileSectionSearch}>
-                  <Ionicons name="search-outline" size={14} color="#9CA3AF" />
-                  <TextInput
-                    style={styles.mobileSectionSearchInput}
-                    placeholder={t('filter.search')}
-                    placeholderTextColor="#C4C9D4"
-                    value={citySearch}
-                    onChangeText={setCitySearch}
-                  />
-                  {citySearch.length > 0 && (
-                    <TouchableOpacity onPress={() => setCitySearch('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                      <Ionicons name="close-circle" size={14} color="#C4C9D4" />
-                    </TouchableOpacity>
-                  )}
+                <View style={styles.filterSectionRight}>
+                  <Text style={styles.filterSectionValue} numberOfLines={1}>
+                    {pendingCity || t('filter.selectCity')}
+                  </Text>
+                  <Ionicons name={expandedSection === 'city' ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
                 </View>
-                {[{ id: 'all', name: t('filter.selectCity') }, ...cities.filter((c) =>
-                  !citySearch.trim() || c.name.toLowerCase().includes(citySearch.trim().toLowerCase())
-                )].map((c) => {
-                  const isActive = c.id === 'all' ? !pendingCity : pendingCity === c.name;
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
-                      onPress={() => setPendingCity(c.id === 'all' ? undefined : c.name)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="location-outline" size={18} color={isActive ? AMBER : '#6B7280'} />
-                      <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{c.name}</Text>
-                      {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
+              </TouchableOpacity>
+              {expandedSection === 'city' && (
+                <>
+                  <View style={styles.mobileSectionSearch}>
+                    <Ionicons name="search-outline" size={14} color="#9CA3AF" />
+                    <TextInput
+                      style={styles.mobileSectionSearchInput}
+                      placeholder={t('filter.search')}
+                      placeholderTextColor="#C4C9D4"
+                      value={citySearch}
+                      onChangeText={setCitySearch}
+                    />
+                    {citySearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setCitySearch('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="close-circle" size={14} color="#C4C9D4" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView style={{ maxHeight: 220 }} bounces={false} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {[{ id: 'all', name: t('filter.selectCity') }, ...cities.filter((c) =>
+                      !citySearch.trim() || c.name.toLowerCase().includes(citySearch.trim().toLowerCase())
+                    )].map((c) => {
+                      const isActive = c.id === 'all' ? !pendingCity : pendingCity === c.name;
+                      return (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={[styles.mobileOption, isActive && styles.mobileOptionActive]}
+                          onPress={() => { setPendingCity(c.id === 'all' ? undefined : c.name); setExpandedSection(null); }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="location-outline" size={18} color={isActive ? AMBER : '#6B7280'} />
+                          <Text style={[styles.mobileOptionText, isActive && styles.mobileOptionTextActive]}>{c.name}</Text>
+                          {isActive && <Ionicons name="checkmark" size={18} color={AMBER} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
+            </View>
+
+          </ScrollView>
+        </View>
       </Modal>
     </>
   );
@@ -596,6 +653,7 @@ export default function HomePage() {
                 cities={cities}
                 onApplyAll={handleApplyAll}
                 onClear={handleClear}
+                onFetchCities={fetchCities}
                 cardPadding={PADDING}
               />
             )}
@@ -648,14 +706,14 @@ export default function HomePage() {
           )
         }
         ListFooterComponent={
-          <View style={{ paddingTop: 24 }}>
+          <>
             {hasMore && isLoading && (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
                 <ActivityIndicator size="small" color={AMBER} />
               </View>
             )}
             <Footer />
-          </View>
+          </>
         }
       />
     </View>
@@ -833,24 +891,13 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   mobileModalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.38)',
-    justifyContent: 'flex-start',
   },
   mobileModalSheet: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginTop: 56,
-    ...(Platform.OS === 'web'
-      ? ({ boxShadow: '0 8px 32px rgba(0,0,0,0.18)' } as any)
-      : {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.18,
-          shadowRadius: 20,
-          elevation: 16,
-        }),
+    paddingTop: Platform.OS === 'ios' ? 52 : 28,
   },
   mobileModalHeader: {
     flexDirection: 'row',
@@ -894,16 +941,37 @@ const styles = StyleSheet.create({
   mobileSection: {
     paddingTop: 8,
   },
+  filterSection: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  filterSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  filterSectionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  filterSectionValue: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+    maxWidth: 160,
+    textAlign: 'right',
+  },
   mobileSectionLabel: {
     fontSize: 11,
     fontWeight: '600',
     color: '#9CA3AF',
-    textTransform: 'uppercase',
+    textTransform: 'uppercase' as const,
     letterSpacing: 0.8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F3F4F6',
   },
   mobileOption: {
     flexDirection: 'row',

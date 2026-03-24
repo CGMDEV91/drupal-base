@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import Footer from '../../components/layout/Footer';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { MyToursTab } from '../../components/dashboard/MyToursTab';
@@ -21,6 +20,7 @@ import { SubscriptionTab } from '../../components/dashboard/SubscriptionTab';
 import { PaymentDataTab } from '../../components/dashboard/PaymentDataTab';
 import { DonationsTab } from '../../components/dashboard/DonationsTab';
 import PageBanner from '../../components/layout/PageBanner';
+import Footer from '../../components/layout/Footer';
 
 const AMBER = '#F59E0B';
 const CONTENT_MAX_WIDTH = 900;

@@ -168,27 +168,35 @@ function Picker({ visible, title, items, selectedId, onSelect, onClose, isDeskto
     );
   }
 
-  // ── Mobile: modal centrado que ocupa toda la pantalla ─────────────────────
+  // ── Mobile: pantalla completa con slide ───────────────────────────────────
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.mobileOverlay}>
-        {/* Backdrop */}
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        {/* Panel */}
-        <View style={styles.mobilePanel}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <Ionicons name="close" size={22} color="#374151" />
-            </TouchableOpacity>
-          </View>
-          {searchBar}
-          {renderOptionList(400)}
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.mobileFullscreen}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <Ionicons name="close" size={22} color="#374151" />
+          </TouchableOpacity>
         </View>
+        {searchBar}
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.pickerItem, item.id === selectedId && styles.pickerItemSelected]}
+              onPress={() => { onSelect(item.id, item.label); onClose(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.pickerItemText, item.id === selectedId && styles.pickerItemTextSelected]}>
+                {item.label}
+              </Text>
+              {item.id === selectedId && <Ionicons name="checkmark" size={18} color={AMBER_DARK} />}
+            </TouchableOpacity>
+          )}
+        />
       </View>
     </Modal>
   );
@@ -494,7 +502,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
         <Footer />
       </ScrollView>
 
@@ -748,26 +755,11 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.6,
   },
-  // ── Mobile modal (pantalla completa centrado) ──────────────────────────────
-  mobileOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  mobilePanel: {
-    width: '100%',
+  // ── Mobile fullscreen ──────────────────────────────────────────────────────
+  mobileFullscreen: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : 28,
   },
   modalHeader: {
     flexDirection: 'row',

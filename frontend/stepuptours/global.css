@@ -2,12 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Hide scrollbars (scroll still works) ────────────────────────────────── */
-* {
-  scrollbar-width: none;
+/* ── Focus outline suppression ───────────────────────────────────────────── */
+*:focus,
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
-*::-webkit-scrollbar {
-  display: none;
+
+/* ── Custom scrollbar — hidden by default, revealed on scroll ────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+[data-scrolling] {
+  scrollbar-color: rgba(100, 100, 100, 0.38) transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 10px;
+  transition: background-color 0.3s ease;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+[data-scrolling]::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.38);
 }
 
 @layer base {

@@ -275,6 +275,9 @@
   "admin.settings.stripeKeysNote": "Secret and webhook keys are write-only. Once saved they cannot be read back — only their configured status is shown.",
   "admin.settings.stripeDashboardHint": "Find your keys at dashboard.stripe.com → Developers → API keys",
 
+  "admin.settings.tabs.general": "General",
+  "admin.settings.tabs.stripe": "Stripe",
+
   "home.heroTitle": "Discover your next adventure",
   "home.searchPlaceholder": "Search tours...",
   "home.allCountries": "All",

@@ -41,6 +41,8 @@ export interface TourStep {
   id: string;
   title: string;
   description: string;
+  /** Actual language of the content as returned by Drupal (may differ from UI language if untranslated) */
+  contentLangcode: string;
   order: number;
   location: GeoLocation | null;
   totalCompleted: number;

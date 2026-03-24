@@ -10,22 +10,16 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as Speech from 'expo-speech';
+import { useTTS } from '../../hooks/useTTS';
 import { BusinessCard } from './BusinessCard';
 import type { TourStep } from '../../types';
 
 const AMBER = '#F59E0B';
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
-// Approximate characters read per second at 1× speed
-const CHARS_PER_SECOND = 15;
-
-// ---------------------------------------------------------------------------
-// Global singleton — ensures only one step plays audio at a time.
-// ---------------------------------------------------------------------------
-let stopGlobalAudio: (() => void) | null = null;
 
 interface StepContentProps {
   step: TourStep;
@@ -68,226 +62,27 @@ export function StepContent({
 
   const [showDescription, setShowDescription] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
-  // 'idle' | 'playing' | 'paused'
-  const [playState, setPlayState] = useState<'idle' | 'playing' | 'paused'>('idle');
-  const [speedIndex, setSpeedIndex] = useState(1); // default 1×
-  const [elapsed, setElapsed] = useState(0);
-
-  const progressAnim = useRef(new Animated.Value(0)).current;
   const playerExpandAnim = useRef(new Animated.Value(0)).current;
 
-  const elapsedRef = useRef(0);
-  const lastSecRef = useRef(-1);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const currentDurationRef = useRef(1);
-  // Always-current speed index — avoids stale closure captures
-  const speedIndexRef = useRef(1);
-  // Generation counter: increment before every deliberate speech stop so that
-  // the async onDone/onStopped callbacks from the previous utterance are ignored.
-  const generationRef = useRef(0);
-  // Saved elapsed position when paused (so resume can re-speak from here)
-  const pausedAtRef = useRef(0);
-  // Stable ref to handleStop for the global singleton and collapse effect
-  const handleStopRef = useRef<(() => void) | null>(null);
-
   const descriptionText = step.description ?? '';
+  // Use the content's actual language for TTS.
+  // If the step has no translation for the current UI language, Drupal returns
+  // the original content (usually English) — contentLangcode reflects that.
+  const ttsLangcode = step.contentLangcode ?? langcode;
+  const tts = useTTS(descriptionText, ttsLangcode);
 
-  // ---------------------------------------------------------------------------
-  // Timer helpers
-  // ---------------------------------------------------------------------------
-  const clearTimerFn = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  const startTimerFrom = useCallback(
-    (fromElapsed: number) => {
-      clearTimerFn();
-      elapsedRef.current = fromElapsed;
-      lastSecRef.current = Math.floor(fromElapsed) - 1;
-      setElapsed(Math.floor(fromElapsed));
-
-      intervalRef.current = setInterval(() => {
-        elapsedRef.current += 0.1;
-        const sec = Math.floor(elapsedRef.current);
-        if (sec !== lastSecRef.current) {
-          lastSecRef.current = sec;
-          setElapsed(sec);
-        }
-        progressAnim.setValue(
-          Math.min(elapsedRef.current / currentDurationRef.current, 1),
-        );
-        if (elapsedRef.current >= currentDurationRef.current) {
-          clearTimerFn();
-        }
-      }, 100);
-    },
-    [progressAnim],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Core speech helpers
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Increment generation counter and stop TTS.
-   * Any pending onDone/onStopped from the previous utterance will check the
-   * counter and bail out early — no state changes from stale callbacks.
-   */
-  const stopSpeechAndInvalidate = useCallback(() => {
-    generationRef.current += 1;
-    Speech.stop();
-    clearTimerFn();
-  }, []);
-
-  /**
-   * Start speaking `text` at `rate`, continuing the elapsed display from
-   * `fromElapsed`. Captures the current generation so callbacks are discarded
-   * if another action invalidates them before they fire.
-   */
-  const startSpeech = useCallback(
-    (text: string, rate: number, fromElapsed: number) => {
-      const gen = (generationRef.current += 1);
-      const segDuration = Math.max(1, Math.ceil(text.length / (CHARS_PER_SECOND * rate)));
-      currentDurationRef.current = fromElapsed + segDuration;
-
-      const onEnd = () => {
-        if (generationRef.current !== gen) return; // stale callback — ignore
-        setPlayState('idle');
-        clearTimerFn();
-        progressAnim.setValue(1);
-        if (stopGlobalAudio === handleStopRef.current) stopGlobalAudio = null;
-      };
-
-      Speech.speak(text, {
-        language: langcode,
-        rate,
-        onDone: onEnd,
-        onStopped: onEnd,
-        onError: onEnd,
-      });
-
-      setPlayState('playing');
-      startTimerFrom(fromElapsed);
-    },
-    [langcode, progressAnim, startTimerFrom],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Stop (reset to beginning)
-  // ---------------------------------------------------------------------------
-  const handleStop = useCallback(() => {
-    stopSpeechAndInvalidate();
-    setPlayState('idle');
-    elapsedRef.current = 0;
-    lastSecRef.current = -1;
-    setElapsed(0);
-    progressAnim.setValue(0);
-    if (stopGlobalAudio === handleStopRef.current) stopGlobalAudio = null;
-  }, [stopSpeechAndInvalidate, progressAnim]);
-
-  // Keep handleStopRef up to date so collapse effect and global singleton
-  // always call the latest version.
   useEffect(() => {
-    handleStopRef.current = handleStop;
-  }, [handleStop]);
+    if (showDescription) tts.prefetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDescription]);
 
-  // ---------------------------------------------------------------------------
   // Stop audio when card collapses
-  // ---------------------------------------------------------------------------
   const prevExpandedRef = useRef(isExpanded);
   useEffect(() => {
-    if (prevExpandedRef.current && !isExpanded) {
-      handleStopRef.current?.();
-    }
+    if (prevExpandedRef.current && !isExpanded) tts.handleStop();
     prevExpandedRef.current = isExpanded;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      generationRef.current += 1;
-      Speech.stop();
-      clearTimerFn();
-      if (stopGlobalAudio === handleStopRef.current) {
-        stopGlobalAudio = null;
-      }
-    };
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Play / Pause / Resume
-  // ---------------------------------------------------------------------------
-  const handlePlayPause = useCallback(() => {
-    if (playState === 'playing') {
-      // ── Pause: save position, invalidate TTS ──
-      pausedAtRef.current = elapsedRef.current;
-      stopSpeechAndInvalidate();
-      setPlayState('paused');
-
-    } else if (playState === 'paused') {
-      // ── Resume: re-speak remaining text from saved position ──
-      const rate = SPEEDS[speedIndexRef.current];
-      const charsRead = Math.min(
-        Math.floor(pausedAtRef.current * CHARS_PER_SECOND * rate),
-        descriptionText.length,
-      );
-      const remainingText = descriptionText.slice(charsRead) || descriptionText;
-      startSpeech(remainingText, rate, pausedAtRef.current);
-
-    } else {
-      // ── Start fresh ──
-      if (stopGlobalAudio && stopGlobalAudio !== handleStopRef.current) {
-        stopGlobalAudio();
-      }
-      stopGlobalAudio = handleStopRef.current;
-      elapsedRef.current = 0;
-      progressAnim.setValue(0);
-      startSpeech(descriptionText, SPEEDS[speedIndexRef.current], 0);
-    }
-  }, [playState, descriptionText, stopSpeechAndInvalidate, startSpeech, progressAnim]);
-
-  // ---------------------------------------------------------------------------
-  // Speed change — continues playback from current position at new rate
-  // ---------------------------------------------------------------------------
-  const handleSpeedChange = useCallback(() => {
-    // ── Save OLD speed BEFORE updating ──
-    const oldSpeedIdx = speedIndexRef.current;
-    const newSpeedIdx = (oldSpeedIdx + 1) % SPEEDS.length;
-    speedIndexRef.current = newSpeedIdx;
-    setSpeedIndex(newSpeedIdx);
-
-    if (playState === 'idle') return; // just cycle the display label
-
-    // Use the OLD speed to estimate where we are in the text
-    const referenceElapsed =
-      playState === 'paused' ? pausedAtRef.current : elapsedRef.current;
-    const charsRead = Math.min(
-      Math.floor(referenceElapsed * CHARS_PER_SECOND * SPEEDS[oldSpeedIdx]),
-      descriptionText.length,
-    );
-    const remainingText = descriptionText.slice(charsRead) || descriptionText;
-
-    if (playState === 'paused') {
-      // Update the total duration estimate so the display is correct on resume
-      const remainingDuration = Math.max(
-        1,
-        Math.ceil(remainingText.length / (CHARS_PER_SECOND * SPEEDS[newSpeedIdx])),
-      );
-      currentDurationRef.current = referenceElapsed + remainingDuration;
-      return;
-    }
-
-    // Currently playing — stop (invalidate) and re-speak at new speed
-    stopSpeechAndInvalidate();
-    if (stopGlobalAudio && stopGlobalAudio !== handleStopRef.current) {
-      stopGlobalAudio();
-    }
-    stopGlobalAudio = handleStopRef.current;
-    startSpeech(remainingText, SPEEDS[newSpeedIdx], referenceElapsed);
-  }, [playState, descriptionText, stopSpeechAndInvalidate, startSpeech]);
 
   // ---------------------------------------------------------------------------
   // Player panel expand / collapse
@@ -296,7 +91,7 @@ export function StepContent({
     const opening = !showPlayer;
     setShowPlayer(opening);
 
-    if (!opening) handleStopRef.current?.();
+    if (!opening) tts.handleStop();
 
     Animated.timing(playerExpandAnim, {
       toValue: opening ? 1 : 0,
@@ -315,15 +110,7 @@ export function StepContent({
   // ---------------------------------------------------------------------------
   // Derived display values
   // ---------------------------------------------------------------------------
-  const estimatedTotal = Math.max(
-    1,
-    Math.ceil(descriptionText.length / (CHARS_PER_SECOND * SPEEDS[speedIndex])),
-  );
-  const totalDisplay = formatTime(
-    playState === 'idle' ? estimatedTotal : currentDurationRef.current,
-  );
-  const elapsedDisplay = formatTime(elapsed);
-  const isPlaying = playState === 'playing';
+  const isPlaying = tts.playState === 'playing';
 
   return (
     <View style={styles.container}>
@@ -394,13 +181,13 @@ export function StepContent({
             <View style={styles.playerCard}>
               {/* Progress bar: track → fill → thumb */}
               <View style={styles.progressWrapper}>
-                <Text style={styles.timeText}>{elapsedDisplay}</Text>
+                <Text style={styles.timeText}>{formatTime(tts.elapsed)}</Text>
                 <View style={styles.progressTrack}>
                   <Animated.View
                     style={[
                       styles.progressFill,
                       {
-                        width: progressAnim.interpolate({
+                        width: tts.progressAnim.interpolate({
                           inputRange: [0, 1],
                           outputRange: ['0%', '100%'],
                         }),
@@ -411,14 +198,14 @@ export function StepContent({
                     <View style={styles.progressThumb} />
                   </Animated.View>
                 </View>
-                <Text style={styles.timeText}>{totalDisplay}</Text>
+                <Text style={styles.timeText}>{formatTime(tts.totalDuration)}</Text>
               </View>
 
               {/* Controls: Stop | Play/Pause | Speed */}
               <View style={styles.playerControls}>
                 <TouchableOpacity
                   style={styles.controlBtn}
-                  onPress={handleStop}
+                  onPress={tts.handleStop}
                   activeOpacity={0.7}
                   accessibilityLabel={t('step.tts.stop')}
                 >
@@ -427,23 +214,27 @@ export function StepContent({
 
                 <TouchableOpacity
                   style={styles.playBtn}
-                  onPress={handlePlayPause}
+                  onPress={tts.handlePlayPause}
                   activeOpacity={0.8}
                   accessibilityLabel={isPlaying ? t('step.tts.pause') : t('step.tts.play')}
                 >
-                  <Ionicons
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={20}
-                    color="#FFFFFF"
-                  />
+                  {tts.playState === 'loading' ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.controlBtn}
-                  onPress={handleSpeedChange}
+                  onPress={tts.handleSpeedChange}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.speedText}>{SPEEDS[speedIndex]}x</Text>
+                  <Text style={styles.speedText}>{SPEEDS[tts.speedIndex]}x</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -13,13 +13,13 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import Footer from '../../components/layout/Footer';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { getUserActivitiesWithTours, upsertTourActivity } from '../../services/tours.service';
 import type { ActivityWithTour } from '../../services/tours.service';
 import { TourCard } from '../../components/tour/TourCard';
 import PageBanner from '../../components/layout/PageBanner';
+import Footer from '../../components/layout/Footer';
 
 const AMBER = '#F59E0B';
 
@@ -170,6 +170,7 @@ export default function FavouritesScreen() {
           />
         </View>
       )}
+      ListFooterComponent={<Footer />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
           <Ionicons name="heart-outline" size={56} color="#D1D5DB" />
@@ -182,7 +183,6 @@ export default function FavouritesScreen() {
           </TouchableOpacity>
         </View>
       }
-      ListFooterComponent={<Footer />}
     />
   );
 }
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   listContentEmpty: {
-    flex: 1,
+    flexGrow: 1,
   },
 
   // ── Empty state ────────────────────────────────────────────────────────────

@@ -161,11 +161,9 @@ class SiteSettingsController extends ControllerBase {
         'stripeConfigured' => $pkConfigured && $skConfigured,
       ],
       'stripeSettings' => [
-        // publishableKey is public — return it fully so the form can display it.
-        'publishableKey'     => $pkConfigured ? $pk : '',
-        // Never return secret values — just indicate whether they're set.
-        'secretKeyConfigured'   => $skConfigured,
-        'webhookConfigured'     => $whsecConfigured,
+        'publishableKey'      => $pkConfigured ? $pk : '',
+        'secretKeyConfigured' => $skConfigured,
+        'webhookConfigured'   => $whsecConfigured,
       ],
     ];
   }

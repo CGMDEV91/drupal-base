@@ -23,7 +23,7 @@ export default function LangcodeLayout() {
   const openAuthModal = useAuthStore((s) => s.openAuthModal);
   const closeAuthModal = useAuthStore((s) => s.closeAuthModal);
 
-  // Contact modal state — driven by Zustand so Footer (in pages) can trigger it
+  // Contact modal state — driven by Zustand so Footer can trigger it
   const contactModalOpen = useAuthStore((s) => s.contactModalOpen);
   const closeContactModal = useAuthStore((s) => s.closeContactModal);
 

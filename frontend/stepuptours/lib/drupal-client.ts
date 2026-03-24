@@ -5,7 +5,18 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { Jsona } from 'jsona';
-import { sessionStorage } from './session';
+import { sessionStorage as appSession } from './session';
+import type {
+  User,
+  Tour,
+  TourStep,
+  Business,
+  TourActivity,
+  Subscription,
+  SubscriptionPlan,
+  Donation,
+  ProfessionalProfile,
+} from '../types';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://stepuptours.ddev.site';
 const JSON_API_PREFIX = '/jsonapi';
@@ -46,7 +57,7 @@ drupalClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     config.baseURL = buildBaseURL(currentLangcode);
 
-    const session = await sessionStorage.getSession();
+    const session = await appSession.getSession();
     if (session?.token) {
       const prefix = session.tokenType === 'bearer' ? 'Bearer' : 'Basic';
       config.headers.Authorization = `${prefix} ${session.token}`;
@@ -62,7 +73,7 @@ drupalClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await sessionStorage.clearSession();
+      await appSession.clearSession();
     }
     return Promise.reject(normalizeError(error));
   }
@@ -165,7 +176,7 @@ export async function drupalDelete(endpoint: string): Promise<void> {
 
 // ── Helpers de mapeo: Drupal → tipos del dominio ──────────────────────────────
 
-export function mapDrupalUser(raw: any): import('../types').User {
+export function mapDrupalUser(raw: any): User {
   const roles: string[] = Array.isArray(raw.roles)
     ? raw.roles.map((r: any) => {
       if (typeof r === 'string') return r;
@@ -203,7 +214,7 @@ export function mapDrupalUser(raw: any): import('../types').User {
   };
 }
 
-export function mapDrupalTour(raw: any): import('../types').Tour {
+export function mapDrupalTour(raw: any): Tour {
   return {
     id: raw.id,
     drupalInternalId: raw.drupal_internal__nid ?? 0,
@@ -212,7 +223,7 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
     image: resolveImageUrl(raw.field_image),
     duration: raw.field_duration ?? 0,
     averageRate: parseFloat(raw.field_average_rate ?? '0'),
-    ratingCount: parseInt(raw.field_rating_count ?? '0', 10) || 0,
+    ratingCount: parseInt(raw.field_rating_count ?? '0', 10),
     stopsCount: raw.field_steps_count ?? 0,
     donationCount: raw.field_donation_count ?? 0,
     donationTotal: parseFloat(raw.field_donation_total ?? '0'),
@@ -231,11 +242,12 @@ export function mapDrupalTour(raw: any): import('../types').Tour {
   };
 }
 
-export function mapDrupalTourStep(raw: any): import('../types').TourStep {
+export function mapDrupalTourStep(raw: any): TourStep {
   return {
     id: raw.id,
     title: raw.title ?? '',
     description: raw.field_description?.value ?? raw.field_description ?? '',
+    contentLangcode: raw.langcode ?? 'en',
     order: raw.field_order ?? 0,
     location: raw.field_location
       ? { lat: raw.field_location.lat, lon: raw.field_location.lon }
@@ -247,7 +259,7 @@ export function mapDrupalTourStep(raw: any): import('../types').TourStep {
   };
 }
 
-export function mapDrupalBusiness(raw: any): import('../types').Business {
+export function mapDrupalBusiness(raw: any): Business {
   return {
     id: raw.id,
     name: raw.title ?? '',
@@ -264,7 +276,7 @@ export function mapDrupalBusiness(raw: any): import('../types').Business {
   };
 }
 
-export function mapDrupalActivity(raw: any): import('../types').TourActivity {
+export function mapDrupalActivity(raw: any): TourActivity {
   return {
     id: raw.id,
     tourId: raw.field_tour?.id ?? '',
@@ -280,14 +292,14 @@ export function mapDrupalActivity(raw: any): import('../types').TourActivity {
   };
 }
 
-export function extractTourFromActivity(raw: any): import('../types').Tour | null {
+export function extractTourFromActivity(raw: any): Tour | null {
   const tourRaw = raw.field_tour;
   if (!tourRaw || typeof tourRaw !== 'object' || !tourRaw.id) return null;
   if (!tourRaw.title) return null;
   return mapDrupalTour(tourRaw);
 }
 
-export function mapDrupalSubscription(raw: any): import('../types').Subscription {
+export function mapDrupalSubscription(raw: any): Subscription {
   const plan = raw.field_plan;
   return {
     id: raw.id,
@@ -313,7 +325,7 @@ export function mapDrupalSubscription(raw: any): import('../types').Subscription
   };
 }
 
-export function mapDrupalSubscriptionPlan(raw: any): import('../types').SubscriptionPlan {
+export function mapDrupalSubscriptionPlan(raw: any): SubscriptionPlan {
   return {
     id: raw.id,
     title: raw.title ?? '',
@@ -329,7 +341,7 @@ export function mapDrupalSubscriptionPlan(raw: any): import('../types').Subscrip
   };
 }
 
-export function mapDrupalDonation(raw: any): import('../types').Donation {
+export function mapDrupalDonation(raw: any): Donation {
   return {
     id: raw.id,
     tourId: raw.field_tour?.id ?? '',
@@ -344,7 +356,7 @@ export function mapDrupalDonation(raw: any): import('../types').Donation {
   };
 }
 
-export function mapDrupalProfessionalProfile(raw: any): import('../types').ProfessionalProfile {
+export function mapDrupalProfessionalProfile(raw: any): ProfessionalProfile {
   const addr = raw.field_address ?? null;
   return {
     id: raw.id,
@@ -367,5 +379,3 @@ export function mapDrupalProfessionalProfile(raw: any): import('../types').Profe
     revenuePercentage: parseFloat(raw.field_revenue_percentage ?? '75'),
   };
 }
-
-export { drupalClient };

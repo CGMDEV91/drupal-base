@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import Footer from '../../components/layout/Footer';
 import { Image } from 'expo-image';
 import CountryFlag from 'react-native-country-flag';
 import { getRanking } from '../../services/ranking.service';
 import PageBanner from '../../components/layout/PageBanner';
+import Footer from '../../components/layout/Footer';
 import type { RankingEntry } from '../../types';
 
 const AMBER = '#F59E0B';
