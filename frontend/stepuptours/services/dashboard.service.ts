@@ -103,6 +103,8 @@ export async function createTour(data: {
   cityId?: string;
   countryId?: string;
   featuredBusinessIds?: (string | null)[];
+  /** UUID of an already-uploaded file entity to set as field_image */
+  imageId?: string;
 }): Promise<Tour> {
   const relationships: Record<string, any> = {};
   if (data.cityId) {
@@ -110,6 +112,9 @@ export async function createTour(data: {
   }
   if (data.countryId) {
     relationships.field_country = { data: { type: 'taxonomy_term--countries', id: data.countryId } };
+  }
+  if (data.imageId) {
+    relationships.field_image = { data: { type: 'file--file', id: data.imageId } };
   }
 
   const slots = data.featuredBusinessIds ?? [null, null, null];
@@ -146,6 +151,9 @@ export async function updateTour(
     cityId?: string;
     countryId?: string;
     featuredBusinessIds?: (string | null)[];
+    /** UUID of an already-uploaded file entity to set as field_image.
+     *  Pass null explicitly to clear the existing image. */
+    imageId?: string | null;
   }
 ): Promise<Tour> {
   const relationships: Record<string, any> = {};
@@ -157,6 +165,11 @@ export async function updateTour(
   if (data.countryId !== undefined) {
     relationships.field_country = data.countryId
       ? { data: { type: 'taxonomy_term--countries', id: data.countryId } }
+      : { data: null };
+  }
+  if (data.imageId !== undefined) {
+    relationships.field_image = data.imageId
+      ? { data: { type: 'file--file', id: data.imageId } }
       : { data: null };
   }
 

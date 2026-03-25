@@ -766,3 +766,66 @@ El endpoint de roles en `auth.service.ts` usaba `?fields[user--user]=roles`, que
 - Validar permisos Drupal del rol `professional` para PATCH en `node--tour` y `node--tour_step`.
 - Las traducciones de `fr.json` y `de.json` siguen siendo `{}`.
 - Verificar en expo web / simulador el flujo completo: crear tour con negocios, editar tour, añadir/borrar steps en edición.
+
+---
+
+## Sesión 2026-03-25 — Image/Logo Upload Feature
+
+**Resumen**: Implementación completa de subida de imagen/logo en los formularios de creación/edición de tours y negocios.
+
+**Trabajo realizado**:
+
+### Task 1: `uploadDrupalFile` en `lib/drupal-client.ts`
+- Añadida función exportada `uploadDrupalFile(bundle, field, uri, filename): Promise<string>`.
+- Usa `fetch(uri)` para obtener un Blob (funciona en web y native sin condición Platform).
+- Lee la sesión con `appSession.getSession()` para construir el header `Authorization`.
+- POST a `${BASE_URL}/jsonapi/file/upload/node/${bundle}/${field}` usando `drupalClient.post()` con `baseURL: ''` (URL absoluta), `Content-Type: application/octet-stream`, `Content-Disposition: file; filename="..."`, `transformRequest` para enviar el Blob sin serialización JSON.
+- Devuelve el UUID del fichero subido desde `response.data.data.id`.
+- Eliminado import `Platform` que no era necesario en la implementación final.
+
+### Task 2: `BusinessInput` + CRUD de business en `drupal-client.ts`
+- Añadido campo `logoId?: string` a `BusinessInput`.
+- `createBusinessNode`: añade `relationships.field_logo = { data: { type: 'file--file', id } }` si `logoId` está presente.
+- `updateBusinessNode`: igual, pero con soporte para `null` explícito (borra el logo existente).
+
+### Task 3: `createTour` / `updateTour` en `dashboard.service.ts`
+- Añadido parámetro opcional `imageId?: string` a `createTour`. Construye `relationships.field_image` si está presente.
+- Añadido parámetro opcional `imageId?: string | null` a `updateTour`. Construye o limpia `relationships.field_image` según valor.
+
+### Task 4: `ImagePickerField` en `components/shared/ImagePickerField.tsx` (NUEVO)
+- Componente reutilizable con props: `currentImageUrl`, `onImageSelected`, `onImageCleared`, `label`.
+- En web: `document.createElement('input')` con `type="file" accept="image/*"` + `URL.createObjectURL`.
+- En native: importa dinámicamente `expo-image-picker`, llama `launchImageLibraryAsync`.
+- Preview con `expo-image` (`Image` de expo-image, `contentFit="cover"`).
+- Botones "Change" y "Remove" en modo preview.
+- Botón dashed "Select image" cuando no hay imagen.
+
+### Task 5: Integración en `create-tour.tsx`
+- Importados `ImagePickerField` y `uploadDrupalFile`.
+- Añadidos estados: `imageUri`, `imageFilename`, `uploadedImageId`, `existingImageUrl`.
+- Edit mode: pre-rellena `existingImageUrl` desde `tour.image`.
+- JSX: `ImagePickerField` en Section 1 (Basic Info) entre el campo description y la fila city/duration/language.
+- `handleSave`: antes de crear/actualizar el tour, si hay `imageUri` y no `uploadedImageId`, llama `uploadDrupalFile('tour', 'field_image', ...)` y guarda el UUID resultante. Pasa `imageId` a `createTour` y `updateTour`.
+- Dependencias del `useCallback` actualizadas.
+
+### Task 6: Integración en `create-business.tsx`
+- Importados `ImagePickerField` y `uploadDrupalFile`.
+- Añadidos estados: `imageUri`, `imageFilename`, `uploadedImageId`, `existingLogoUrl`.
+- Edit mode: pre-rellena `existingLogoUrl` desde `business.logo`.
+- JSX: `ImagePickerField` añadida al final de la sección "Business Details".
+- `handleSave`: antes de crear/actualizar, si hay `imageUri` y no `uploadedImageId`, llama `uploadDrupalFile('business', 'field_logo', ...)`. Pasa `logoId` a `createBusiness` / `updateBusiness`.
+
+**Archivos creados**:
+- `frontend/stepuptours/components/shared/ImagePickerField.tsx`
+
+**Archivos modificados**:
+- `frontend/stepuptours/lib/drupal-client.ts`
+- `frontend/stepuptours/services/dashboard.service.ts`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-tour.tsx`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-business.tsx`
+
+**Pendiente / Próximos pasos**:
+- Drupal debe tener los permisos de `file_upload` habilitados para el rol `professional` en los bundles `node/tour/field_image` y `node/business/field_logo`. Verificar en `/admin/config/media/file-system` y módulo `jsonapi_file_upload` o permisos JSON:API.
+- El endpoint de upload en Drupal JSON:API requiere módulo `jsonapi` ≥ Drupal 9.3 con soporte de file upload (habilitado por defecto en Drupal 10/11).
+- En native, si `expo-image-picker` no está instalado, el componente silencia el error. Considerar instalar `expo-image-picker` (`npx expo install expo-image-picker`) para habilitar el picker nativo.
+- En web, los Blob URLs (`URL.createObjectURL`) son efímeros — si el componente se desmonta antes de guardar, la URI puede quedar inválida. Considerar `FileReader.readAsDataURL` como alternativa más robusta si se detecta este problema.

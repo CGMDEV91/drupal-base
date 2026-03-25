@@ -3,6 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
+    - node.type.business
     - node.type.professional_profile
     - node.type.tour
     - node.type.tour_step
@@ -14,12 +15,15 @@ label: Professional
 weight: 4
 is_admin: false
 permissions:
+  - 'create business content'
   - 'create professional_profile content'
   - 'create tour content'
   - 'create tour_step content'
   - 'create tour_user_activity content'
+  - 'delete own business content'
   - 'delete own tour content'
   - 'delete own tour_step content'
+  - 'edit own business content'
   - 'edit own professional_profile content'
   - 'edit own tour content'
   - 'edit own tour_step content'

@@ -34,7 +34,9 @@ import {
   getTourStepsForEdit,
 } from '../../../services/dashboard.service';
 import { BusinessPicker } from '../../../components/dashboard/BusinessPicker';
+import { ImagePickerField } from '../../../components/shared/ImagePickerField';
 import PageBanner from '../../../components/layout/PageBanner';
+import { uploadDrupalFile } from '../../../lib/drupal-client';
 import type { Business, Subscription } from '../../../types';
 
 const AMBER = '#F59E0B';
@@ -68,11 +70,16 @@ export default function CreateTourScreen() {
   const isAuthLoading = useAuthStore((s) => s.isLoading);
   const isProfessional = user?.roles?.includes('professional');
 
+  // Guard: avoid navigating before Root Layout mounts (Expo Router requirement)
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
+
   useEffect(() => {
+    if (!ready) return;
     if (!isAuthLoading && (!user || !isProfessional)) {
       router.replace(`/${langcode}` as any);
     }
-  }, [user, isAuthLoading, isProfessional, langcode]);
+  }, [ready, user, isAuthLoading, isProfessional, langcode]);
 
   // ── Edit mode: loading state ──────────────────────────────────────────────
   const [isLoadingTour, setIsLoadingTour] = useState(isEditMode);
@@ -83,6 +90,16 @@ export default function CreateTourScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('');
+
+  // ── Tour image ────────────────────────────────────────────────────────────
+  // imageUri: local URI of a newly-picked file (not yet uploaded)
+  // imageFilename: filename extracted from the picked file
+  // uploadedImageId: UUID returned after uploading to Drupal
+  // existingImageUrl: URL of the current image in edit mode (display only)
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageFilename, setImageFilename] = useState<string>('');
+  const [uploadedImageId, setUploadedImageId] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
 
   // ── Desktop dropdown ─────────────────────────────────────────────────────
   const cityBtnRef = useRef<View>(null);
@@ -212,6 +229,10 @@ export default function CreateTourScreen() {
         setDescription(tour.description);
         setDuration(tour.duration > 0 ? String(tour.duration) : '');
 
+        if (tour.image) {
+          setExistingImageUrl(tour.image);
+        }
+
         if (tour.city) {
           setCityId(tour.city.id);
           setCityLabel(tour.city.name);
@@ -314,6 +335,14 @@ export default function CreateTourScreen() {
 
     setSaving(true);
     try {
+      // Upload image if a new file was picked but not yet uploaded
+      let imageId: string | null | undefined = uploadedImageId;
+      if (imageUri && !uploadedImageId) {
+        const fileId = await uploadDrupalFile('tour', 'field_image', imageUri, imageFilename || 'image.jpg');
+        setUploadedImageId(fileId);
+        imageId = fileId;
+      }
+
       if (isEditMode && tourId) {
         // ── PATCH mode ────────────────────────────────────────────────────
         await updateTour(tourId, {
@@ -322,6 +351,8 @@ export default function CreateTourScreen() {
           duration: parseInt(duration, 10) || 0,
           cityId: cityId || undefined,
           featuredBusinessIds,
+          // Pass imageId only when a new image was uploaded or image was explicitly cleared
+          ...(imageId !== undefined ? { imageId } : {}),
         });
 
         // Determine which persisted steps were removed
@@ -371,6 +402,7 @@ export default function CreateTourScreen() {
           duration: parseInt(duration, 10) || 0,
           cityId: cityId || undefined,
           featuredBusinessIds,
+          imageId: imageId ?? undefined,
         });
 
         for (let i = 0; i < steps.length; i++) {
@@ -406,6 +438,7 @@ export default function CreateTourScreen() {
   }, [
     title, description, duration, cityId, steps, langcode, router, t,
     tourBusinesses, stepFeaturedBusiness, isEditMode, tourId,
+    imageUri, imageFilename, uploadedImageId,
   ]);
 
   if (isAuthLoading || !user || !isProfessional || isLoadingTour) {
@@ -464,6 +497,22 @@ export default function CreateTourScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+            />
+
+            <ImagePickerField
+              label={t('createTour.field.image', 'Cover Image')}
+              currentImageUrl={imageUri ?? existingImageUrl}
+              onImageSelected={(uri, filename) => {
+                setImageUri(uri);
+                setImageFilename(filename);
+                setUploadedImageId(null); // reset so we re-upload on save
+              }}
+              onImageCleared={() => {
+                setImageUri(null);
+                setImageFilename('');
+                setUploadedImageId(null);
+                setExistingImageUrl(null);
+              }}
             />
 
             <View style={styles.row}>
@@ -617,7 +666,6 @@ export default function CreateTourScreen() {
                         {t('createTour.field.stepBusiness', { slot: 1 })}
                       </Text>
                       <BusinessPicker
-                        userId={user.id}
                         selectedBusinessId={getStepBusiness(step.key)?.id ?? null}
                         selectedBusiness={getStepBusiness(step.key)}
                         onSelect={(b) => updateStepBusiness(step.key, b)}
@@ -666,7 +714,6 @@ export default function CreateTourScreen() {
                     </Text>
                     {user && (
                       <BusinessPicker
-                        userId={user.id}
                         selectedBusinessId={tourBusinesses[idx]?.id ?? null}
                         selectedBusiness={tourBusinesses[idx]}
                         onSelect={(b) =>

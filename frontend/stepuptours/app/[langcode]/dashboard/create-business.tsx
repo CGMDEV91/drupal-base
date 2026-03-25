@@ -26,6 +26,8 @@ import {
   updateBusiness,
   type BusinessInput,
 } from '../../../services/business.service';
+import { ImagePickerField } from '../../../components/shared/ImagePickerField';
+import { uploadDrupalFile } from '../../../lib/drupal-client';
 import PageBanner from '../../../components/layout/PageBanner';
 
 const AMBER = '#F59E0B';
@@ -63,22 +65,29 @@ export default function CreateBusinessScreen() {
 
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
-  const isProfessional = user?.roles?.includes('professional');
-  const isAdmin = user?.roles?.includes('administrator');
-  const isAuthorized = isProfessional || isAdmin;
 
-  // Auth guard
+  // Auth guard — avoids navigating before Root Layout mounts (Expo Router requirement)
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
+
   useEffect(() => {
-    if (!isAuthLoading && (!user || !isAuthorized)) {
+    if (!ready) return;
+    if (!isAuthLoading && !user) {
       router.replace(`/${langcode}` as any);
     }
-  }, [user, isAuthLoading, isAuthorized, langcode]);
+  }, [ready, user, isAuthLoading, langcode]);
 
   // ── Loading existing business in edit mode ────────────────────────────────
   const [isLoadingBusiness, setIsLoadingBusiness] = useState(isEditMode);
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  // ── Logo image state ──────────────────────────────────────────────────────
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageFilename, setImageFilename] = useState<string>('');
+  const [uploadedImageId, setUploadedImageId] = useState<string | null>(null);
+  const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null);
 
   // ── Category picker state ─────────────────────────────────────────────────
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -140,6 +149,9 @@ export default function CreateBusinessScreen() {
           lon: business.location ? String(business.location.lon) : '',
         });
         setCategoryLabel(business.category?.name ?? '');
+        if (business.logo) {
+          setExistingLogoUrl(business.logo);
+        }
       })
       .catch(() => {
         // Non-fatal — show empty form if fetch fails
@@ -185,33 +197,51 @@ export default function CreateBusinessScreen() {
       return;
     }
 
-    const data: BusinessInput = {
-      name: form.name.trim(),
-      description: form.description.trim() || undefined,
-      website: form.website.trim() || undefined,
-      phone: form.phone.trim() || undefined,
-      categoryId: form.categoryId || undefined,
-      lat: form.lat ? parseFloat(form.lat) : undefined,
-      lon: form.lon ? parseFloat(form.lon) : undefined,
-    };
-
     setSaving(true);
     try {
+      let logoId: string | null | undefined = uploadedImageId;
+      if (imageUri && !uploadedImageId) {
+        const fileId = await uploadDrupalFile(
+          'business',
+          'field_logo',
+          imageUri,
+          imageFilename || 'logo.jpg'
+        );
+        setUploadedImageId(fileId);
+        logoId = fileId;
+      }
+
+      const lat = form.lat ? parseFloat(form.lat) : undefined;
+      const lon = form.lon ? parseFloat(form.lon) : undefined;
+      const hasLocation = lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon);
+
+      const data: BusinessInput = {
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        website: form.website.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        categoryId: form.categoryId || undefined,
+        lat: hasLocation ? lat : undefined,
+        lon: hasLocation ? lon : undefined,
+        ...(logoId !== undefined ? { logoId: logoId ?? undefined } : {}),
+      };
+
       if (isEditMode && businessId) {
         await updateBusiness(businessId, data);
       } else {
         await createBusiness(data);
       }
-      router.back();
+
+      // ✅ Fix GO_BACK: reemplazar en vez de back() para evitar el error
+      router.replace(`/${langcode}/dashboard` as any);
     } catch (err: any) {
       setValidationError(err.message ?? 'Error saving business');
     } finally {
       setSaving(false);
     }
-  }, [form, isEditMode, businessId, router]);
-
+  }, [form, isEditMode, businessId, router, imageUri, imageFilename, uploadedImageId, langcode]);
   // ── Loading / auth guard render ───────────────────────────────────────────
-  if (isAuthLoading || !user || !isAuthorized || isLoadingBusiness) {
+  if (isAuthLoading || !user || isLoadingBusiness) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={AMBER} />
@@ -295,6 +325,21 @@ export default function CreateBusinessScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            <ImagePickerField
+              label="Logo"
+              currentImageUrl={imageUri ?? existingLogoUrl}
+              onImageSelected={(uri, filename) => {
+                setImageUri(uri);
+                setImageFilename(filename);
+                setUploadedImageId(null); // reset so we re-upload on save
+              }}
+              onImageCleared={() => {
+                setImageUri(null);
+                setImageFilename('');
+                setUploadedImageId(null);
+                setExistingLogoUrl(null);
+              }}
+            />
           </View>
 
           {/* Section: Contact */}
@@ -381,63 +426,57 @@ export default function CreateBusinessScreen() {
         </View>
       </ScrollView>
 
-      {/* Mobile bottom-sheet category picker */}
+      {/* Mobile fullscreen category picker */}
       {!isDesktop && (
         <Modal
           visible={categoryPickerVisible}
-          transparent
+          transparent={false}
           animationType="slide"
           onRequestClose={() => setCategoryPickerVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => setCategoryPickerVisible(false)}
+          <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderTitle}>Category</Text>
+              <TouchableOpacity
+                onPress={() => setCategoryPickerVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.pickerSearch}
+              value={categorySearch}
+              onChangeText={setCategorySearch}
+              placeholder="Search category..."
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+              {...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})}
             />
-            <View style={styles.modalSheet}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalHeaderTitle}>Category</Text>
+            <FlatList
+              data={[{ id: '', name: 'No category' }, ...filteredCategories]}
+              keyExtractor={(item) => item.id || '__clear__'}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
                 <TouchableOpacity
-                  onPress={() => setCategoryPickerVisible(false)}
+                  style={styles.pickerItem}
+                  onPress={() => selectCategory(item.id, item.name)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close" size={22} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.pickerSearch}
-                value={categorySearch}
-                onChangeText={setCategorySearch}
-                placeholder="Search category..."
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-                {...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})}
-              />
-              <FlatList
-                data={[{ id: '', name: 'No category' }, ...filteredCategories]}
-                keyExtractor={(item) => item.id || '__clear__'}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.pickerItem}
-                    onPress={() => selectCategory(item.id, item.name)}
-                    activeOpacity={0.7}
+                  <Text
+                    style={[
+                      styles.pickerItemText,
+                      !item.id && styles.pickerItemClear,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.pickerItemText,
-                        !item.id && styles.pickerItemClear,
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
-                    {form.categoryId === item.id && item.id !== '' && (
-                      <Ionicons name="checkmark" size={18} color={AMBER} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
+                    {item.name}
+                  </Text>
+                  {form.categoryId === item.id && item.id !== '' && (
+                    <Ionicons name="checkmark" size={18} color={AMBER} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           </View>
         </Modal>
       )}
@@ -582,19 +621,6 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
 
-  // Mobile bottom-sheet
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '60%',
-    paddingBottom: 16,
-  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -126,7 +126,21 @@
       "Bash(where ddev:*)",
       "Bash(powershell -Command \"Get-Command ddev -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
       "Bash(powershell -Command \"ddev drush cr\")",
-      "Bash(dir \"frontend\\\\stepuptours\\\\components\\\\dashboard\")"
+      "Bash(dir \"frontend\\\\stepuptours\\\\components\\\\dashboard\")",
+      "Bash(ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app/[langcode]/dashboard/)",
+      "Read(///wsl.localhost/Ubuntu//**)",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush php:script web/create_business_categories.php\")",
+      "Bash(wsl -e bash -c \"rm /home/carlos/devel/test-sites/stepuptours/web/create_business_categories.php && cd /home/carlos/devel/test-sites/stepuptours && ddev drush cr\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && grep -r ''create file\\\\|file upload\\\\|jsonapi_file'' config/sync/user.role.professional.yml 2>/dev/null || echo ''Not found''\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && cat config/sync/user.role.professional.yml\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && cat config/sync/user.role.authenticated.yml | grep -A5 ''permissions:''\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush cim -y && ddev drush cr\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush pm:permissions --role=professional 2>/dev/null | head -30 || ddev drush role:perm:add professional ''create business content'' && ddev drush role:perm:add professional ''edit own business content'' && ddev drush role:perm:add professional ''delete own business content''\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush role:perm:add professional ''create business content'' && ddev drush cr\")",
+      "Bash(wsl -e bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush cex -y 2>&1 | tail -5\")",
+      "Bash(wsl -e bash -c \"ls /home/carlos/devel/test-sites/stepuptours/config/sync/field.field.node.business.field_logo.yml 2>/dev/null && echo ''exists'' || echo ''NOT FOUND''\")",
+      "Bash(wsl -e bash -c \"cat /home/carlos/devel/test-sites/stepuptours/config/sync/field.field.node.business.field_logo.yml | grep -E ''field_type|type:|settings:'' | head -10\")",
+      "Bash(wsl -e bash -c \"ls /home/carlos/devel/test-sites/stepuptours/config/sync/field.field.node.tour.field_image.yml 2>/dev/null && echo ''exists'' || echo ''NOT FOUND''\")"
     ],
     "defaultMode": "acceptEdits"
   }

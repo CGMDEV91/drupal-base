@@ -28,8 +28,8 @@ const AMBER = '#F59E0B';
 export interface BusinessPickerProps {
   selectedBusinessId: string | null;
   onSelect: (business: Business | null) => void;
-  /** Filter results to this user's businesses */
-  userId: string;
+  /** Filter results to this user's businesses. Omit to search all businesses. */
+  userId?: string;
   disabled?: boolean;
   placeholder?: string;
   /** Selected business object (for display name) */

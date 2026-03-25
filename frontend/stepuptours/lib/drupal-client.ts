@@ -174,6 +174,56 @@ export async function drupalDelete(endpoint: string): Promise<void> {
   await drupalClient.delete(endpoint);
 }
 
+// ── File upload ───────────────────────────────────────────────────────────────
+
+/**
+ * Upload a file to Drupal via the JSON:API file upload endpoint.
+ * Returns the file UUID to use as a relationship in node create/update.
+ *
+ * @param bundle   e.g. 'business' or 'tour'
+ * @param field    e.g. 'field_logo' or 'field_image'
+ * @param uri      Local file URI from expo-image-picker or a web File input
+ * @param filename Original filename with extension (e.g. 'photo.jpg')
+ */
+export async function uploadDrupalFile(
+  bundle: string,
+  field: string,
+  uri: string,
+  filename: string
+): Promise<string> {
+  // Fetch the file as a Blob — works on both web and native
+  const fileResponse = await fetch(uri);
+  if (!fileResponse.ok) {
+    throw new Error(`Failed to read file: ${fileResponse.status}`);
+  }
+  const blob = await fileResponse.blob();
+
+  // Build auth header from the current session
+  const session = await appSession.getSession();
+  const authHeader = session?.token
+    ? `${session.tokenType === 'bearer' ? 'Bearer' : 'Basic'} ${session.token}`
+    : undefined;
+
+  const uploadUrl = `${BASE_URL}/jsonapi/node/${bundle}/${field}`;
+
+  const response = await drupalClient.post(uploadUrl, blob, {
+    baseURL: '',          // use absolute URL — bypass the drupalClient baseURL
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `file; filename="${filename}"`,
+      ...(authHeader ? { Authorization: authHeader } : {}),
+    },
+    responseType: 'json',
+    transformRequest: [(data) => data], // send Blob as-is, skip JSON serialization
+  });
+
+  const fileId: string | undefined = response.data?.data?.id;
+  if (!fileId) {
+    throw new Error('File upload succeeded but no file UUID was returned');
+  }
+  return fileId;
+}
+
 // ── Helpers de mapeo: Drupal → tipos del dominio ──────────────────────────────
 
 export function mapDrupalUser(raw: any): User {
@@ -418,6 +468,8 @@ export interface BusinessInput {
   categoryId?: string;
   lat?: number;
   lon?: number;
+  /** UUID of an already-uploaded file entity to set as field_logo */
+  logoId?: string;
 }
 
 export async function createBusinessNode(data: BusinessInput): Promise<Business> {
@@ -433,7 +485,7 @@ export async function createBusinessNode(data: BusinessInput): Promise<Business>
   if (data.phone) {
     attributes.field_phone = data.phone;
   }
-  if (data.lat !== undefined && data.lon !== undefined) {
+  if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
     attributes.field_location = { lat: data.lat, lon: data.lon };
   }
 
@@ -441,6 +493,11 @@ export async function createBusinessNode(data: BusinessInput): Promise<Business>
   if (data.categoryId) {
     relationships.field_category = {
       data: { type: 'taxonomy_term--business_category', id: data.categoryId },
+    };
+  }
+  if (data.logoId) {
+    relationships.field_logo = {
+      data: { type: 'file--file', id: data.logoId },
     };
   }
 
@@ -464,7 +521,7 @@ export async function updateBusinessNode(id: string, data: Partial<BusinessInput
     attributes.field_website = data.website ? { uri: data.website, title: '' } : null;
   }
   if (data.phone !== undefined) attributes.field_phone = data.phone;
-  if (data.lat !== undefined && data.lon !== undefined) {
+  if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
     attributes.field_location = { lat: data.lat, lon: data.lon };
   }
 
@@ -472,6 +529,11 @@ export async function updateBusinessNode(id: string, data: Partial<BusinessInput
   if (data.categoryId !== undefined) {
     relationships.field_category = data.categoryId
       ? { data: { type: 'taxonomy_term--business_category', id: data.categoryId } }
+      : { data: null };
+  }
+  if (data.logoId !== undefined) {
+    relationships.field_logo = data.logoId
+      ? { data: { type: 'file--file', id: data.logoId } }
       : { data: null };
   }
 
