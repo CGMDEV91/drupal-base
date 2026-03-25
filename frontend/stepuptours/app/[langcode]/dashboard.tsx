@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { MyToursTab } from '../../components/dashboard/MyToursTab';
+import { BusinessTab } from '../../components/dashboard/BusinessTab';
 import { SubscriptionTab } from '../../components/dashboard/SubscriptionTab';
 import { PaymentDataTab } from '../../components/dashboard/PaymentDataTab';
 import { DonationsTab } from '../../components/dashboard/DonationsTab';
@@ -25,7 +26,7 @@ import Footer from '../../components/layout/Footer';
 const AMBER = '#F59E0B';
 const CONTENT_MAX_WIDTH = 900;
 
-type TabId = 'tours' | 'subscription' | 'payment' | 'donations';
+type TabId = 'tours' | 'businesses' | 'subscription' | 'payment' | 'donations';
 
 interface Tab {
   id: TabId;
@@ -35,6 +36,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'tours', labelKey: 'dashboard.tabs.tours', icon: 'map-outline' },
+  { id: 'businesses', labelKey: 'dashboard.tabs.businesses', icon: 'business-outline' },
   { id: 'subscription', labelKey: 'dashboard.tabs.subscription', icon: 'card-outline' },
   { id: 'payment', labelKey: 'dashboard.tabs.payment', icon: 'wallet-outline' },
   { id: 'donations', labelKey: 'dashboard.tabs.donations', icon: 'heart-outline' },
@@ -135,12 +137,12 @@ export default function DashboardScreen() {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 48 }}
-          showsVerticalScrollIndicator={false}
         >
           <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
           {mobileTabBar}
           <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
             {activeTab === 'tours' && <MyToursTab userId={user.id} />}
+            {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
             {activeTab === 'subscription' && <SubscriptionTab userId={user.id} />}
             {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
             {activeTab === 'donations' && <DonationsTab userId={user.id} />}
@@ -154,11 +156,11 @@ export default function DashboardScreen() {
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 48 }}
-            showsVerticalScrollIndicator={false}
           >
             <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
             <View style={{ maxWidth: CONTENT_MAX_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20 }}>
               {activeTab === 'tours' && <MyToursTab userId={user.id} />}
+              {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
               {activeTab === 'subscription' && <SubscriptionTab userId={user.id} />}
               {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
               {activeTab === 'donations' && <DonationsTab userId={user.id} />}

@@ -121,7 +121,12 @@
       "Bash(ls \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\carlos\\\\devel\\\\test-sites\\\\stepuptours\")",
       "Bash(wsl -e bash -c \"cat /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/types/index.ts | grep -A5 ''TourStep\\\\|description\\\\|langcode'' | head -50\")",
       "Bash(wsl -e bash -c \"grep -n ''mapDrupalStep\\\\|tour_step\\\\|description'' /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/lib/drupal-client.ts | head -30\")",
-      "Bash(grep -n '\"\"scripts\"\"' package.json)"
+      "Bash(grep -n '\"\"scripts\"\"' package.json)",
+      "Bash(powershell -Command \"& ''C:\\\\Program Files\\\\ddev\\\\ddev.exe'' -chdir ''\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\carlos\\\\devel\\\\test-sites\\\\stepuptours'' drush cr 2>&1 | Select-Object -Last 5\")",
+      "Bash(where ddev:*)",
+      "Bash(powershell -Command \"Get-Command ddev -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell -Command \"ddev drush cr\")",
+      "Bash(dir \"frontend\\\\stepuptours\\\\components\\\\dashboard\")"
     ],
     "defaultMode": "acceptEdits"
   }

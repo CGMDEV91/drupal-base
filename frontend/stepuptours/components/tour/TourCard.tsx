@@ -24,10 +24,15 @@ interface TourCardProps {
   isFavorite?: boolean;
   isCompleted?: boolean;
   onToggleFavorite?: () => void;
+  // Owner-mode props
+  isOwner?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const CARD_IMAGE_RATIO = 0.65;
 const AMBER = '#F59E0B';
+const AMBER_DARK = '#D97706';
 const META_ICON_COLOR = '#9CA3AF';
 
 export function TourCard({
@@ -38,11 +43,23 @@ export function TourCard({
   isFavorite = false,
   isCompleted = false,
   onToggleFavorite,
+  isOwner = false,
+  onEdit,
+  onDelete,
 }: TourCardProps) {
   const router = useRouter();
   const { t } = useTranslation();
 
   const imageHeight = cardWidth * CARD_IMAGE_RATIO;
+  const DEFAULT_IMAGES = [
+    require('@/assets/images/default-tour-1.jpg'),
+    require('@/assets/images/default-tour-2.jpg'),
+    require('@/assets/images/default-tour-3.jpg'),
+];
+
+// Fuera del componente para que no cambie en cada render
+const hashId = tour.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
 
   const handlePress = () => {
     router.push(`/${langcode}/tour/${tour.id}`);
@@ -60,18 +77,12 @@ export function TourCard({
     >
       {/* Image with overlays */}
       <View style={[styles.imageContainer, { height: imageHeight }]}>
-        {tour.image ? (
           <Image
-            source={{ uri: tour.image }}
-            style={styles.image}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <View style={[styles.image, { backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ fontSize: 32 }}>🗺️</Text>
-          </View>
-        )}
+          source={tour.image ? { uri: tour.image } : stableDefault}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+        />
 
         {/* Title & location overlay at bottom */}
         <View style={styles.imageOverlay}>
@@ -113,6 +124,29 @@ export function TourCard({
             <Text style={styles.completedText}>{t('step.completed')}</Text>
           </View>
         ) : null}
+
+        {/* Published / Draft pill — owner mode only */}
+        {isOwner ? (
+          <View style={[styles.statusPill, tour.published ? styles.statusPublished : styles.statusDraft]}>
+            <Text style={[styles.statusPillText, tour.published ? styles.statusPublishedText : styles.statusDraftText]}>
+              {tour.published ? t('dashboard.tours.published') : t('dashboard.tours.draft')}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Delete button — owner mode, top-left */}
+        {isOwner && onDelete ? (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onDelete();
+            }}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={15} color="#EF4444" />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Meta area */}
@@ -141,6 +175,21 @@ export function TourCard({
         <View style={styles.ratingRow}>
           <StarRating rating={tour.averageRate} ratingCount={tour.ratingCount} size={14} />
         </View>
+
+        {/* Edit button — owner mode only */}
+        {isOwner && onEdit ? (
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onEdit();
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pencil-outline" size={14} color={AMBER_DARK} />
+            <Text style={styles.editButtonText}>{t('dashboard.tours.edit')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -151,12 +200,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
+    maxWidth: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   imageContainer: {
     position: 'relative',
@@ -258,5 +308,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#374151',
     fontWeight: '500',
+  },
+
+  // ── Owner-mode styles ────────────────────────────────────────────────────────
+  deleteButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 2px 6px rgba(0,0,0,0.15)' } as any
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.12,
+          shadowRadius: 4,
+          elevation: 3,
+        }),
+  },
+  statusPill: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  statusPublished: {
+    backgroundColor: '#D1FAE5',
+  },
+  statusDraft: {
+    backgroundColor: 'rgba(243,244,246,0.92)',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  statusPublishedText: {
+    color: '#065F46',
+  },
+  statusDraftText: {
+    color: '#6B7280',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 8,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: AMBER,
+    backgroundColor: '#FFFBEB',
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AMBER_DARK,
   },
 });

@@ -96,7 +96,6 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
 
             <ScrollView
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
             >
               {/* Close */}
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>

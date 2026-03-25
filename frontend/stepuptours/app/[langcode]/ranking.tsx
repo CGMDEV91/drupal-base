@@ -214,7 +214,6 @@ export default function RankingScreen() {
     <ScrollView
       style={styles.root}
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
     >
       <PageBanner
         icon="trophy"

@@ -356,6 +356,146 @@ export function mapDrupalDonation(raw: any): Donation {
   };
 }
 
+// ── Business API ──────────────────────────────────────────────────────────────
+
+const BUSINESS_INCLUDE = ['field_category'];
+
+const BUSINESS_FIELDS = {
+  'node--business': [
+    'title',
+    'field_description',
+    'field_logo',
+    'field_website',
+    'field_phone',
+    'field_location',
+    'field_category',
+    'field_status',
+    'uid',
+  ],
+  'taxonomy_term--business_category': ['name'],
+};
+
+function buildBusinessParams(extra?: string): string {
+  const parts = [
+    buildInclude(BUSINESS_INCLUDE),
+    buildFields(BUSINESS_FIELDS),
+  ];
+  if (extra) parts.push(extra);
+  return parts.filter(Boolean).join('&');
+}
+
+export async function fetchBusinesses(authorId?: string): Promise<Business[]> {
+  const extra = authorId ? `filter[uid.id]=${authorId}&sort=-created` : 'sort=-created';
+  const params = buildBusinessParams(extra);
+  const raw = await drupalGet<any[]>('/node/business', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalBusiness);
+}
+
+export async function fetchBusinessById(id: string): Promise<Business> {
+  const params = buildBusinessParams();
+  const raw = await drupalGet<any>(`/node/business/${id}`, params);
+  return mapDrupalBusiness(raw);
+}
+
+export async function searchBusinesses(query: string, authorId?: string): Promise<Business[]> {
+  const filters = [
+    `filter[title][operator]=CONTAINS&filter[title][value]=${encodeURIComponent(query)}`,
+    authorId ? `filter[uid.id]=${authorId}` : '',
+    'sort=title',
+  ].filter(Boolean).join('&');
+  const params = buildBusinessParams(filters);
+  const raw = await drupalGet<any[]>('/node/business', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalBusiness);
+}
+
+export interface BusinessInput {
+  name: string;
+  description?: string;
+  website?: string;
+  phone?: string;
+  categoryId?: string;
+  lat?: number;
+  lon?: number;
+}
+
+export async function createBusinessNode(data: BusinessInput): Promise<Business> {
+  const attributes: Record<string, any> = {
+    title: data.name,
+  };
+  if (data.description) {
+    attributes.field_description = { value: data.description, format: 'basic_html' };
+  }
+  if (data.website) {
+    attributes.field_website = { uri: data.website, title: '' };
+  }
+  if (data.phone) {
+    attributes.field_phone = data.phone;
+  }
+  if (data.lat !== undefined && data.lon !== undefined) {
+    attributes.field_location = { lat: data.lat, lon: data.lon };
+  }
+
+  const relationships: Record<string, any> = {};
+  if (data.categoryId) {
+    relationships.field_category = {
+      data: { type: 'taxonomy_term--business_category', id: data.categoryId },
+    };
+  }
+
+  const raw = await drupalPost<any>('/node/business', {
+    data: {
+      type: 'node--business',
+      attributes,
+      relationships,
+    },
+  });
+  return mapDrupalBusiness(raw);
+}
+
+export async function updateBusinessNode(id: string, data: Partial<BusinessInput>): Promise<Business> {
+  const attributes: Record<string, any> = {};
+  if (data.name !== undefined) attributes.title = data.name;
+  if (data.description !== undefined) {
+    attributes.field_description = { value: data.description, format: 'basic_html' };
+  }
+  if (data.website !== undefined) {
+    attributes.field_website = data.website ? { uri: data.website, title: '' } : null;
+  }
+  if (data.phone !== undefined) attributes.field_phone = data.phone;
+  if (data.lat !== undefined && data.lon !== undefined) {
+    attributes.field_location = { lat: data.lat, lon: data.lon };
+  }
+
+  const relationships: Record<string, any> = {};
+  if (data.categoryId !== undefined) {
+    relationships.field_category = data.categoryId
+      ? { data: { type: 'taxonomy_term--business_category', id: data.categoryId } }
+      : { data: null };
+  }
+
+  const raw = await drupalPatch<any>(`/node/business/${id}`, {
+    data: {
+      type: 'node--business',
+      id,
+      attributes,
+      relationships,
+    },
+  });
+  return mapDrupalBusiness(raw);
+}
+
+export async function deleteBusinessNode(id: string): Promise<void> {
+  await drupalDelete(`/node/business/${id}`);
+}
+
+export async function fetchBusinessCategories(): Promise<{ id: string; name: string }[]> {
+  const raw = await drupalGet<any[]>('/taxonomy_term/business_category', 'sort=name');
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map((item: any) => ({ id: item.id, name: item.name ?? '' }));
+}
+
 export function mapDrupalProfessionalProfile(raw: any): ProfessionalProfile {
   const addr = raw.field_address ?? null;
   return {

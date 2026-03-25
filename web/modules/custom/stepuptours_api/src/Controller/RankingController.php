@@ -23,34 +23,45 @@ class RankingController extends ControllerBase {
     }
 
     try {
-      // Query all published tour_user_activity nodes that are completed.
       $database = \Drupal::database();
 
-      // Aggregate XP and completed tours per user from tour_user_activity nodes.
-      $query = $database->select('node_field_data', 'n');
-      $query->join('node__field_user', 'fu', 'n.nid = fu.entity_id');
-      $query->join('node__field_xp_awarded', 'xp', 'n.nid = xp.entity_id');
-      $query->condition('n.type', 'tour_user_activity');
-      $query->condition('n.status', 1);
+      // Step 1: top 100 users ranked by field_experience_points (canonical total XP,
+      // same value shown on the user profile page).
+      $xp_query = $database->select('users_field_data', 'u');
+      $xp_query->join('user__field_experience_points', 'xp', 'u.uid = xp.entity_id');
+      $xp_query->condition('u.status', 1);
+      $xp_query->condition('xp.field_experience_points_value', 0, '>');
+      $xp_query->fields('u', ['uid']);
+      $xp_query->addField('xp', 'field_experience_points_value', 'total_xp');
+      $xp_query->orderBy('xp.field_experience_points_value', 'DESC');
+      $xp_query->range(0, 100);
+      $xp_results = $xp_query->execute()->fetchAllAssoc('uid');
 
-      // Only completed activities (field_is_completed = 1)
-      $query->join('node__field_is_completed', 'ic', 'n.nid = ic.entity_id');
-      $query->condition('ic.field_is_completed_value', 1);
+      if (empty($xp_results)) {
+        return $this->corsResponse(new JsonResponse([], 200));
+      }
 
-      $query->fields('fu', ['field_user_target_id']);
-      $query->addExpression('COUNT(n.nid)', 'tours_completed');
-      $query->addExpression('SUM(xp.field_xp_awarded_value)', 'total_xp');
-      $query->groupBy('fu.field_user_target_id');
-      $query->orderBy('total_xp', 'DESC');
-      $query->range(0, 100);
+      // Step 2: count completed tour activities for those users (single query).
+      $uids = array_map('intval', array_keys($xp_results));
+      $act_query = $database->select('node_field_data', 'n');
+      $act_query->join('node__field_user', 'fu', 'n.nid = fu.entity_id');
+      $act_query->join('node__field_is_completed', 'ic', 'n.nid = ic.entity_id');
+      $act_query->condition('n.type', 'tour_user_activity');
+      $act_query->condition('n.status', 1);
+      $act_query->condition('ic.field_is_completed_value', 1);
+      $act_query->condition('fu.field_user_target_id', $uids, 'IN');
+      $act_query->fields('fu', ['field_user_target_id']);
+      $act_query->addExpression('COUNT(n.nid)', 'tours_completed');
+      $act_query->groupBy('fu.field_user_target_id');
+      $activity_counts = $act_query->execute()->fetchAllAssoc('field_user_target_id');
 
-      $results = $query->execute()->fetchAll();
+      $results = array_values($xp_results);
 
       $ranking = [];
       $position = 1;
 
       foreach ($results as $row) {
-        $uid = (int) $row->field_user_target_id;
+        $uid = (int) $row->uid;
         $user = \Drupal\user\Entity\User::load($uid);
         if (!$user) {
           continue;
@@ -87,7 +98,7 @@ class RankingController extends ControllerBase {
           'publicName'     => $publicName,
           'avatar'         => $avatar,
           'countryCode'    => $countryCode,
-          'toursCompleted' => (int) $row->tours_completed,
+          'toursCompleted' => (int) ($activity_counts[$uid]->tours_completed ?? 0),
           'totalXp'        => (int) ($row->total_xp ?? 0),
         ];
 

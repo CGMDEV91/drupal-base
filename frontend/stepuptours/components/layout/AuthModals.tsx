@@ -409,7 +409,6 @@ export function AuthModals({ visible, onClose, onSwitch }: Props) {
           // ── Mobile: fullscreen ──────────────────────────────────────────
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
             style={{ flex: 1, backgroundColor: '#fff' }}
             contentContainerStyle={{ flexGrow: 1 }}
           >
@@ -439,7 +438,6 @@ export function AuthModals({ visible, onClose, onSwitch }: Props) {
               onPress={() => {}}
             >
               <ScrollView
-                showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
                 {visible === 'login' ? loginModal : registerModal}

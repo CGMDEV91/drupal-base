@@ -1,8 +1,4 @@
 // hooks/useTTS.ts
-// Classic TTS hook using expo-speech.
-// langcode is the actual language of the content — if the step has no translation
-// for the current UI language, the caller passes the original content language
-// (usually 'en') so the TTS engine uses the right voice.
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Animated } from 'react-native';
@@ -40,13 +36,66 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const durationRef = useRef(0);
   const elapsedAtPauseRef = useRef(0);
+  const voiceRef = useRef<Speech.Voice | null>(null);
 
   const setPlayStateSync = (s: PlayState) => {
     playStateRef.current = s;
     setPlayState(s);
   };
 
-  // ── Timer ──────────────────────────────────────────────────────────────────
+  // ── Voice selection ────────────────────────────────────────────────────────
+
+  const getBestVoice = useCallback(async () => {
+    if (voiceRef.current) return voiceRef.current;
+
+    const voices = await Speech.getAvailableVoicesAsync();
+
+    const best = voices
+      .filter(v =>
+        v.language?.toLowerCase().startsWith(langcode.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (a.quality === 'Enhanced' && b.quality !== 'Enhanced') return -1;
+        if (b.quality === 'Enhanced' && a.quality !== 'Enhanced') return 1;
+
+        if (a.identifier?.includes('compact')) return 1;
+        if (b.identifier?.includes('compact')) return -1;
+
+        return 0;
+      })[0];
+
+    voiceRef.current = best || null;
+    return best;
+  }, [langcode]);
+
+  // ── Natural rate ──────────────────────────────────────────────────────────
+
+  const getNaturalRate = (lang: string, speed: number) => {
+    const baseRates: Record<string, number> = {
+      en: 0.95,
+      es: 0.9,
+      fr: 0.92,
+      de: 0.9,
+      it: 0.9,
+    };
+
+    const base = baseRates[lang.slice(0, 2)] || 0.95;
+    return base * speed;
+  };
+
+  // ── Text humanization ─────────────────────────────────────────────────────
+
+  const humanizeText = (t: string) => {
+    return t
+      .replace(/\./g, '. ')
+      .replace(/,/g, ', ')
+      .replace(/\n/g, '. ')
+      .replace(/:/g, ': ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
 
   const stopTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -70,7 +119,7 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
     [progressAnim, stopTimer]
   );
 
-  // ── Stop ───────────────────────────────────────────────────────────────────
+  // ── Stop ──────────────────────────────────────────────────────────────────
 
   const handleStop = useCallback(() => {
     genRef.current += 1;
@@ -82,21 +131,35 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
     durationRef.current = 0;
     progressAnim.setValue(0);
     elapsedAtPauseRef.current = 0;
+    voiceRef.current = null;
+
     if (stopGlobalTTS === handleStopRef.current) stopGlobalTTS = null;
   }, [progressAnim, stopTimer]);
 
   const handleStopRef = useRef(handleStop);
   useEffect(() => { handleStopRef.current = handleStop; }, [handleStop]);
 
-  // ── Core speak ─────────────────────────────────────────────────────────────
+  // ── Core speak ────────────────────────────────────────────────────────────
 
   const speak = useCallback(
-    (fromElapsed: number) => {
+    async (fromElapsed: number) => {
       const gen = genRef.current;
-      const rate = SPEEDS[speedIndexRef.current];
+
+      const voice = await getBestVoice();
+      const rate = getNaturalRate(
+        langcode,
+        SPEEDS[speedIndexRef.current]
+      );
+
+      const processedText = humanizeText(text);
+
       const charsRead = Math.floor(fromElapsed * CHARS_PER_SECOND * rate);
-      const remaining = text.slice(charsRead) || text;
-      const duration = Math.max(1, Math.ceil(text.length / (CHARS_PER_SECOND * rate)));
+      const remaining = processedText.slice(charsRead) || processedText;
+
+      const duration = Math.max(
+        1,
+        Math.ceil(processedText.length / (CHARS_PER_SECOND * rate))
+      );
 
       durationRef.current = duration;
       setTotalDuration(duration);
@@ -105,7 +168,9 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
 
       Speech.speak(remaining, {
         language: langcode,
+        voice: voice?.identifier,
         rate,
+        pitch: 1.0,
         onDone: () => {
           if (genRef.current !== gen) return;
           setPlayStateSync('idle');
@@ -113,7 +178,6 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
           stopTimer();
           if (stopGlobalTTS === handleStopRef.current) stopGlobalTTS = null;
         },
-        onStopped: () => { /* handled by handleStop / pause */ },
         onError: () => {
           if (genRef.current !== gen) return;
           setPlayStateSync('idle');
@@ -121,10 +185,10 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
         },
       });
     },
-    [text, langcode, progressAnim, startTimer, stopTimer]
+    [text, langcode, progressAnim, startTimer, stopTimer, getBestVoice]
   );
 
-  // ── Play / Pause ───────────────────────────────────────────────────────────
+  // ── Play / Pause ──────────────────────────────────────────────────────────
 
   const handlePlayPause = useCallback(() => {
     const state = playStateRef.current;
@@ -144,14 +208,13 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
       return;
     }
 
-    // Start fresh
     if (stopGlobalTTS && stopGlobalTTS !== handleStopRef.current) stopGlobalTTS();
     stopGlobalTTS = handleStopRef.current;
     genRef.current += 1;
     speak(0);
   }, [elapsed, speak, stopTimer]);
 
-  // ── Speed change ───────────────────────────────────────────────────────────
+  // ── Speed change ──────────────────────────────────────────────────────────
 
   const handleSpeedChange = useCallback(() => {
     const newIdx = (speedIndexRef.current + 1) % SPEEDS.length;
@@ -167,11 +230,9 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
     speak(currentElapsed);
   }, [elapsed, speak, stopTimer]);
 
-  // ── Prefetch (no-op for expo-speech) ──────────────────────────────────────
-
   const prefetch = useCallback(() => {}, []);
 
-  // ── Cleanup ────────────────────────────────────────────────────────────────
+  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     return () => {

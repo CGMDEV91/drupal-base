@@ -363,7 +363,6 @@ export default function ProfileScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
       >
         {/* ── Dark navy profile banner ── */}
         <View style={styles.profileBanner}>

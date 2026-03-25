@@ -18,12 +18,13 @@ import { useAuthStore } from '../../stores/auth.store';
 import { SiteSettingsTab } from '../../components/admin/SiteSettingsTab';
 import { TranslationsTab } from '../../components/admin/TranslationsTab';
 import { DonationsView } from '../../components/shared/DonationsView';
+import { BusinessTab } from '../../components/dashboard/BusinessTab';
 import PageBanner from '../../components/layout/PageBanner';
 
 const AMBER = '#F59E0B';
 const CONTENT_MAX_WIDTH = 900;
 
-type TabId = 'settings' | 'translations' | 'donations' | 'users';
+type TabId = 'settings' | 'translations' | 'businesses' | 'donations' | 'users';
 
 interface Tab {
   id: TabId;
@@ -34,6 +35,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'settings', labelKey: 'admin.tabs.settings', icon: 'settings-outline' },
   { id: 'translations', labelKey: 'admin.tabs.translations', icon: 'language-outline' },
+  { id: 'businesses', labelKey: 'admin.tabs.businesses', icon: 'business-outline' },
   { id: 'donations', labelKey: 'admin.tabs.donations', icon: 'cash-outline' },
   { id: 'users', labelKey: 'admin.tabs.users', icon: 'people-outline' },
 ];
@@ -132,6 +134,8 @@ export default function AdminScreen() {
         return <SiteSettingsTab />;
       case 'translations':
         return <TranslationsTab />;
+      case 'businesses':
+        return <BusinessTab />;
       case 'donations':
         return <DonationsView mode="admin" />;
       case 'users':
@@ -150,7 +154,6 @@ export default function AdminScreen() {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 48 }}
-          showsVerticalScrollIndicator={false}
         >
           <PageBanner
             icon="shield-checkmark-outline"
@@ -170,7 +173,6 @@ export default function AdminScreen() {
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 48 }}
-            showsVerticalScrollIndicator={false}
           >
             <PageBanner
               icon="shield-checkmark-outline"

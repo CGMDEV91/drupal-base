@@ -9,22 +9,17 @@
   box-shadow: none !important;
 }
 
-/* ── Custom scrollbar — hidden by default, revealed on scroll ────────────── */
+/* ── Custom scrollbar — overlay style, zero layout impact ───────────────── */
 
-/* Firefox */
+/* Firefox — hidden by default (no layout space reserved).
+   JS (_layout.tsx) sets scrollbar-width:thin + scrollbar-color inline on the
+   scrolling element, which takes precedence over this rule. */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s ease;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
 }
-[data-scrolling] {
-  scrollbar-color: rgba(100, 100, 100, 0.38) transparent;
-}
-
-/* Webkit (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+*::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari */
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -37,8 +32,17 @@
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Webkit — visible state triggered by JS data attribute.
+   !important ensures it overrides any RN Web inline/stylesheet rules. */
+[data-scrolling]::-webkit-scrollbar {
+  display: block !important;
+  width: 5px !important;
+  height: 5px !important;
+}
 [data-scrolling]::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 100, 100, 0.38);
+  background-color: rgba(100, 100, 100, 0.38) !important;
+  border-radius: 10px !important;
 }
 
 @layer base {

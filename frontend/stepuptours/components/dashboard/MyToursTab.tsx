@@ -1,40 +1,100 @@
 // components/dashboard/MyToursTab.tsx
-// Lists tours authored by the current professional user
+// Lists tours authored by the current professional user.
+// Uses the shared TourCard with isOwner mode for edit/delete actions.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
+  FlatList,
+  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
-  ScrollView,
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { getToursByAuthor } from '../../services/dashboard.service';
+import { getToursByAuthor, deleteTour } from '../../services/dashboard.service';
+import { TourCard } from '../tour/TourCard';
 import type { Tour } from '../../types';
 
 const AMBER = '#F59E0B';
-const AMBER_DARK = '#D97706';
+const GRID_MAX_WIDTH = 1200;
+const GAP = 20;
 
 interface MyToursTabProps {
   userId: string;
 }
+
+// ── Delete confirmation modal (web) ──────────────────────────────────────────
+
+interface DeleteModalProps {
+  visible: boolean;
+  tourTitle: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function DeleteModal({ visible, tourTitle, onConfirm, onCancel }: DeleteModalProps) {
+  const { t } = useTranslation();
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
+      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+        <Pressable style={styles.modalBox} onPress={() => {}}>
+          <View style={styles.modalIconRow}>
+            <View style={styles.modalIconBg}>
+              <Ionicons name="trash-outline" size={24} color="#EF4444" />
+            </View>
+          </View>
+          <Text style={styles.modalTitle}>{t('dashboard.tours.deleteTitle')}</Text>
+          <Text style={styles.modalBody} numberOfLines={3}>
+            {t('dashboard.tours.deleteConfirm', { title: tourTitle })}
+          </Text>
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onCancel} activeOpacity={0.8}>
+              <Text style={styles.modalBtnCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBtnDelete} onPress={onConfirm} activeOpacity={0.8}>
+              <Text style={styles.modalBtnDeleteText}>{t('common.delete')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function MyToursTab({ userId }: MyToursTabProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const { langcode } = useLocalSearchParams<{ langcode: string }>();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Tour | null>(null);
 
+  // ── Responsive grid — mirrors homepage/favourites ─────────────────────────
+  const cols = width >= 768 ? 3 : width >= 640 ? 2 : 1;
+  const PADDING = width >= 768 ? 32 : 16;
+  const gridWidth = Math.min(width, GRID_MAX_WIDTH);
+  const cardWidth =
+    cols === 1
+      ? width - PADDING * 2
+      : (gridWidth - PADDING * 2 - GAP * (cols - 1)) / cols;
+
+  // ── Data loading ──────────────────────────────────────────────────────────
   const loadTours = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -52,6 +112,53 @@ export function MyToursTab({ userId }: MyToursTabProps) {
     loadTours();
   }, [loadTours]);
 
+  // ── Search filtering — client-side ────────────────────────────────────────
+  const filteredTours = search.trim()
+    ? tours.filter((t) =>
+        t.title.toLowerCase().includes(search.trim().toLowerCase())
+      )
+    : tours;
+
+  // ── Delete flow ───────────────────────────────────────────────────────────
+  const handleDeleteRequest = useCallback((tour: Tour) => {
+    if (Platform.OS === 'web') {
+      setPendingDelete(tour);
+    } else {
+      Alert.alert(
+        t('dashboard.tours.deleteTitle'),
+        t('dashboard.tours.deleteConfirm', { title: tour.title }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: () => confirmDelete(tour.id),
+          },
+        ]
+      );
+    }
+  }, [t]);
+
+  const confirmDelete = useCallback(async (tourId: string) => {
+    setPendingDelete(null);
+    setDeletingId(tourId);
+    try {
+      await deleteTour(tourId);
+      setTours((prev) => prev.filter((t) => t.id !== tourId));
+    } catch (err: any) {
+      Alert.alert(t('common.error'), err.message ?? 'Failed to delete tour');
+    } finally {
+      setDeletingId(null);
+    }
+  }, [t]);
+
+  const handleEdit = useCallback((tour: Tour) => {
+    router.push(
+      `/${langcode}/dashboard/create-tour?tourId=${tour.id}` as any
+    );
+  }, [router, langcode]);
+
+  // ── States ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -66,106 +173,124 @@ export function MyToursTab({ userId }: MyToursTabProps) {
         <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={loadTours} activeOpacity={0.8}>
-          <Text style={styles.retryBtnText}>Retry</Text>
+          <Text style={styles.retryBtnText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      {/* Create Tour button */}
+  // ── List header: Create button + Search bar ───────────────────────────────
+  const ListHeader = (
+    <View style={styles.listHeader}>
       <TouchableOpacity
         style={styles.createBtn}
         activeOpacity={0.85}
         onPress={() => router.push(`/${langcode}/dashboard/create-tour` as any)}
       >
-        <Ionicons name="add" size={18} color="#FFFFFF" style={styles.createBtnIcon} />
+        <Ionicons name="add" size={18} color="#FFFFFF" />
         <Text style={styles.createBtnText}>{t('dashboard.tours.create')}</Text>
       </TouchableOpacity>
 
-      {tours.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="map-outline" size={56} color="#D1D5DB" />
-          <Text style={styles.emptyText}>{t('dashboard.tours.empty')}</Text>
-        </View>
-      ) : (
-        <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
-          {tours.map((tour) => (
-            <TourCard
-              key={tour.id}
-              tour={tour}
-              langcode={langcode ?? 'en'}
-              onView={() => router.push(`/${langcode}/tour/${tour.drupalInternalId}` as any)}
-              isDesktop={isDesktop}
-            />
-          ))}
-        </View>
-      )}
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('dashboard.tours.searchPlaceholder')}
+          placeholderTextColor="#9CA3AF"
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {search.length > 0 ? (
+          <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
-}
-
-// ── Tour card ─────────────────────────────────────────────────────────────────
-
-interface TourCardProps {
-  tour: Tour;
-  langcode: string;
-  onView: () => void;
-  isDesktop: boolean;
-}
-
-function TourCard({ tour, onView, isDesktop }: TourCardProps) {
-  const { t } = useTranslation();
 
   return (
-    <View style={[styles.card, isDesktop && styles.cardDesktop]}>
-      {/* Title + status */}
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {tour.title}
-        </Text>
-        <View style={[styles.statusPill, tour.published ? styles.statusPublished : styles.statusDraft]}>
-          <Text style={[styles.statusText, tour.published ? styles.statusTextPublished : styles.statusTextDraft]}>
-            {tour.published ? t('dashboard.tours.published') : t('dashboard.tours.draft')}
-          </Text>
-        </View>
-      </View>
-
-      {/* Meta */}
-      <View style={styles.cardMeta}>
-        {tour.city ? (
-          <View style={styles.metaItem}>
-            <Ionicons name="location-outline" size={14} color="#6B7280" />
-            <Text style={styles.metaText}>{tour.city.name}</Text>
+    <>
+      <FlatList
+        data={filteredTours}
+        keyExtractor={(item) => item.id}
+        numColumns={cols}
+        key={`mytours-grid-${cols}`}
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={[
+          styles.listContent,
+          filteredTours.length === 0 && styles.listContentEmpty,
+        ]}
+        columnWrapperStyle={
+          cols > 1
+            ? {
+                maxWidth: GRID_MAX_WIDTH,
+                alignSelf: 'center',
+                width: '100%',
+                paddingHorizontal: PADDING,
+                justifyContent: 'space-between',
+                paddingBottom: 10,
+              }
+            : undefined
+        }
+        renderItem={({ item }) => (
+          <View
+            style={
+              cols === 1
+                ? {
+                    maxWidth: GRID_MAX_WIDTH,
+                    alignSelf: 'center',
+                    width: '100%',
+                    paddingHorizontal: PADDING,
+                  }
+                : undefined
+            }
+          >
+            <TourCard
+              tour={item}
+              cardWidth={cardWidth}
+              langcode={langcode ?? 'en'}
+              isOwner={true}
+              onEdit={() => handleEdit(item)}
+              onDelete={() => handleDeleteRequest(item)}
+            />
+            {/* Per-card deleting overlay */}
+            {deletingId === item.id ? (
+              <View style={[StyleSheet.absoluteFill, styles.deletingOverlay]}>
+                <ActivityIndicator size="small" color={AMBER} />
+              </View>
+            ) : null}
           </View>
-        ) : null}
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={14} color="#6B7280" />
-          <Text style={styles.metaText}>{tour.duration} min</Text>
-        </View>
-      </View>
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="map-outline" size={56} color="#D1D5DB" />
+            <Text style={styles.emptyText}>
+              {search.trim()
+                ? t('dashboard.tours.noResults')
+                : t('dashboard.tours.empty')}
+            </Text>
+          </View>
+        }
+      />
 
-      {/* Actions */}
-      <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.actionBtnOutline} onPress={onView} activeOpacity={0.8}>
-          <Text style={styles.actionBtnOutlineText}>{t('dashboard.tours.view')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtnGhost} activeOpacity={0.8}>
-          <Ionicons name="pencil-outline" size={14} color="#6B7280" />
-          <Text style={styles.actionBtnGhostText}>{t('dashboard.tours.edit')}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      {/* Web delete confirmation modal */}
+      <DeleteModal
+        visible={pendingDelete !== null}
+        tourTitle={pendingDelete?.title ?? ''}
+        onConfirm={() => pendingDelete && confirmDelete(pendingDelete.id)}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -191,7 +316,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Create button
+  // ── List ───────────────────────────────────────────────────────────────────
+  listContent: {
+    paddingBottom: 0,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
+
+  // ── List header ────────────────────────────────────────────────────────────
+  listHeader: {
+    maxWidth: GRID_MAX_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 20,
+    gap: 12,
+  },
+
+  // ── Create button ──────────────────────────────────────────────────────────
   createBtn: {
     backgroundColor: AMBER,
     flexDirection: 'row',
@@ -201,11 +345,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     alignSelf: 'flex-start',
-    marginBottom: 20,
     gap: 6,
-  },
-  createBtnIcon: {
-    marginRight: 2,
   },
   createBtnText: {
     color: '#FFFFFF',
@@ -213,12 +353,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Empty state
+  // ── Search bar ─────────────────────────────────────────────────────────────
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 1px 4px rgba(0,0,0,0.06)' } as any
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.06,
+          shadowRadius: 4,
+          elevation: 1,
+        }),
+  },
+  searchIcon: {
+    flexShrink: 0,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    padding: 0,
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────────────
   emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
     paddingVertical: 48,
+    paddingHorizontal: 32,
   },
   emptyText: {
     fontSize: 15,
@@ -227,110 +400,91 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Grid
-  grid: {
-    gap: 12,
-  },
-  gridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // ── Deleting overlay ───────────────────────────────────────────────────────
+  deletingOverlay: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // Tour card
-  card: {
+  // ── Web delete modal ───────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    gap: 12,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 8px 32px rgba(0,0,0,0.18)' } as any
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.18,
+          shadowRadius: 24,
+          elevation: 12,
+        }),
   },
-  cardDesktop: {
-    flex: 1,
-    minWidth: 260,
-    maxWidth: '48%',
-    marginBottom: 0,
+  modalIconRow: {
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 10,
+  modalIconBg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardTitle: {
-    flex: 1,
-    fontSize: 15,
+  modalTitle: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#111827',
-    lineHeight: 22,
+    textAlign: 'center',
   },
-  statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    flexShrink: 0,
-  },
-  statusPublished: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusDraft: {
-    backgroundColor: '#F3F4F6',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  statusTextPublished: {
-    color: '#065F46',
-  },
-  statusTextDraft: {
+  modalBody: {
+    fontSize: 14,
     color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  cardMeta: {
+  modalActions: {
     flexDirection: 'row',
-    gap: 14,
-    marginBottom: 14,
+    gap: 10,
+    marginTop: 4,
   },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtnOutline: {
-    borderWidth: 1,
-    borderColor: AMBER,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  actionBtnOutlineText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: AMBER_DARK,
-  },
-  actionBtnGhost: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  modalBtnCancel: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  actionBtnGhostText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
+  modalBtnCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalBtnDelete: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalBtnDeleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -112,6 +112,7 @@
 
   "dashboard.title": "Dashboard",
   "dashboard.tabs.tours": "My Tours",
+  "dashboard.tabs.businesses": "Businesses",
   "dashboard.tabs.subscription": "Subscription",
   "dashboard.tabs.payment": "Payment Data",
   "dashboard.tabs.donations": "Donations",
@@ -121,6 +122,10 @@
   "dashboard.tours.empty": "No tours created yet",
   "dashboard.tours.draft": "Draft",
   "dashboard.tours.published": "Published",
+  "dashboard.tours.searchPlaceholder": "Search your tours...",
+  "dashboard.tours.noResults": "No tours match your search",
+  "dashboard.tours.deleteTitle": "Delete Tour",
+  "dashboard.tours.deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
   "dashboard.subscription.plan": "Current Plan",
   "dashboard.subscription.type": "Plan Type",
   "dashboard.subscription.cycle": "Billing Cycle",
@@ -252,6 +257,7 @@
   "donation.thankYou": "Thank you for your donation!",
   "donation.donated": "You donated {{amount}}€ to {{tour}}",
 
+  "admin.tabs.businesses": "Businesses",
   "admin.tabs.donations": "Donations",
   "admin.donations.totalAmount": "Total Donations",
   "admin.donations.platformRevenue": "Platform Revenue",
@@ -373,5 +379,10 @@
   "createTour.success.title": "Tour Created",
   "createTour.success.message": "Your tour has been saved as a draft",
   "createTour.error.title": "Error",
-  "createTour.error.generic": "Could not save the tour. Please try again."
+  "createTour.error.generic": "Could not save the tour. Please try again.",
+
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.error": "Error",
+  "common.retry": "Retry"
 }

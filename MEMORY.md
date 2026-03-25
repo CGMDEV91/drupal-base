@@ -604,3 +604,165 @@ El endpoint de roles en `auth.service.ts` usaba `?fields[user--user]=roles`, que
 - Verificar TTS en iOS/Android (expo-speech `onDone` callback puede comportarse diferente por plataforma)
 - Endpoint `GET /api/ranking` (pendiente de sesiones anteriores)
 - Añadir keys de traducción a otros idiomas (de.json, fr.json) si aplica
+
+---
+
+## Sesión 2026-03-25 10:00
+
+**Resumen**: Refactor del tab "My Tours" del dashboard profesional para reutilizar el componente TourCard de la homepage, añadiendo funcionalidades de propietario (edición, borrado) y barra de búsqueda.
+
+**Trabajo realizado**:
+- Extendido `TourCard` con props opcionales `isOwner`, `onEdit`, `onDelete`. En modo owner se muestran: pill de estado (Published/Draft) en esquina superior derecha, botón de borrado (papelera, fondo blanco, icono rojo) en esquina superior izquierda, botón de edición amber en el área meta debajo del rating. Todos los botones de owner usan `stopPropagation` para no disparar la navegación al tour.
+- Añadida `AMBER_DARK` como constante en TourCard (necesaria para el botón de edición).
+- Añadida función `deleteTour(tourId: string)` a `services/dashboard.service.ts` que llama a `drupalDelete('/node/tour/{uuid}')`.
+- Refactorizado `MyToursTab` completamente: reemplaza los cards custom por `TourCard` con `isOwner=true`, usa `FlatList` con el mismo cálculo de grid responsivo que homepage/favourites (cols 1/2/3, PADDING, GAP=20, GRID_MAX_WIDTH=1200, columnWrapperStyle, contentContainerStyle).
+- Añadida barra de búsqueda (estilo homepage: fondo blanco, borde gris, icono search, botón clear) entre el botón "Create Tour" y el listado. Filtrado client-side por título.
+- Flujo de borrado: `Alert.alert` en nativo, `Modal` custom con confirmación en web. Overlay de `ActivityIndicator` por card durante el borrado.
+- Edición navega a `/${langcode}/dashboard/create-tour?tourId=${id}`.
+- Añadidas claves de traducción en `en.json` y `es.json`: `dashboard.tours.searchPlaceholder`, `dashboard.tours.noResults`, `dashboard.tours.deleteTitle`, `dashboard.tours.deleteConfirm`, `common.cancel`, `common.delete`, `common.error`, `common.retry`.
+
+**Archivos modificados**:
+- `frontend/stepuptours/components/tour/TourCard.tsx`
+- `frontend/stepuptours/components/dashboard/MyToursTab.tsx`
+- `frontend/stepuptours/services/dashboard.service.ts`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+
+**Pendiente / Próximos pasos**:
+- Las claves de traducción `fr.json` y `de.json` contienen solo `{}` — añadir traducciones cuando se activen esos idiomas.
+- La ruta `create-tour?tourId=` para edición asume que la pantalla `create-tour` lee ese param y carga el tour existente — verificar que esa lógica existe o implementarla.
+- Valorar añadir acción de publicar/despublicar directamente desde el card en modo owner.
+
+---
+
+## Sesión 2026-03-25 — Business Management Feature
+
+**Resumen**: Implementación completa de la feature de gestión de negocios (Business): API layer, servicio, tabs de gestión, formulario, picker reutilizable e integración en create-tour.
+
+**Trabajo realizado**:
+
+### Part 1: Business API Layer (`lib/drupal-client.ts`)
+- Añadidas constantes `BUSINESS_INCLUDE`, `BUSINESS_FIELDS`, helper `buildBusinessParams()`.
+- Añadidas funciones exportadas: `fetchBusinesses(authorId?)`, `fetchBusinessById(id)`, `searchBusinesses(query, authorId?)`, `createBusinessNode(data)`, `updateBusinessNode(id, data)`, `deleteBusinessNode(id)`, `fetchBusinessCategories()`.
+- Exportada interfaz `BusinessInput` con campos: name, description, website, phone, categoryId, lat, lon.
+- Los fields `field_website` se envían como objeto `{uri, title}` (JSON:API link field).
+- Los fields `field_description` usan `{value, format: 'basic_html'}`.
+
+### Part 2: Business Service (`services/business.service.ts`) — nuevo fichero
+- Funciones agnósticas del backend: `getBusinessesByAuthor`, `getAllBusinesses`, `getBusinessById`, `searchBusinessesByName`, `getBusinessCategories`, `createBusiness`, `updateBusiness`, `deleteBusiness`.
+- `searchBusinessesByName` con query vacío devuelve todos (útil para el picker inicial).
+
+### Part 3: BusinessForm.tsx — nuevo componente
+- Modal bottom-sheet para crear/editar negocios.
+- Campos: name (requerido), description, category (picker con búsqueda), website, phone, lat/lon.
+- En modo edición (`existing` prop), precarga el formulario.
+- Carga categorías de `business_category` taxonomy al montar.
+- Category picker con buscador nested dentro del mismo modal.
+
+### Part 4: BusinessTab.tsx — nuevo componente
+- Props: `userId?` — sin userId → modo admin (todos), con userId → modo professional (propios).
+- Desktop: tabla con columnas Name / Category / Website / Actions (Edit / Delete).
+- Mobile: cards apiladas con icono, nombre, categoría, website y botones de acción.
+- Delete con confirmación: `Alert.alert` en nativo, `confirm()` en web.
+- Integra `BusinessForm` para create/edit inline sin navegación.
+- Actualización optimista de la lista tras guardar/borrar.
+
+### Part 5: BusinessPicker.tsx — nuevo componente reutilizable
+- Props: `selectedBusinessId`, `onSelect`, `userId`, `disabled`, `placeholder`, `selectedBusiness`.
+- Sin selección: muestra botón trigger con icono search.
+- Con selección: muestra chip amber con nombre, categoría y botón X para limpiar (sin borrar en Drupal).
+- Modal bottom-sheet con buscador debounced (350ms), lista de resultados con icono + nombre + categoría.
+- Carga inicial al abrir el modal: todos los negocios del usuario.
+- Búsqueda por nombre con `searchBusinessesByName`.
+
+### Part 6: Integración en dashboard.tsx
+- Importado `BusinessTab`.
+- Añadido tab `'businesses'` con icon `business-outline` entre Tours y Subscription.
+- `TabId` extendido con `'businesses'`.
+- Renderiza `<BusinessTab userId={user.id} />` en ambos layouts (mobile/desktop).
+- Clave i18n: `dashboard.tabs.businesses`.
+
+### Part 7: Integración en admin.tsx
+- Importado `BusinessTab`.
+- Añadido tab `'businesses'` con icon `business-outline` entre Translations y Donations.
+- `TabId` extendido con `'businesses'`.
+- Renderiza `<BusinessTab />` (sin userId → admin ve todos).
+- Clave i18n: `admin.tabs.businesses`.
+
+### Part 8: Integración en create-tour.tsx
+- Importados `BusinessPicker` y tipo `Business`.
+- Estado de tour-level businesses: cambiado de `string[]` a `(Business | null)[]`.
+- Estado de step-level business: cambiado de `Record<string, string[]>` a `Record<string, Business | null>` (un slot por step = `field_featured_business`).
+- `tourBusinessSlots`: ahora usa `subscription.plan.maxFeaturedDetail` en lugar de hardcoded 3.
+- Reemplazados los `TextInput` de businessId por `BusinessPicker` en todos los slots.
+- Sección 3 (tour businesses): añadida `planBadge` con nombre del plan + nº de slots, y banner de warning si hay negocios duplicados entre slots.
+- Añadidas styles: `ddBackdrop`, `ddDropdown`, `ddSearchBar`, `ddSearchInput`, `ddOption`, `ddOptionActive`, `ddOptionText`, `ddOptionTextActive` (restauradas, eran referencias sin definición), `planBadge`, `planBadgeText`, `upgradeHint`, `warnBanner`, `warnText`.
+
+### i18n
+- `en.json`: añadidas `dashboard.tabs.businesses`, `admin.tabs.businesses`.
+- `es.json`: añadidas `dashboard.tabs.businesses` ("Negocios"), `admin.tabs.businesses` ("Negocios").
+
+**Archivos creados**:
+- `frontend/stepuptours/services/business.service.ts`
+- `frontend/stepuptours/components/dashboard/BusinessForm.tsx`
+- `frontend/stepuptours/components/dashboard/BusinessTab.tsx`
+- `frontend/stepuptours/components/dashboard/BusinessPicker.tsx`
+
+**Archivos modificados**:
+- `frontend/stepuptours/lib/drupal-client.ts`
+- `frontend/stepuptours/app/[langcode]/dashboard.tsx`
+- `frontend/stepuptours/app/[langcode]/admin.tsx`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-tour.tsx`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+
+**Pendiente / Próximos pasos**:
+- `create-tour.tsx`: los valores de `tourBusinesses` y `stepFeaturedBusiness` se recogen en estado pero el `handleSave` aún no los envía a Drupal (los tours y steps se crean sin los business relationships). Hay que extender `createTour()` y `createTourStep()` en `dashboard.service.ts` para aceptar y enviar los `field_featured_business_1/2/3` y `field_featured_business` como relationships JSON:API.
+- Validar que el rol `professional` tiene permiso en Drupal para crear/editar/borrar nodos `business` (revisar permisos en Drupal admin o config sync).
+- Las traducciones de `fr.json` y `de.json` siguen siendo `{}` — añadir cuando se activen esos idiomas.
+
+---
+
+## Sesión 2026-03-25 — Fix 1: Business relationships en save + Fix 2: Edit mode en create-tour
+
+**Resumen**: Dos correcciones relacionadas en `create-tour.tsx` y `dashboard.service.ts`: (1) enviar los negocios seleccionados como relationships JSON:API al crear/actualizar tours y steps; (2) modo edición completo cuando se accede con `?tourId=` param.
+
+**Trabajo realizado**:
+
+### Fix 1: Business relationships al guardar
+
+- Extendida `createTour(data)` en `dashboard.service.ts` para aceptar `featuredBusinessIds: (string | null)[]` (3 slots). Construye relationships `field_featured_business_1/2/3` con `{ data: { type: 'node--business', id } }` o `{ data: null }` según el slot.
+- Extendida `createTourStep(tourId, data)` para aceptar `featuredBusinessId: string | null`, `lat?`, `lon?`, `duration?`. Construye relationship `field_featured_business` y atributos `field_location` / `field_duration` opcionales.
+- Añadida `updateTour(tourId, data)` — PATCH con mismos campos + relationships de negocios.
+- Añadida `updateTourStep(stepId, data)` — PATCH; cuando no hay coords pone `field_location: null` para limpiar el geopoint.
+- Añadida `buildFields` al import de `dashboard.service.ts`.
+- En `handleSave` de `create-tour.tsx`: se extraen `featuredBusinessIds` de `tourBusinesses[i]?.id` y `stepBusinessId` de `stepFeaturedBusiness[step.key]?.id`. Se pasan a `createTour` / `createTourStep` (create mode) y `updateTour` / `updateTourStep` (edit mode).
+- La extracción de UUIDs se hace en la capa de servicio/componente; `drupal-client.ts` no se modificó (sigue siendo el único fichero con conocimiento de Drupal).
+
+### Fix 2: Edit mode
+
+- Añadidas funciones en `dashboard.service.ts`:
+  - `getTourById(tourId)`: GET `/node/tour/{uuid}` con includes de imagen, ciudad, país y los 3 business slots. Devuelve `Tour` completo.
+  - `getTourStepsForEdit(tourId)`: GET `/node/tour_step` filtrado por `field_tour.id`, ordenado por `field_order`, incluye `field_featured_business`. Devuelve `TourStep[]`.
+- En `create-tour.tsx`:
+  - `useLocalSearchParams` lee `tourId` además de `langcode`. `isEditMode = !!tourId`.
+  - `StepEntry` gana campo opcional `drupalId?: string` para identificar steps ya persistidos.
+  - `originalStepIds` ref: guarda los UUIDs de steps al cargar en edición (para detectar borrados).
+  - `isLoadingTour` state: inicializado a `isEditMode`; muestra spinner hasta que los datos carguen.
+  - `useEffect` de carga: `Promise.all([getTourById, getTourStepsForEdit])` → pre-rellena title, description, duration, cityId/cityLabel, tourBusinesses (slots 1-3), steps (con `drupalId`) y `stepFeaturedBusiness` map por key.
+  - Guarda antitear con flag `cancelled` y cleanup `return () => { cancelled = true }`.
+  - `handleSave` bifurca en PATCH vs POST:
+    - PATCH: llama `updateTour`, luego elimina steps removidos (`deleteTourStep` por ids que ya no están), luego itera steps actuales — `updateTourStep` si tiene `drupalId`, `createTourStep` si es nuevo.
+    - POST: comportamiento original + ahora pasa businesses.
+  - `PageBanner` usa `t('createTour.editTitle', 'Edit Tour')` / `t('createTour.editSubtitle', ...)` en modo edición, fallback inline en inglés para no romper sin claves i18n nuevas.
+  - Guard de renderizado incluye `|| isLoadingTour`.
+
+**Archivos modificados**:
+- `frontend/stepuptours/services/dashboard.service.ts`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-tour.tsx`
+
+**Pendiente / Próximos pasos**:
+- Añadir claves i18n `createTour.editTitle` y `createTour.editSubtitle` a `en.json` y `es.json` (actualmente usan fallback inline).
+- Validar permisos Drupal del rol `professional` para PATCH en `node--tour` y `node--tour_step`.
+- Las traducciones de `fr.json` y `de.json` siguen siendo `{}`.
+- Verificar en expo web / simulador el flujo completo: crear tour con negocios, editar tour, añadir/borrar steps en edición.

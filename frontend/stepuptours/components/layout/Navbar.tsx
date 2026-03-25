@@ -69,7 +69,7 @@ export function Navbar({ onOpenAuth }: NavbarProps) {
       style={styles.logoContainer}
     >
       <View style={styles.logoIcon}>
-        <Ionicons name="compass-outline" size={20} color="#FFFFFF" />
+        <Ionicons name="compass-outline" size={26} color="#FFFFFF" />
       </View>
       <Text style={styles.logoText}>StepUp Tours</Text>
     </TouchableOpacity>
@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoIcon: {
-    width: 36,
-    height: 36,
+    width: 30,
+    height: 30,
     borderRadius: 10,
     backgroundColor: '#F59E0B',
     justifyContent: 'center',
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#F59E0B',
   },
 
   row: {
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
 
   // Avatar
   avatar: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: 19,
     backgroundColor: '#F59E0B',
     alignItems: 'center',

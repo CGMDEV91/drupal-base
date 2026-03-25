@@ -8,6 +8,7 @@ import {
   drupalPatch,
   drupalDelete,
   buildInclude,
+  buildFields,
   mapDrupalTour,
   mapDrupalTourStep,
   mapDrupalDonation,
@@ -30,12 +31,78 @@ export async function getToursByAuthor(userId: string): Promise<Tour[]> {
   return list.map(mapDrupalTour);
 }
 
+export async function getTourById(tourId: string): Promise<Tour> {
+  const params = [
+    buildInclude([
+      'field_image',
+      'field_city',
+      'field_country',
+      'field_featured_business_1',
+      'field_featured_business_2',
+      'field_featured_business_3',
+    ]),
+    buildFields({
+      'node--tour': [
+        'title',
+        'field_description',
+        'field_image',
+        'field_duration',
+        'field_average_rate',
+        'field_rating_count',
+        'field_donation_count',
+        'field_donation_total',
+        'field_location',
+        'field_city',
+        'field_country',
+        'field_featured_business_1',
+        'field_featured_business_2',
+        'field_featured_business_3',
+        'status',
+        'uid',
+      ],
+      'taxonomy_term--cities': ['name'],
+      'taxonomy_term--countries': ['name'],
+      'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
+    }),
+  ].join('&');
+  const raw = await drupalGet<any>(`/node/tour/${tourId}`, params);
+  return mapDrupalTour(raw);
+}
+
+export async function getTourStepsForEdit(tourId: string): Promise<TourStep[]> {
+  const params = [
+    `filter[field_tour.id]=${tourId}`,
+    'sort=field_order',
+    buildFields({
+      'node--tour_step': [
+        'title',
+        'field_description',
+        'field_order',
+        'field_location',
+        'field_total_completed',
+        'field_featured_business',
+        'field_duration',
+      ],
+      'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
+    }),
+    buildInclude(['field_featured_business']),
+  ].join('&');
+  const raw = await drupalGet<any[]>('/node/tour_step', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalTourStep);
+}
+
+export async function deleteTour(tourId: string): Promise<void> {
+  await drupalDelete(`/node/tour/${tourId}`);
+}
+
 export async function createTour(data: {
   title: string;
   description: string;
   duration: number;
   cityId?: string;
   countryId?: string;
+  featuredBusinessIds?: (string | null)[];
 }): Promise<Tour> {
   const relationships: Record<string, any> = {};
   if (data.cityId) {
@@ -45,6 +112,17 @@ export async function createTour(data: {
     relationships.field_country = { data: { type: 'taxonomy_term--countries', id: data.countryId } };
   }
 
+  const slots = data.featuredBusinessIds ?? [null, null, null];
+  relationships.field_featured_business_1 = {
+    data: slots[0] ? { type: 'node--business', id: slots[0] } : null,
+  };
+  relationships.field_featured_business_2 = {
+    data: slots[1] ? { type: 'node--business', id: slots[1] } : null,
+  };
+  relationships.field_featured_business_3 = {
+    data: slots[2] ? { type: 'node--business', id: slots[2] } : null,
+  };
+
   const raw = await drupalPost<any>('/node/tour', {
     data: {
       type: 'node--tour',
@@ -52,7 +130,55 @@ export async function createTour(data: {
         title: data.title,
         field_description: { value: data.description, format: 'basic_html' },
         field_duration: data.duration,
+      },
+      relationships,
+    },
+  });
+  return mapDrupalTour(raw);
+}
 
+export async function updateTour(
+  tourId: string,
+  data: {
+    title: string;
+    description: string;
+    duration: number;
+    cityId?: string;
+    countryId?: string;
+    featuredBusinessIds?: (string | null)[];
+  }
+): Promise<Tour> {
+  const relationships: Record<string, any> = {};
+  if (data.cityId !== undefined) {
+    relationships.field_city = data.cityId
+      ? { data: { type: 'taxonomy_term--cities', id: data.cityId } }
+      : { data: null };
+  }
+  if (data.countryId !== undefined) {
+    relationships.field_country = data.countryId
+      ? { data: { type: 'taxonomy_term--countries', id: data.countryId } }
+      : { data: null };
+  }
+
+  const slots = data.featuredBusinessIds ?? [null, null, null];
+  relationships.field_featured_business_1 = {
+    data: slots[0] ? { type: 'node--business', id: slots[0] } : null,
+  };
+  relationships.field_featured_business_2 = {
+    data: slots[1] ? { type: 'node--business', id: slots[1] } : null,
+  };
+  relationships.field_featured_business_3 = {
+    data: slots[2] ? { type: 'node--business', id: slots[2] } : null,
+  };
+
+  const raw = await drupalPatch<any>(`/node/tour/${tourId}`, {
+    data: {
+      type: 'node--tour',
+      id: tourId,
+      attributes: {
+        title: data.title,
+        field_description: { value: data.description, format: 'basic_html' },
+        field_duration: data.duration,
       },
       relationships,
     },
@@ -64,19 +190,87 @@ export async function createTour(data: {
 
 export async function createTourStep(
   tourId: string,
-  data: { title: string; description: string; order: number }
+  data: {
+    title: string;
+    description: string;
+    order: number;
+    lat?: number;
+    lon?: number;
+    duration?: number;
+    featuredBusinessId?: string | null;
+  }
 ): Promise<TourStep> {
+  const attributes: Record<string, any> = {
+    title: data.title,
+    field_description: { value: data.description, format: 'basic_html' },
+    field_order: data.order,
+  };
+  if (data.lat !== undefined && data.lon !== undefined) {
+    attributes.field_location = { lat: data.lat, lon: data.lon };
+  }
+  if (data.duration !== undefined) {
+    attributes.field_duration = data.duration;
+  }
+
+  const relationships: Record<string, any> = {
+    field_tour: { data: { type: 'node--tour', id: tourId } },
+  };
+  if (data.featuredBusinessId !== undefined) {
+    relationships.field_featured_business = {
+      data: data.featuredBusinessId ? { type: 'node--business', id: data.featuredBusinessId } : null,
+    };
+  }
+
   const raw = await drupalPost<any>('/node/tour_step', {
     data: {
       type: 'node--tour_step',
-      attributes: {
-        title: data.title,
-        field_description: { value: data.description, format: 'basic_html' },
-        field_order: data.order,
-      },
-      relationships: {
-        field_tour: { data: { type: 'node--tour', id: tourId } },
-      },
+      attributes,
+      relationships,
+    },
+  });
+  return mapDrupalTourStep(raw);
+}
+
+export async function updateTourStep(
+  stepId: string,
+  data: {
+    title: string;
+    description: string;
+    order: number;
+    lat?: number;
+    lon?: number;
+    duration?: number;
+    featuredBusinessId?: string | null;
+  }
+): Promise<TourStep> {
+  const attributes: Record<string, any> = {
+    title: data.title,
+    field_description: { value: data.description, format: 'basic_html' },
+    field_order: data.order,
+  };
+  if (data.lat !== undefined && data.lon !== undefined) {
+    attributes.field_location = { lat: data.lat, lon: data.lon };
+  } else if (data.lat === undefined && data.lon === undefined) {
+    // clear the location when both coords are absent
+    attributes.field_location = null;
+  }
+  if (data.duration !== undefined) {
+    attributes.field_duration = data.duration;
+  }
+
+  const relationships: Record<string, any> = {};
+  if (data.featuredBusinessId !== undefined) {
+    relationships.field_featured_business = {
+      data: data.featuredBusinessId ? { type: 'node--business', id: data.featuredBusinessId } : null,
+    };
+  }
+
+  const raw = await drupalPatch<any>(`/node/tour_step/${stepId}`, {
+    data: {
+      type: 'node--tour_step',
+      id: stepId,
+      attributes,
+      relationships,
     },
   });
   return mapDrupalTourStep(raw);

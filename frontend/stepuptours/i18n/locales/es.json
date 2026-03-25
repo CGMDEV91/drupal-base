@@ -112,6 +112,7 @@
 
   "dashboard.title": "Panel de Control",
   "dashboard.tabs.tours": "Mis Tours",
+  "dashboard.tabs.businesses": "Negocios",
   "dashboard.tabs.subscription": "Suscripción",
   "dashboard.tabs.payment": "Datos de Pago",
   "dashboard.tabs.donations": "Donaciones",
@@ -121,6 +122,10 @@
   "dashboard.tours.empty": "Aún no has creado ningún tour",
   "dashboard.tours.draft": "Borrador",
   "dashboard.tours.published": "Publicado",
+  "dashboard.tours.searchPlaceholder": "Buscar tus tours...",
+  "dashboard.tours.noResults": "Ningún tour coincide con tu búsqueda",
+  "dashboard.tours.deleteTitle": "Eliminar Tour",
+  "dashboard.tours.deleteConfirm": "¿Estás seguro de que quieres eliminar \"{{title}}\"? Esta acción no se puede deshacer.",
   "dashboard.subscription.plan": "Plan Actual",
   "dashboard.subscription.type": "Tipo de Plan",
   "dashboard.subscription.cycle": "Ciclo de Facturación",
@@ -252,6 +257,7 @@
   "donation.thankYou": "¡Gracias por tu donación!",
   "donation.donated": "Has donado {{amount}}€ al tour {{tour}}",
 
+  "admin.tabs.businesses": "Negocios",
   "admin.tabs.donations": "Donaciones",
   "admin.donations.totalAmount": "Total Donaciones",
   "admin.donations.platformRevenue": "Ingresos Plataforma",
@@ -373,5 +379,10 @@
   "createTour.success.title": "Tour Creado",
   "createTour.success.message": "Tu tour ha sido guardado como borrador",
   "createTour.error.title": "Error",
-  "createTour.error.generic": "No se pudo guardar el tour. Inténtalo de nuevo."
+  "createTour.error.generic": "No se pudo guardar el tour. Inténtalo de nuevo.",
+
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
+  "common.error": "Error",
+  "common.retry": "Reintentar"
 }

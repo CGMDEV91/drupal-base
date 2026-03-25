@@ -216,7 +216,7 @@ function DesktopChipRow({
                   )}
                 </View>
               )}
-              <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ maxHeight: 280 }}>
+              <ScrollView bounces={false} style={{ maxHeight: 280 }}>
                 {renderOptions(openChip)}
               </ScrollView>
             </Pressable>
@@ -335,7 +335,7 @@ function MobileFilterBar({
             </View>
           </View>
 
-          <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          <ScrollView bounces={false} style={{ flex: 1 }}>
 
             {/* Sort section */}
             <View style={styles.filterSection}>
@@ -582,7 +582,6 @@ export default function HomePage() {
             : undefined
         }
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
-        showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         refreshControl={
@@ -672,7 +671,7 @@ export default function HomePage() {
           <View
             style={
               cols === 1
-                ? { maxWidth: GRID_MAX_WIDTH, alignSelf: 'center', width: '100%', paddingHorizontal: PADDING }
+                ? { maxWidth: GRID_MAX_WIDTH, alignSelf: 'center', width: '100%',paddingVertical: 10, paddingHorizontal: PADDING }
                 : undefined
             }
           >
@@ -998,7 +997,7 @@ const styles = StyleSheet.create({
   },
   countPillRow: {
     paddingTop: 20,
-    paddingBottom: 16,
+    paddingBottom: 10,
     maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
@@ -1009,7 +1008,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    marginBottom: 5,
   },
   countPillText: {
     fontSize: 12,

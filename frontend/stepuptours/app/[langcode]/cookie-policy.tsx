@@ -19,7 +19,6 @@ export default function CookiePolicyScreen() {
     <View style={styles.root}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
       >
         <PageBanner icon="document-text" iconBgColor="#6366F1" title={t('legal.cookiePolicy')} />
         <View style={styles.inner}>

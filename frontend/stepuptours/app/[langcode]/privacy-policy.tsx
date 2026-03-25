@@ -21,7 +21,6 @@ export default function PrivacyPolicyScreen() {
     <View style={styles.root}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
       >
         <PageBanner icon="shield-checkmark" iconBgColor="#10B981" title={t('legal.privacyPolicy')} />
         <View style={styles.inner}>

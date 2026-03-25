@@ -144,7 +144,6 @@ export default function FavouritesScreen() {
         styles.listContent,
         items.length === 0 && styles.listContentEmpty,
       ]}
-      showsVerticalScrollIndicator={false}
       style={styles.root}
       renderItem={({ item }) => (
         <View
@@ -203,7 +202,7 @@ const styles = StyleSheet.create({
 
   // ── List ───────────────────────────────────────────────────────────────────
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
   listContentEmpty: {
     flexGrow: 1,

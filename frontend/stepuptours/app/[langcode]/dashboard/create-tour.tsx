@@ -23,15 +23,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../stores/auth.store';
 import { useToursStore } from '../../../stores/tours.store';
 import { useLanguageStore } from '../../../stores/language.store';
-import { createTour, createTourStep, getActiveSubscription } from '../../../services/dashboard.service';
+import {
+  createTour,
+  updateTour,
+  createTourStep,
+  updateTourStep,
+  deleteTourStep,
+  getActiveSubscription,
+  getTourById,
+  getTourStepsForEdit,
+} from '../../../services/dashboard.service';
+import { BusinessPicker } from '../../../components/dashboard/BusinessPicker';
 import PageBanner from '../../../components/layout/PageBanner';
-import type { Subscription } from '../../../types';
+import type { Business, Subscription } from '../../../types';
 
 const AMBER = '#F59E0B';
 const CONTENT_MAX_WIDTH = 900;
 
 interface StepEntry {
+  /** Temporary React key. New steps only have this; persisted steps also have drupalId. */
   key: string;
+  /** Drupal UUID — present only in edit mode for steps already saved to the backend. */
+  drupalId?: string;
   title: string;
   description: string;
   lat: string;
@@ -44,7 +57,8 @@ function makeKey(): string {
 }
 
 export default function CreateTourScreen() {
-  const { langcode } = useLocalSearchParams<{ langcode: string }>();
+  const { langcode, tourId } = useLocalSearchParams<{ langcode: string; tourId?: string }>();
+  const isEditMode = !!tourId;
   const router = useRouter();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -59,6 +73,11 @@ export default function CreateTourScreen() {
       router.replace(`/${langcode}` as any);
     }
   }, [user, isAuthLoading, isProfessional, langcode]);
+
+  // ── Edit mode: loading state ──────────────────────────────────────────────
+  const [isLoadingTour, setIsLoadingTour] = useState(isEditMode);
+  // Track original step IDs present when the form loaded (to detect deletions)
+  const originalStepIds = useRef<string[]>([]);
 
   // ── Tour basic info ──────────────────────────────────────────────────────
   const [title, setTitle] = useState('');
@@ -178,28 +197,92 @@ export default function CreateTourScreen() {
     }
   }, [user?.id]);
 
-  const tourBusinessSlots = subscription ? 3 : 1;
-  const stepBusinessSlots = subscription ? 5 : 1;
+  // ── Edit mode: load existing tour data ────────────────────────────────────
+  useEffect(() => {
+    if (!isEditMode || !tourId) return;
 
-  const [tourBusinesses, setTourBusinesses] = useState<string[]>(['', '', '']);
-  const [stepBusinesses, setStepBusinesses] = useState<Record<string, string[]>>({});
+    let cancelled = false;
+    setIsLoadingTour(true);
 
-  const getStepBusinesses = useCallback(
-    (key: string): string[] => stepBusinesses[key] ?? Array(stepBusinessSlots).fill(''),
-    [stepBusinesses, stepBusinessSlots]
+    Promise.all([getTourById(tourId), getTourStepsForEdit(tourId)])
+      .then(([tour, tourSteps]) => {
+        if (cancelled) return;
+
+        setTitle(tour.title);
+        setDescription(tour.description);
+        setDuration(tour.duration > 0 ? String(tour.duration) : '');
+
+        if (tour.city) {
+          setCityId(tour.city.id);
+          setCityLabel(tour.city.name);
+        }
+
+        // Pre-fill tour-level featured businesses (slots 1-3)
+        const businesses: (Business | null)[] = [
+          tour.featuredBusinesses[0] ?? null,
+          tour.featuredBusinesses[1] ?? null,
+          tour.featuredBusinesses[2] ?? null,
+        ];
+        setTourBusinesses(businesses);
+
+        // Pre-fill steps
+        const loadedSteps: StepEntry[] = tourSteps.map((s) => ({
+          key: makeKey(),
+          drupalId: s.id,
+          title: s.title,
+          description: s.description,
+          lat: s.location ? String(s.location.lat) : '',
+          lon: s.location ? String(s.location.lon) : '',
+          duration: '', // field_duration not in TourStep type; leave blank
+        }));
+        setSteps(loadedSteps);
+        originalStepIds.current = tourSteps.map((s) => s.id);
+
+        // Pre-fill step-level featured businesses
+        const stepBusinessMap: Record<string, Business | null> = {};
+        tourSteps.forEach((s, idx) => {
+          stepBusinessMap[loadedSteps[idx].key] = s.featuredBusiness ?? null;
+        });
+        setStepFeaturedBusiness(stepBusinessMap);
+      })
+      .catch(() => {
+        // Non-fatal: show empty form if fetch fails
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingTour(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isEditMode, tourId]);
+
+  // tourBusinessSlots: from subscription plan field_max_featured_detail
+  // stepBusinessSlots: each step has one featured_business slot (field_featured_business)
+  const tourBusinessSlots = subscription
+    ? subscription.plan.maxFeaturedDetail
+    : 1;
+
+  // tourBusinesses: array of selected Business objects per tour-level slot
+  const [tourBusinesses, setTourBusinesses] = useState<(Business | null)[]>([null, null, null]);
+
+  // stepFeaturedBusiness: one Business per step (field_featured_business)
+  const [stepFeaturedBusiness, setStepFeaturedBusiness] = useState<Record<string, Business | null>>({});
+
+  const getStepBusiness = useCallback(
+    (key: string): Business | null => stepFeaturedBusiness[key] ?? null,
+    [stepFeaturedBusiness]
   );
 
   const updateStepBusiness = useCallback(
-    (stepKey: string, slotIndex: number, value: string) => {
-      setStepBusinesses((prev) => {
-        const current = prev[stepKey] ?? Array(stepBusinessSlots).fill('');
-        const next = [...current];
-        next[slotIndex] = value;
-        return { ...prev, [stepKey]: next };
-      });
+    (stepKey: string, business: Business | null) => {
+      setStepFeaturedBusiness((prev) => ({ ...prev, [stepKey]: business }));
     },
-    [stepBusinessSlots]
+    []
   );
+
+  // Warn when the same business is used in multiple tour slots
+  const tourBusinessIds = tourBusinesses.map((b) => b?.id).filter(Boolean) as string[];
+  const hasDuplicateTourBusinesses =
+    new Set(tourBusinessIds).size < tourBusinessIds.length;
 
   // ── Save ─────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
@@ -222,22 +305,91 @@ export default function CreateTourScreen() {
       return;
     }
 
+    // Extract business UUIDs for the 3 tour-level slots (null = empty slot)
+    const featuredBusinessIds: (string | null)[] = [
+      tourBusinesses[0]?.id ?? null,
+      tourBusinesses[1]?.id ?? null,
+      tourBusinesses[2]?.id ?? null,
+    ];
+
     setSaving(true);
     try {
-      const tour = await createTour({
-        title: title.trim(),
-        description: description.trim(),
-        duration: parseInt(duration, 10) || 0,
-        cityId: cityId || undefined,
-      });
-
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
-        await createTourStep(tour.id, {
-          title: step.title.trim(),
-          description: step.description.trim(),
-          order: i + 1,
+      if (isEditMode && tourId) {
+        // ── PATCH mode ────────────────────────────────────────────────────
+        await updateTour(tourId, {
+          title: title.trim(),
+          description: description.trim(),
+          duration: parseInt(duration, 10) || 0,
+          cityId: cityId || undefined,
+          featuredBusinessIds,
         });
+
+        // Determine which persisted steps were removed
+        const currentDrupalIds = new Set(
+          steps.filter((s) => s.drupalId).map((s) => s.drupalId as string)
+        );
+        const removedIds = originalStepIds.current.filter((id) => !currentDrupalIds.has(id));
+        for (const id of removedIds) {
+          await deleteTourStep(id);
+        }
+
+        // PATCH existing steps / POST new ones in order
+        for (let i = 0; i < steps.length; i++) {
+          const step = steps[i];
+          const lat = parseFloat(step.lat);
+          const lon = parseFloat(step.lon);
+          const hasLocation = !isNaN(lat) && !isNaN(lon);
+          const stepBusinessId = stepFeaturedBusiness[step.key]?.id ?? null;
+
+          if (step.drupalId) {
+            await updateTourStep(step.drupalId, {
+              title: step.title.trim(),
+              description: step.description.trim(),
+              order: i + 1,
+              lat: hasLocation ? lat : undefined,
+              lon: hasLocation ? lon : undefined,
+              duration: step.duration ? parseInt(step.duration, 10) : undefined,
+              featuredBusinessId: stepBusinessId,
+            });
+          } else {
+            await createTourStep(tourId, {
+              title: step.title.trim(),
+              description: step.description.trim(),
+              order: i + 1,
+              lat: hasLocation ? lat : undefined,
+              lon: hasLocation ? lon : undefined,
+              duration: step.duration ? parseInt(step.duration, 10) : undefined,
+              featuredBusinessId: stepBusinessId,
+            });
+          }
+        }
+      } else {
+        // ── POST mode ─────────────────────────────────────────────────────
+        const tour = await createTour({
+          title: title.trim(),
+          description: description.trim(),
+          duration: parseInt(duration, 10) || 0,
+          cityId: cityId || undefined,
+          featuredBusinessIds,
+        });
+
+        for (let i = 0; i < steps.length; i++) {
+          const step = steps[i];
+          const lat = parseFloat(step.lat);
+          const lon = parseFloat(step.lon);
+          const hasLocation = !isNaN(lat) && !isNaN(lon);
+          const stepBusinessId = stepFeaturedBusiness[step.key]?.id ?? null;
+
+          await createTourStep(tour.id, {
+            title: step.title.trim(),
+            description: step.description.trim(),
+            order: i + 1,
+            lat: hasLocation ? lat : undefined,
+            lon: hasLocation ? lon : undefined,
+            duration: step.duration ? parseInt(step.duration, 10) : undefined,
+            featuredBusinessId: stepBusinessId,
+          });
+        }
       }
 
       router.replace(`/${langcode}/dashboard` as any);
@@ -251,9 +403,12 @@ export default function CreateTourScreen() {
     } finally {
       setSaving(false);
     }
-  }, [title, description, duration, cityId, steps, langcode, router, t]);
+  }, [
+    title, description, duration, cityId, steps, langcode, router, t,
+    tourBusinesses, stepFeaturedBusiness, isEditMode, tourId,
+  ]);
 
-  if (isAuthLoading || !user || !isProfessional) {
+  if (isAuthLoading || !user || !isProfessional || isLoadingTour) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={AMBER} />
@@ -272,14 +427,13 @@ export default function CreateTourScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <PageBanner
-          icon="add-circle-outline"
+          icon={isEditMode ? 'create-outline' : 'add-circle-outline'}
           iconBgColor={AMBER}
-          title={t('createTour.title')}
-          subtitle={t('createTour.subtitle')}
+          title={isEditMode ? t('createTour.editTitle', 'Edit Tour') : t('createTour.title')}
+          subtitle={isEditMode ? t('createTour.editSubtitle', 'Update your tour details') : t('createTour.subtitle')}
           showBack
         />
         <View style={contentStyle}>
@@ -457,21 +611,20 @@ export default function CreateTourScreen() {
                     </View>
                   </View>
 
-                  {Array.from({ length: stepBusinessSlots }).map((_, slotIdx) => (
-                    <View key={slotIdx}>
+                  {user && (
+                    <View>
                       <Text style={styles.label}>
-                        {t('createTour.field.stepBusiness', { slot: slotIdx + 1 })}
+                        {t('createTour.field.stepBusiness', { slot: 1 })}
                       </Text>
-                      <TextInput
-                        style={styles.input}
-                        value={getStepBusinesses(step.key)[slotIdx] ?? ''}
-                        onChangeText={(v) => updateStepBusiness(step.key, slotIdx, v)}
+                      <BusinessPicker
+                        userId={user.id}
+                        selectedBusinessId={getStepBusiness(step.key)?.id ?? null}
+                        selectedBusiness={getStepBusiness(step.key)}
+                        onSelect={(b) => updateStepBusiness(step.key, b)}
                         placeholder={t('createTour.placeholder.businessId')}
-                        placeholderTextColor="#9CA3AF"
-                        autoCapitalize="none"
                       />
                     </View>
-                  ))}
+                  )}
                 </View>
               ))
             )}
@@ -484,30 +637,48 @@ export default function CreateTourScreen() {
               <ActivityIndicator size="small" color={AMBER} style={{ marginVertical: 12 }} />
             ) : (
               <>
-                <Text style={styles.subscriptionNote}>
-                  {subscription
-                    ? t('createTour.businesses.withSubscription', { max: tourBusinessSlots })
-                    : t('createTour.businesses.noSubscription')}
-                </Text>
+                {/* Subscription plan info */}
+                <View style={styles.planBadge}>
+                  <Ionicons name="star-outline" size={14} color={AMBER} />
+                  <Text style={styles.planBadgeText}>
+                    {subscription
+                      ? `${subscription.plan.title} — ${tourBusinessSlots} featured slot${tourBusinessSlots !== 1 ? 's' : ''}`
+                      : `Free plan — 1 featured slot`}
+                  </Text>
+                  {!subscription && (
+                    <Text style={styles.upgradeHint}> · Upgrade for more</Text>
+                  )}
+                </View>
+
+                {hasDuplicateTourBusinesses && (
+                  <View style={styles.warnBanner}>
+                    <Ionicons name="warning-outline" size={15} color="#D97706" />
+                    <Text style={styles.warnText}>
+                      The same business is selected in multiple slots.
+                    </Text>
+                  </View>
+                )}
+
                 {Array.from({ length: tourBusinessSlots }).map((_, idx) => (
                   <View key={idx}>
                     <Text style={styles.label}>
                       {t('createTour.field.tourBusiness', { slot: idx + 1 })}
                     </Text>
-                    <TextInput
-                      style={styles.input}
-                      value={tourBusinesses[idx] ?? ''}
-                      onChangeText={(v) =>
-                        setTourBusinesses((prev) => {
-                          const next = [...prev];
-                          next[idx] = v;
-                          return next;
-                        })
-                      }
-                      placeholder={t('createTour.placeholder.businessId')}
-                      placeholderTextColor="#9CA3AF"
-                      autoCapitalize="none"
-                    />
+                    {user && (
+                      <BusinessPicker
+                        userId={user.id}
+                        selectedBusinessId={tourBusinesses[idx]?.id ?? null}
+                        selectedBusiness={tourBusinesses[idx]}
+                        onSelect={(b) =>
+                          setTourBusinesses((prev) => {
+                            const next = [...prev];
+                            next[idx] = b;
+                            return next;
+                          })
+                        }
+                        placeholder={t('createTour.placeholder.businessId')}
+                      />
+                    )}
                   </View>
                 ))}
               </>
@@ -890,4 +1061,100 @@ const styles = StyleSheet.create({
   },
   pickerItemText: { fontSize: 15, color: '#111827' },
   pickerItemClear: { color: '#9CA3AF' },
+
+  // Desktop dropdown
+  ddBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  ddDropdown: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+    zIndex: 999,
+  },
+  ddSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  ddSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    height: 32,
+  },
+  ddOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  ddOptionActive: {
+    backgroundColor: '#FFFBEB',
+  },
+  ddOptionText: {
+    fontSize: 14,
+    color: '#111827',
+  },
+  ddOptionTextActive: {
+    color: AMBER,
+    fontWeight: '600',
+  },
+
+  // Plan badge
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 14,
+  },
+  planBadgeText: {
+    fontSize: 13,
+    color: '#92400E',
+    fontWeight: '600',
+  },
+  upgradeHint: {
+    fontSize: 12,
+    color: '#B45309',
+  },
+
+  // Duplicate business warning
+  warnBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  warnText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+  },
 });
