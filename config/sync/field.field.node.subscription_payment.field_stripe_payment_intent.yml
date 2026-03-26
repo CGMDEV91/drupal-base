@@ -1,0 +1,19 @@
+uuid: 83575849-3d28-48c6-a135-6b94445481fd
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_stripe_payment_intent
+    - node.type.subscription_payment
+id: node.subscription_payment.field_stripe_payment_intent
+field_name: field_stripe_payment_intent
+entity_type: node
+bundle: subscription_payment
+label: 'Stripe payment intent'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

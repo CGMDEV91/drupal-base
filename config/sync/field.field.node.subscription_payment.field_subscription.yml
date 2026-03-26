@@ -1,0 +1,29 @@
+uuid: 34ece9dc-97be-4c7c-8a9b-e38f39194efd
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_subscription
+    - node.type.subscription
+    - node.type.subscription_payment
+id: node.subscription_payment.field_subscription
+field_name: field_subscription
+entity_type: node
+bundle: subscription_payment
+label: Subscription
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      subscription: subscription
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

@@ -55,9 +55,10 @@ export async function createBusiness(data: BusinessInput): Promise<Business> {
 
 export async function updateBusiness(
   id: string,
-  data: Partial<BusinessInput>
+  data: Partial<BusinessInput>,
+  langcode?: string
 ): Promise<Business> {
-  return updateBusinessNode(id, data);
+  return updateBusinessNode(id, data, langcode);
 }
 
 export async function deleteBusiness(id: string): Promise<void> {

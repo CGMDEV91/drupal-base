@@ -1,7 +1,7 @@
 // app/[langcode]/dashboard.tsx
 // Professional Dashboard — tab navigation for professional role only
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -42,8 +43,18 @@ const TABS: Tab[] = [
   { id: 'donations', labelKey: 'dashboard.tabs.donations', icon: 'heart-outline' },
 ];
 
+const VALID_TABS: TabId[] = ['tours', 'businesses', 'subscription', 'payment', 'donations'];
+
+function isValidTab(value: string): value is TabId {
+  return VALID_TABS.includes(value as TabId);
+}
+
 export default function DashboardScreen() {
-  const { langcode } = useLocalSearchParams<{ langcode: string }>();
+  const { langcode, tab: tabParam, toast: toastParam } = useLocalSearchParams<{
+    langcode: string;
+    tab?: string;
+    toast?: string;
+  }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -51,7 +62,52 @@ export default function DashboardScreen() {
 
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
-  const [activeTab, setActiveTab] = useState<TabId>('tours');
+
+  const initialTab: TabId = tabParam && isValidTab(tabParam) ? tabParam : 'tours';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // ── Scroll to top on tab change ────────────────────────────────────────────
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeTab]);
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!toastParam) return;
+
+    // Resolve message: try i18n key `toast.<param>`, fall back to the raw value
+    const i18nKey = `toast.${toastParam}`;
+    const resolved = t(i18nKey);
+    // i18next returns the key itself when no translation is found
+    const message = resolved !== i18nKey ? resolved : toastParam;
+
+    setToastMessage(message);
+
+    // Fade in
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      // Hold visible for 2.5 s, then fade out
+      toastTimeoutRef.current = setTimeout(() => {
+        Animated.timing(toastOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => setToastMessage(null));
+      }, 2500);
+    });
+
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, [toastParam]);
 
   const isProfessional = user?.roles?.includes('professional');
 
@@ -135,8 +191,9 @@ export default function DashboardScreen() {
       {isMobile ? (
         // ── Mobile: banner + tabs + contenido en scroll único ────────────
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 48 }}
+          contentContainerStyle={{ paddingBottom: 0 }}
         >
           <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
           {mobileTabBar}
@@ -154,8 +211,9 @@ export default function DashboardScreen() {
         <>
           {desktopTabBar}
           <ScrollView
+            ref={scrollRef}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 48 }}
+            contentContainerStyle={{ paddingBottom: 0 }}
           >
             <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
             <View style={{ maxWidth: CONTENT_MAX_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20 }}>
@@ -169,6 +227,17 @@ export default function DashboardScreen() {
           </ScrollView>
         </>
       )}
+
+      {/* ── Toast notification ──────────────────────────────────────────── */}
+      {toastMessage ? (
+        <Animated.View
+          style={[styles.toast, { opacity: toastOpacity }]}
+          pointerEvents="none"
+        >
+          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -242,5 +311,30 @@ const styles = StyleSheet.create({
   },
   mobileTabLabelActive: {
     color: '#FFFFFF',
+  },
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  toast: {
+    position: 'absolute',
+    bottom: 32,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    maxWidth: 360,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

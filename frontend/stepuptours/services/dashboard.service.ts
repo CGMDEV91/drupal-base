@@ -6,15 +6,18 @@ import {
   drupalGet,
   drupalPost,
   drupalPatch,
+  drupalPatchBase,
   drupalDelete,
   buildInclude,
   buildFields,
+  buildGeoFieldValue,
   mapDrupalTour,
   mapDrupalTourStep,
   mapDrupalDonation,
   mapDrupalProfessionalProfile,
   mapDrupalSubscription,
   mapDrupalSubscriptionPlan,
+  getApiLanguage,
 } from '../lib/drupal-client';
 import type { Tour, TourStep, Donation, ProfessionalProfile, Subscription, SubscriptionPlan } from '../types';
 
@@ -38,8 +41,14 @@ export async function getTourById(tourId: string): Promise<Tour> {
       'field_city',
       'field_country',
       'field_featured_business_1',
+      'field_featured_business_1.field_logo',
+      'field_featured_business_1.field_category',
       'field_featured_business_2',
+      'field_featured_business_2.field_logo',
+      'field_featured_business_2.field_category',
       'field_featured_business_3',
+      'field_featured_business_3.field_logo',
+      'field_featured_business_3.field_category',
     ]),
     buildFields({
       'node--tour': [
@@ -59,10 +68,13 @@ export async function getTourById(tourId: string): Promise<Tour> {
         'field_featured_business_3',
         'status',
         'uid',
+        'langcode',
       ],
       'taxonomy_term--cities': ['name'],
       'taxonomy_term--countries': ['name'],
-      'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
+      'taxonomy_term--business_category': ['name'],
+      'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category', 'langcode'],
+      'file--file': ['uri', 'url'],
     }),
   ].join('&');
   const raw = await drupalGet<any>(`/node/tour/${tourId}`, params);
@@ -84,8 +96,10 @@ export async function getTourStepsForEdit(tourId: string): Promise<TourStep[]> {
         'field_duration',
       ],
       'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
+      'taxonomy_term--business_category': ['name'],
+      'file--file': ['uri', 'url'],
     }),
-    buildInclude(['field_featured_business']),
+    buildInclude(['field_featured_business', 'field_featured_business.field_logo', 'field_featured_business.field_category']),
   ].join('&');
   const raw = await drupalGet<any[]>('/node/tour_step', params);
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
@@ -105,6 +119,8 @@ export async function createTour(data: {
   featuredBusinessIds?: (string | null)[];
   /** UUID of an already-uploaded file entity to set as field_image */
   imageId?: string;
+  /** Language code for the new node; defaults to the current UI language. */
+  langcode?: string;
 }): Promise<Tour> {
   const relationships: Record<string, any> = {};
   if (data.cityId) {
@@ -135,6 +151,9 @@ export async function createTour(data: {
         title: data.title,
         field_description: { value: data.description, format: 'basic_html' },
         field_duration: data.duration,
+        // Set node language: use the explicitly-provided langcode if given,
+        // otherwise fall back to the current UI language.
+        langcode: data.langcode ?? getApiLanguage(),
       },
       relationships,
     },
@@ -154,7 +173,8 @@ export async function updateTour(
     /** UUID of an already-uploaded file entity to set as field_image.
      *  Pass null explicitly to clear the existing image. */
     imageId?: string | null;
-  }
+  },
+  langcode?: string
 ): Promise<Tour> {
   const relationships: Record<string, any> = {};
   if (data.cityId !== undefined) {
@@ -184,7 +204,9 @@ export async function updateTour(
     data: slots[2] ? { type: 'node--business', id: slots[2] } : null,
   };
 
-  const raw = await drupalPatch<any>(`/node/tour/${tourId}`, {
+  // Always patch the original-language node, using the entity's langcode to
+  // build the correct language-prefix URL.
+  const raw = await drupalPatchBase<any>(`/node/tour/${tourId}`, {
     data: {
       type: 'node--tour',
       id: tourId,
@@ -195,7 +217,7 @@ export async function updateTour(
       },
       relationships,
     },
-  });
+  }, langcode);
   return mapDrupalTour(raw);
 }
 
@@ -211,6 +233,8 @@ export async function createTourStep(
     lon?: number;
     duration?: number;
     featuredBusinessId?: string | null;
+    /** Language code for the new step; defaults to the current UI language. */
+    langcode?: string;
   }
 ): Promise<TourStep> {
   const attributes: Record<string, any> = {
@@ -218,8 +242,8 @@ export async function createTourStep(
     field_description: { value: data.description, format: 'basic_html' },
     field_order: data.order,
   };
-  if (data.lat !== undefined && data.lon !== undefined) {
-    attributes.field_location = { lat: data.lat, lon: data.lon };
+  if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
+    attributes.field_location = buildGeoFieldValue(data.lat, data.lon);
   }
   if (data.duration !== undefined) {
     attributes.field_duration = data.duration;
@@ -233,6 +257,10 @@ export async function createTourStep(
       data: data.featuredBusinessId ? { type: 'node--business', id: data.featuredBusinessId } : null,
     };
   }
+
+  // Set step language: use the explicitly-provided langcode if given,
+  // otherwise fall back to the current UI language.
+  attributes.langcode = data.langcode ?? getApiLanguage();
 
   const raw = await drupalPost<any>('/node/tour_step', {
     data: {
@@ -254,15 +282,16 @@ export async function updateTourStep(
     lon?: number;
     duration?: number;
     featuredBusinessId?: string | null;
-  }
+  },
+  langcode?: string
 ): Promise<TourStep> {
   const attributes: Record<string, any> = {
     title: data.title,
     field_description: { value: data.description, format: 'basic_html' },
     field_order: data.order,
   };
-  if (data.lat !== undefined && data.lon !== undefined) {
-    attributes.field_location = { lat: data.lat, lon: data.lon };
+  if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
+    attributes.field_location = buildGeoFieldValue(data.lat, data.lon);
   } else if (data.lat === undefined && data.lon === undefined) {
     // clear the location when both coords are absent
     attributes.field_location = null;
@@ -278,14 +307,16 @@ export async function updateTourStep(
     };
   }
 
-  const raw = await drupalPatch<any>(`/node/tour_step/${stepId}`, {
+  // Always patch the original-language node, using the entity's langcode to
+  // build the correct language-prefix URL.
+  const raw = await drupalPatchBase<any>(`/node/tour_step/${stepId}`, {
     data: {
       type: 'node--tour_step',
       id: stepId,
       attributes,
       relationships,
     },
-  });
+  }, langcode);
   return mapDrupalTourStep(raw);
 }
 

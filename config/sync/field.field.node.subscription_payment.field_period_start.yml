@@ -1,0 +1,19 @@
+uuid: 18f5ee19-2d2a-4814-95f9-f97883c0ecf5
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_period_start
+    - node.type.subscription_payment
+id: node.subscription_payment.field_period_start
+field_name: field_period_start
+entity_type: node
+bundle: subscription_payment
+label: 'Period start'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * @file
+ * StepUp Tours API module hooks.
+ */
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_cron().
+ *
+ * Processes auto-renewal for active subscriptions whose end date has passed.
+ * For each qualifying subscription the end date is extended according to the
+ * plan's billing cycle. Actual Stripe re-charging is a future step; for now
+ * the renewal is granted without a new charge so that the flow can be tested
+ * end-to-end in a development environment.
+ */
+function stepuptours_api_cron(): void {
+  $now = \Drupal::time()->getRequestTime();
+  $logger = \Drupal::logger('stepuptours_api');
+
+  // Load active subscriptions with auto_renewal enabled that have expired.
+  $nids = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription')
+    ->condition('field_subscription_status', 'active')
+    ->condition('field_auto_renewal', 1)
+    ->condition('field_end_date', $now, '<=')
+    ->accessCheck(FALSE)
+    ->execute();
+
+  if (empty($nids)) {
+    return;
+  }
+
+  $nodes = \Drupal::entityTypeManager()->getStorage('node')->loadMultiple($nids);
+
+  foreach ($nodes as $sub) {
+    // Load the linked plan to get the billing cycle.
+    $planRef = $sub->get('field_plan')->referencedEntities();
+    if (empty($planRef)) {
+      $logger->warning('Subscription @nid has no plan — skipping renewal.', ['@nid' => $sub->id()]);
+      continue;
+    }
+
+    /** @var \Drupal\node\NodeInterface $plan */
+    $plan = reset($planRef);
+    $billingCycle = $plan->get('field_billing_cycle')->value ?? 'monthly';
+
+    // Calculate new end date from the current end date (not from now, to avoid
+    // drift when cron fires late).
+    $currentEnd = (int) $sub->get('field_end_date')->value;
+    $endDate = new \DateTime('@' . $currentEnd);
+
+    switch ($billingCycle) {
+      case 'minute':
+        $endDate->modify('+1 minute');
+        break;
+
+      case 'anually':
+      case 'annual':
+        $endDate->modify('+1 year');
+        break;
+
+      default: // monthly
+        $endDate->modify('+1 month');
+        break;
+    }
+
+    $newEnd = $endDate->getTimestamp();
+    $sub->set('field_end_date', $newEnd);
+    $sub->set('field_last_payment_at', $now);
+    $sub->save();
+
+    $logger->info(
+      'Auto-renewed subscription @nid (plan: @plan, cycle: @cycle) — new end: @end',
+      [
+        '@nid'   => $sub->id(),
+        '@plan'  => $plan->label(),
+        '@cycle' => $billingCycle,
+        '@end'   => $endDate->format('Y-m-d H:i:s'),
+      ]
+    );
+  }
+}

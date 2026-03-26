@@ -35,6 +35,7 @@ export interface Business {
   phone: string | null;
   location: GeoLocation | null;
   category: Taxonomy | null;
+  langcode?: string;
 }
 
 export interface TourStep {
@@ -67,6 +68,7 @@ export interface Tour {
   featuredBusinesses: (Business | null)[];
   authorId: string;
   published: boolean;
+  langcode?: string;
 }
 
 export interface TourActivity {

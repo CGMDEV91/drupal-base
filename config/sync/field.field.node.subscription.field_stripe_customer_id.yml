@@ -1,15 +1,15 @@
-uuid: aa5303e7-0991-45df-9f80-ea6a3052e950
+uuid: 981bbaa3-181c-4e16-9c7a-fbbbdab42061
 langcode: en
 status: true
 dependencies:
   config:
-    - field.storage.node.field_payment_reference
+    - field.storage.node.field_stripe_customer_id
     - node.type.subscription
-id: node.subscription.field_payment_reference
-field_name: field_payment_reference
+id: node.subscription.field_stripe_customer_id
+field_name: field_stripe_customer_id
 entity_type: node
 bundle: subscription
-label: 'Payment Reference'
+label: 'Stripe Customer ID'
 description: ''
 required: false
 translatable: false

@@ -1,0 +1,11 @@
+uuid: 46c24874-0b42-42b2-979e-039b6b2f122f
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription_payment
+id: node.subscription_payment
+target_entity_type_id: node
+target_bundle: subscription_payment
+default_langcode: site_default
+language_alterable: false

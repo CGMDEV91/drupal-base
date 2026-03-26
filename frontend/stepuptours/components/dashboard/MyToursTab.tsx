@@ -6,7 +6,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -25,8 +24,7 @@ import { TourCard } from '../tour/TourCard';
 import type { Tour } from '../../types';
 
 const AMBER = '#F59E0B';
-const GRID_MAX_WIDTH = 1200;
-const GAP = 20;
+const GAP = 16;
 
 interface MyToursTabProps {
   userId: string;
@@ -85,14 +83,17 @@ export function MyToursTab({ userId }: MyToursTabProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Tour | null>(null);
 
-  // ── Responsive grid — mirrors homepage/favourites ─────────────────────────
-  const cols = width >= 768 ? 3 : width >= 640 ? 2 : 1;
-  const PADDING = width >= 768 ? 32 : 16;
-  const gridWidth = Math.min(width, GRID_MAX_WIDTH);
+  // ── Responsive grid ───────────────────────────────────────────────────────
+  // MyToursTab lives inside dashboard's padded container (paddingHorizontal: 16,
+  // maxWidth: 900). We compute available width from there, not full window width.
+  const DASHBOARD_PADDING = 32; // 16px on each side from dashboard container
+  const DASHBOARD_MAX = 900;
+  const availableWidth = Math.min(width, DASHBOARD_MAX) - DASHBOARD_PADDING;
+  const cols = availableWidth >= 700 ? 3 : availableWidth >= 480 ? 2 : 1;
   const cardWidth =
     cols === 1
-      ? width - PADDING * 2
-      : (gridWidth - PADDING * 2 - GAP * (cols - 1)) / cols;
+      ? availableWidth
+      : (availableWidth - GAP * (cols - 1)) / cols;
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const loadTours = useCallback(async () => {
@@ -214,68 +215,39 @@ export function MyToursTab({ userId }: MyToursTabProps) {
 
   return (
     <>
-      <FlatList
-        data={filteredTours}
-        keyExtractor={(item) => item.id}
-        numColumns={cols}
-        key={`mytours-grid-${cols}`}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={[
-          styles.listContent,
-          filteredTours.length === 0 && styles.listContentEmpty,
-        ]}
-        columnWrapperStyle={
-          cols > 1
-            ? {
-                maxWidth: GRID_MAX_WIDTH,
-                alignSelf: 'center',
-                width: '100%',
-                paddingHorizontal: PADDING,
-                justifyContent: 'space-between',
-                paddingBottom: 10,
-              }
-            : undefined
-        }
-        renderItem={({ item }) => (
-          <View
-            style={
-              cols === 1
-                ? {
-                    maxWidth: GRID_MAX_WIDTH,
-                    alignSelf: 'center',
-                    width: '100%',
-                    paddingHorizontal: PADDING,
-                  }
-                : undefined
-            }
-          >
-            <TourCard
-              tour={item}
-              cardWidth={cardWidth}
-              langcode={langcode ?? 'en'}
-              isOwner={true}
-              onEdit={() => handleEdit(item)}
-              onDelete={() => handleDeleteRequest(item)}
-            />
-            {/* Per-card deleting overlay */}
-            {deletingId === item.id ? (
-              <View style={[StyleSheet.absoluteFill, styles.deletingOverlay]}>
-                <ActivityIndicator size="small" color={AMBER} />
-              </View>
-            ) : null}
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="map-outline" size={56} color="#D1D5DB" />
-            <Text style={styles.emptyText}>
-              {search.trim()
-                ? t('dashboard.tours.noResults')
-                : t('dashboard.tours.empty')}
-            </Text>
-          </View>
-        }
-      />
+      {/* Header: create button + search */}
+      {ListHeader}
+
+      {filteredTours.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="map-outline" size={56} color="#D1D5DB" />
+          <Text style={styles.emptyText}>
+            {search.trim()
+              ? t('dashboard.tours.noResults')
+              : t('dashboard.tours.empty')}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.grid}>
+          {filteredTours.map((item) => (
+            <View key={item.id} style={{ width: cardWidth, position: 'relative' }}>
+              <TourCard
+                tour={item}
+                cardWidth={cardWidth}
+                langcode={langcode ?? 'en'}
+                isOwner={true}
+                onEdit={() => handleEdit(item)}
+                onDelete={() => handleDeleteRequest(item)}
+              />
+              {deletingId === item.id ? (
+                <View style={[StyleSheet.absoluteFill, styles.deletingOverlay]}>
+                  <ActivityIndicator size="small" color={AMBER} />
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Web delete confirmation modal */}
       <DeleteModal
@@ -316,20 +288,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // ── List ───────────────────────────────────────────────────────────────────
-  listContent: {
-    paddingBottom: 0,
-  },
-  listContentEmpty: {
-    flexGrow: 1,
+  // ── Grid ───────────────────────────────────────────────────────────────────
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GAP,
+    paddingBottom: 16,
   },
 
   // ── List header ────────────────────────────────────────────────────────────
   listHeader: {
-    maxWidth: GRID_MAX_WIDTH,
-    alignSelf: 'center',
     width: '100%',
-    paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 20,
     gap: 12,

@@ -44,9 +44,12 @@ const TOUR_FIELDS = {
     'field_featured_business_3',
     'status',
     'uid',
+    'langcode',
   ],
+  'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category', 'langcode'],
   'taxonomy_term--cities': ['name'],
   'taxonomy_term--countries': ['name'],
+  'taxonomy_term--business_category': ['name'],
   'file--file': ['uri', 'url'],
 };
 
@@ -55,8 +58,14 @@ const TOUR_INCLUDE = [
   'field_city',
   'field_country',
   'field_featured_business_1',
+  'field_featured_business_1.field_logo',
+  'field_featured_business_1.field_category',
   'field_featured_business_2',
+  'field_featured_business_2.field_logo',
+  'field_featured_business_2.field_category',
   'field_featured_business_3',
+  'field_featured_business_3.field_logo',
+  'field_featured_business_3.field_category',
 ];
 
 const TOUR_CARD_FIELDS = {
@@ -195,9 +204,11 @@ export async function getTourSteps(tourId: string): Promise<TourStep[]> {
         'field_total_completed',
         'field_featured_business',
       ],
-      'node--business': ['title', 'field_logo', 'field_website'],
+      'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
+      'taxonomy_term--business_category': ['name'],
+      'file--file': ['uri', 'url'],
     }),
-    buildInclude(['field_featured_business']),
+    buildInclude(['field_featured_business', 'field_featured_business.field_logo', 'field_featured_business.field_category']),
   ].join('&');
 
   const raw = await drupalGet<any[]>('/node/tour_step', params);

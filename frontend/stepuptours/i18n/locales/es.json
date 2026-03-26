@@ -156,6 +156,8 @@
 
   "subscription.monthly": "Mensual",
   "subscription.annual": "Anual",
+  "subscription.minute": "Test (1 min)",
+  "subscription.perMinute": "minuto",
   "subscription.free": "Gratuito",
   "subscription.autoRenew": "Renovación automática",
   "subscription.autoRenewal": "Renovación automática",
@@ -384,5 +386,12 @@
   "common.cancel": "Cancelar",
   "common.delete": "Eliminar",
   "common.error": "Error",
-  "common.retry": "Reintentar"
+  "common.retry": "Reintentar",
+
+  "toast.business_saved": "Negocio guardado correctamente",
+  "toast.tour_saved": "Tour guardado correctamente",
+
+  "createBusiness.field.language": "Idioma",
+  "createBusiness.field.languageLocked": "Idioma (establecido al crear)",
+  "createTour.field.languageLocked": "Idioma (establecido al crear)"
 }

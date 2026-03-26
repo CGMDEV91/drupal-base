@@ -1,0 +1,19 @@
+uuid: ee280d85-f91e-44e0-8b70-b33014927f6d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_stripe_invoice_id
+    - node.type.subscription_payment
+id: node.subscription_payment.field_stripe_invoice_id
+field_name: field_stripe_invoice_id
+entity_type: node
+bundle: subscription_payment
+label: 'Stripe invoice ID'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

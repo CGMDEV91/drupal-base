@@ -36,7 +36,7 @@ import {
 import { BusinessPicker } from '../../../components/dashboard/BusinessPicker';
 import { ImagePickerField } from '../../../components/shared/ImagePickerField';
 import PageBanner from '../../../components/layout/PageBanner';
-import { uploadDrupalFile } from '../../../lib/drupal-client';
+import { uploadDrupalFile, getApiLanguage } from '../../../lib/drupal-client';
 import type { Business, Subscription } from '../../../types';
 
 const AMBER = '#F59E0B';
@@ -85,6 +85,8 @@ export default function CreateTourScreen() {
   const [isLoadingTour, setIsLoadingTour] = useState(isEditMode);
   // Track original step IDs present when the form loaded (to detect deletions)
   const originalStepIds = useRef<string[]>([]);
+  // Entity langcode: the langcode of the loaded tour (used for PATCH URL routing)
+  const [entityLangcode, setEntityLangcode] = useState<string>('');
 
   // ── Tour basic info ──────────────────────────────────────────────────────
   const [title, setTitle] = useState('');
@@ -114,6 +116,8 @@ export default function CreateTourScreen() {
 
   const openPicker = useCallback(
     (type: 'city' | 'lang') => {
+      // Language picker is locked in edit mode — the langcode is set at creation
+      if (type === 'lang' && isEditMode) return;
       if (!isDesktop) {
         if (type === 'city') setCityPickerVisible(true);
         else setLangPickerVisible(true);
@@ -125,7 +129,7 @@ export default function CreateTourScreen() {
         setDdConfig({ type, x, y: y + h + 4, minWidth: Math.max(w, 220) });
       });
     },
-    [isDesktop]
+    [isDesktop, isEditMode]
   );
 
   const closeDd = useCallback(() => setDdConfig(null), []);
@@ -149,7 +153,7 @@ export default function CreateTourScreen() {
   );
 
   // ── Language picker ──────────────────────────────────────────────────────
-  const [languageCode, setLanguageCode] = useState('es');
+  const [languageCode, setLanguageCode] = useState(() => getApiLanguage() || 'es');
   const [languageLabel, setLanguageLabel] = useState('');
   const [langPickerVisible, setLangPickerVisible] = useState(false);
   const [langSearch, setLangSearch] = useState('');
@@ -166,6 +170,14 @@ export default function CreateTourScreen() {
     l.name.toLowerCase().includes(langSearch.toLowerCase()) ||
     l.id.toLowerCase().includes(langSearch.toLowerCase())
   );
+
+  // Sync language label when languages list loads (important for edit mode prefill)
+  useEffect(() => {
+    if (languages.length > 0 && languageCode) {
+      const match = languages.find((l) => l.id === languageCode);
+      if (match) setLanguageLabel(match.name);
+    }
+  }, [languages, languageCode]);
 
   // ── Tour steps ──────────────────────────────────────────────────────────
   const [steps, setSteps] = useState<StepEntry[]>([]);
@@ -236,6 +248,13 @@ export default function CreateTourScreen() {
         if (tour.city) {
           setCityId(tour.city.id);
           setCityLabel(tour.city.name);
+        }
+
+        // Pre-fill language (locked in edit mode)
+        if (tour.langcode) {
+          setEntityLangcode(tour.langcode);
+          setLanguageCode(tour.langcode);
+          // Label will be resolved once languages are loaded — see effect below
         }
 
         // Pre-fill tour-level featured businesses (slots 1-3)
@@ -353,7 +372,7 @@ export default function CreateTourScreen() {
           featuredBusinessIds,
           // Pass imageId only when a new image was uploaded or image was explicitly cleared
           ...(imageId !== undefined ? { imageId } : {}),
-        });
+        }, entityLangcode || undefined);
 
         // Determine which persisted steps were removed
         const currentDrupalIds = new Set(
@@ -403,6 +422,7 @@ export default function CreateTourScreen() {
           cityId: cityId || undefined,
           featuredBusinessIds,
           imageId: imageId ?? undefined,
+          langcode: languageCode,
         });
 
         for (let i = 0; i < steps.length; i++) {
@@ -424,7 +444,7 @@ export default function CreateTourScreen() {
         }
       }
 
-      router.replace(`/${langcode}/dashboard` as any);
+      router.replace(`/${langcode}/dashboard?tab=tours&toast=tour_saved` as any);
     } catch (err: any) {
       const message = err.message ?? t('createTour.error.generic');
       if (Platform.OS !== 'web') {
@@ -438,7 +458,7 @@ export default function CreateTourScreen() {
   }, [
     title, description, duration, cityId, steps, langcode, router, t,
     tourBusinesses, stepFeaturedBusiness, isEditMode, tourId,
-    imageUri, imageFilename, uploadedImageId,
+    imageUri, imageFilename, uploadedImageId, languageCode, entityLangcode,
   ]);
 
   if (isAuthLoading || !user || !isProfessional || isLoadingTour) {
@@ -542,14 +562,18 @@ export default function CreateTourScreen() {
                 />
               </View>
               <View style={styles.rowField}>
-                <Text style={styles.label}>{t('createTour.field.language')}</Text>
+                <Text style={styles.label}>
+                  {isEditMode
+                    ? t('createTour.field.languageLocked', 'Language (set at creation)')
+                    : t('createTour.field.language')}
+                </Text>
                 <View ref={langBtnRef} collapsable={false}>
                   <TouchableOpacity
-                    style={styles.input}
+                    style={[styles.input, isEditMode && styles.inputLocked]}
                     onPress={() => openPicker('lang')}
-                    activeOpacity={0.7}
+                    activeOpacity={isEditMode ? 1 : 0.7}
                   >
-                    <Text style={{ color: languageLabel ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                    <Text style={{ color: languageLabel ? (isEditMode ? '#6B7280' : '#111827') : '#9CA3AF', fontSize: 15 }}>
                       {languageLabel || languageCode}
                     </Text>
                   </TouchableOpacity>
@@ -988,6 +1012,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   inputMultiline: { minHeight: 80, paddingTop: 10 },
+  inputLocked: { backgroundColor: '#F3F4F6', opacity: 0.75 },
   row: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   rowField: { flex: 1, minWidth: 100 },
 

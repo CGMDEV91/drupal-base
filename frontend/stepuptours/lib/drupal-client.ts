@@ -51,33 +51,57 @@ const drupalClient: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
-// ── Interceptor de request ────────────────────────────────────────────────────
+// Second client: always uses the base (English) URL — used for PATCH/DELETE so
+// the node's original-language version is edited instead of creating/updating a
+// translation.  The language prefix is intentionally omitted here.
+const drupalClientBase: AxiosInstance = axios.create({
+  baseURL: `${BASE_URL}${JSON_API_PREFIX}`,
+  headers: {
+    'Content-Type': 'application/vnd.api+json',
+    'Accept': 'application/vnd.api+json',
+  },
+  timeout: 15000,
+});
+
+// ── Auth interceptor shared helper ───────────────────────────────────────────
+
+async function applyAuth(config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> {
+  const session = await appSession.getSession();
+  if (session?.token) {
+    const prefix = session.tokenType === 'bearer' ? 'Bearer' : 'Basic';
+    config.headers.Authorization = `${prefix} ${session.token}`;
+  }
+  return config;
+}
+
+// ── Interceptor de request (lang-aware) ──────────────────────────────────────
 
 drupalClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     config.baseURL = buildBaseURL(currentLangcode);
-
-    const session = await appSession.getSession();
-    if (session?.token) {
-      const prefix = session.tokenType === 'bearer' ? 'Bearer' : 'Basic';
-      config.headers.Authorization = `${prefix} ${session.token}`;
-    }
-    return config;
+    return applyAuth(config);
   },
+  (error) => Promise.reject(error)
+);
+
+// ── Interceptor de request (base, no lang prefix) ────────────────────────────
+
+drupalClientBase.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => applyAuth(config),
   (error) => Promise.reject(error)
 );
 
 // ── Interceptor de response ───────────────────────────────────────────────────
 
-drupalClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      await appSession.clearSession();
-    }
-    return Promise.reject(normalizeError(error));
+const responseErrorHandler = async (error: any) => {
+  if (error.response?.status === 401) {
+    await appSession.clearSession();
   }
-);
+  return Promise.reject(normalizeError(error));
+};
+
+drupalClient.interceptors.response.use((r) => r, responseErrorHandler);
+drupalClientBase.interceptors.response.use((r) => r, responseErrorHandler);
 
 // ── Error normalizer ─────────────────────────────────────────────────────────
 
@@ -119,6 +143,19 @@ function resolveImageUrl(raw: any): string | null {
   if (!url) return null;
   if (url.startsWith('http')) return url;
   return `${BASE_URL}${url}`;
+}
+
+// ── Geofield helper ───────────────────────────────────────────────────────────
+// Drupal geofield requires WKT format for JSON:API writes.
+// WKT notation: POINT (longitude latitude) — longitude comes first.
+
+export function buildGeoFieldValue(lat: number, lon: number): object {
+  return {
+    value: `POINT (${lon} ${lat})`,
+    geo_type: 'Point',
+    lat,
+    lon,
+  };
 }
 
 // ── Métodos HTTP ──────────────────────────────────────────────────────────────
@@ -167,6 +204,22 @@ export async function drupalPost<T>(endpoint: string, body: object): Promise<T> 
 
 export async function drupalPatch<T>(endpoint: string, body: object): Promise<T> {
   const response = await drupalClient.patch(endpoint, body);
+  return deserializer.deserialize(response.data) as T;
+}
+
+/**
+ * PATCH targeting the entity's original-language URL.
+ * When `langcode` is provided and is not 'en' (the site default), the request
+ * is sent with the appropriate language prefix so Drupal edits the correct
+ * translation instead of silently no-oping against a non-existent English
+ * translation.
+ */
+export async function drupalPatchBase<T>(endpoint: string, body: object, langcode?: string): Promise<T> {
+  const config: any = {};
+  if (langcode && langcode !== 'en') {
+    config.baseURL = `${BASE_URL}/${langcode}${JSON_API_PREFIX}`;
+  }
+  const response = await drupalClientBase.patch(endpoint, body, config);
   return deserializer.deserialize(response.data) as T;
 }
 
@@ -289,6 +342,7 @@ export function mapDrupalTour(raw: any): Tour {
     ],
     authorId: raw.uid?.id ?? raw.uid ?? '',
     published: raw.status ?? false,
+    langcode: raw.langcode ?? 'en',
   };
 }
 
@@ -323,6 +377,7 @@ export function mapDrupalBusiness(raw: any): Business {
     category: raw.field_category
       ? { id: raw.field_category.id, name: raw.field_category.name }
       : null,
+    langcode: raw.langcode ?? 'en',
   };
 }
 
@@ -375,12 +430,19 @@ export function mapDrupalSubscription(raw: any): Subscription {
   };
 }
 
+function normalizeBillingCycle(raw: string | undefined | null): string {
+  if (!raw) return 'monthly';
+  // Drupal stores the annual cycle as 'anually' (typo) — normalise to 'annual'.
+  if (raw === 'anually') return 'annual';
+  return raw;
+}
+
 export function mapDrupalSubscriptionPlan(raw: any): SubscriptionPlan {
   return {
     id: raw.id,
     title: raw.title ?? '',
     planType: raw.field_plan_type ?? 'premium',
-    billingCycle: raw.field_billing_cycle ?? 'monthly',
+    billingCycle: normalizeBillingCycle(raw.field_billing_cycle),
     price: parseFloat(raw.field_price ?? '0'),
     maxFeaturedDetail: raw.field_max_featured_detail ?? 1,
     maxFeaturedSteps: raw.field_max_featured_steps ?? 3,
@@ -408,7 +470,7 @@ export function mapDrupalDonation(raw: any): Donation {
 
 // ── Business API ──────────────────────────────────────────────────────────────
 
-const BUSINESS_INCLUDE = ['field_category'];
+const BUSINESS_INCLUDE = ['field_category', 'field_logo'];
 
 const BUSINESS_FIELDS = {
   'node--business': [
@@ -421,8 +483,10 @@ const BUSINESS_FIELDS = {
     'field_category',
     'field_status',
     'uid',
+    'langcode',
   ],
   'taxonomy_term--business_category': ['name'],
+  'file--file': ['uri', 'url'],
 };
 
 function buildBusinessParams(extra?: string): string {
@@ -470,6 +534,7 @@ export interface BusinessInput {
   lon?: number;
   /** UUID of an already-uploaded file entity to set as field_logo */
   logoId?: string;
+  langcode?: string;
 }
 
 export async function createBusinessNode(data: BusinessInput): Promise<Business> {
@@ -486,7 +551,7 @@ export async function createBusinessNode(data: BusinessInput): Promise<Business>
     attributes.field_phone = data.phone;
   }
   if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
-    attributes.field_location = { lat: data.lat, lon: data.lon };
+    attributes.field_location = buildGeoFieldValue(data.lat, data.lon);
   }
 
   const relationships: Record<string, any> = {};
@@ -501,6 +566,10 @@ export async function createBusinessNode(data: BusinessInput): Promise<Business>
     };
   }
 
+  // Set node language: use the explicitly-provided langcode if given, otherwise
+  // fall back to the current UI language.
+  attributes.langcode = data.langcode ?? currentLangcode;
+
   const raw = await drupalPost<any>('/node/business', {
     data: {
       type: 'node--business',
@@ -511,7 +580,7 @@ export async function createBusinessNode(data: BusinessInput): Promise<Business>
   return mapDrupalBusiness(raw);
 }
 
-export async function updateBusinessNode(id: string, data: Partial<BusinessInput>): Promise<Business> {
+export async function updateBusinessNode(id: string, data: Partial<BusinessInput>, langcode?: string): Promise<Business> {
   const attributes: Record<string, any> = {};
   if (data.name !== undefined) attributes.title = data.name;
   if (data.description !== undefined) {
@@ -521,8 +590,15 @@ export async function updateBusinessNode(id: string, data: Partial<BusinessInput
     attributes.field_website = data.website ? { uri: data.website, title: '' } : null;
   }
   if (data.phone !== undefined) attributes.field_phone = data.phone;
-  if (data.lat !== undefined && data.lon !== undefined && !isNaN(data.lat) && !isNaN(data.lon)) {
-    attributes.field_location = { lat: data.lat, lon: data.lon };
+  // Always include field_location when lat/lon keys are present in data, even if
+  // both are undefined (means the user cleared the fields — send null to Drupal).
+  if ('lat' in data || 'lon' in data) {
+    const hasCoords =
+      data.lat !== undefined &&
+      data.lon !== undefined &&
+      !isNaN(data.lat) &&
+      !isNaN(data.lon);
+    attributes.field_location = hasCoords ? buildGeoFieldValue(data.lat!, data.lon!) : null;
   }
 
   const relationships: Record<string, any> = {};
@@ -537,14 +613,17 @@ export async function updateBusinessNode(id: string, data: Partial<BusinessInput
       : { data: null };
   }
 
-  const raw = await drupalPatch<any>(`/node/business/${id}`, {
+  // Always edit the original-language node — pass the entity's langcode so the
+  // correct language-prefix URL is used (avoids silently targeting a
+  // non-existent English translation when the entity was created in Spanish).
+  const raw = await drupalPatchBase<any>(`/node/business/${id}`, {
     data: {
       type: 'node--business',
       id,
       attributes,
       relationships,
     },
-  });
+  }, langcode);
   return mapDrupalBusiness(raw);
 }
 

@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
 
   // ── Centered / error / empty ──────────────────────────────────────────────────

@@ -17,8 +17,10 @@ import {
   Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../stores/auth.store';
+import { useLanguageStore } from '../../../stores/language.store';
 import {
   getBusinessById,
   getBusinessCategories,
@@ -27,7 +29,7 @@ import {
   type BusinessInput,
 } from '../../../services/business.service';
 import { ImagePickerField } from '../../../components/shared/ImagePickerField';
-import { uploadDrupalFile } from '../../../lib/drupal-client';
+import { uploadDrupalFile, getApiLanguage } from '../../../lib/drupal-client';
 import PageBanner from '../../../components/layout/PageBanner';
 
 const AMBER = '#F59E0B';
@@ -60,11 +62,13 @@ export default function CreateBusinessScreen() {
   }>();
   const isEditMode = !!businessId;
   const router = useRouter();
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
+  const isAdmin = user?.roles?.includes('administrator');
 
   // Auth guard — avoids navigating before Root Layout mounts (Expo Router requirement)
   const [ready, setReady] = useState(false);
@@ -95,26 +99,68 @@ export default function CreateBusinessScreen() {
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
 
+  // ── Language picker state ─────────────────────────────────────────────────
+  const [languageCode, setLanguageCode] = useState<string>(() => getApiLanguage() || 'es');
+  const [languageLabel, setLanguageLabel] = useState('');
+  const [langPickerVisible, setLangPickerVisible] = useState(false);
+  const [langSearch, setLangSearch] = useState('');
+  // Entity langcode: langcode of the loaded business (used for PATCH URL routing)
+  const [entityLangcode, setEntityLangcode] = useState<string>('');
+
+  const { languages, fetchLanguages } = useLanguageStore();
+
+  useEffect(() => {
+    if (languages.length === 0) {
+      fetchLanguages();
+    }
+  }, []);
+
+  // Sync language label when languages list loads (important for edit mode prefill)
+  useEffect(() => {
+    if (languages.length > 0 && languageCode) {
+      const match = languages.find((l) => l.id === languageCode);
+      if (match) setLanguageLabel(match.name);
+    }
+  }, [languages, languageCode]);
+
+  const filteredLanguages = languages.filter((l) =>
+    l.name.toLowerCase().includes(langSearch.toLowerCase()) ||
+    l.id.toLowerCase().includes(langSearch.toLowerCase())
+  );
+
   // ── Desktop dropdown ──────────────────────────────────────────────────────
   const categoryBtnRef = useRef<View>(null);
+  const langBtnRef = useRef<View>(null);
   const [ddConfig, setDdConfig] = useState<{
+    type: 'category' | 'lang';
     x: number;
     y: number;
     minWidth: number;
   } | null>(null);
   const [ddSearch, setDdSearch] = useState('');
 
-  const openCategoryPicker = useCallback(() => {
-    if (!isDesktop) {
-      setCategorySearch('');
-      setCategoryPickerVisible(true);
-      return;
-    }
-    categoryBtnRef.current?.measureInWindow((x, y, w, h) => {
-      setDdSearch('');
-      setDdConfig({ x, y: y + h + 4, minWidth: Math.max(w, 240) });
-    });
-  }, [isDesktop]);
+  const openPicker = useCallback(
+    (type: 'category' | 'lang') => {
+      // Language picker is locked in edit mode — the langcode is set at creation
+      if (type === 'lang' && isEditMode) return;
+      if (!isDesktop) {
+        if (type === 'category') {
+          setCategorySearch('');
+          setCategoryPickerVisible(true);
+        } else {
+          setLangSearch('');
+          setLangPickerVisible(true);
+        }
+        return;
+      }
+      const ref = type === 'category' ? categoryBtnRef : langBtnRef;
+      ref.current?.measureInWindow((x, y, w, h) => {
+        setDdSearch('');
+        setDdConfig({ type, x, y: y + h + 4, minWidth: Math.max(w, 240) });
+      });
+    },
+    [isDesktop, isEditMode]
+  );
 
   const closeDd = useCallback(() => setDdConfig(null), []);
 
@@ -152,6 +198,12 @@ export default function CreateBusinessScreen() {
         if (business.logo) {
           setExistingLogoUrl(business.logo);
         }
+        // Pre-fill language (locked in edit mode)
+        if (business.langcode) {
+          setEntityLangcode(business.langcode);
+          setLanguageCode(business.langcode);
+          // Label will be resolved once languages are loaded — see sync effect above
+        }
       })
       .catch(() => {
         // Non-fatal — show empty form if fetch fails
@@ -177,6 +229,11 @@ export default function CreateBusinessScreen() {
     c.name.toLowerCase().includes(ddSearch.toLowerCase())
   );
 
+  const filteredLanguagesDd = languages.filter((l) =>
+    l.name.toLowerCase().includes(ddSearch.toLowerCase()) ||
+    l.id.toLowerCase().includes(ddSearch.toLowerCase())
+  );
+
   const selectCategory = useCallback(
     (id: string, name: string) => {
       update('categoryId', id);
@@ -188,12 +245,23 @@ export default function CreateBusinessScreen() {
     [update, closeDd]
   );
 
+  const selectLanguage = useCallback(
+    (id: string, name: string) => {
+      setLanguageCode(id);
+      setLanguageLabel(name);
+      setLangPickerVisible(false);
+      setLangSearch('');
+      closeDd();
+    },
+    [closeDd]
+  );
+
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     setValidationError(null);
 
     if (!form.name.trim()) {
-      setValidationError('Business name is required');
+      setValidationError(t('createBusiness.validation.nameRequired', 'Business name is required'));
       return;
     }
 
@@ -224,22 +292,25 @@ export default function CreateBusinessScreen() {
         lat: hasLocation ? lat : undefined,
         lon: hasLocation ? lon : undefined,
         ...(logoId !== undefined ? { logoId: logoId ?? undefined } : {}),
+        langcode: languageCode,
       };
 
       if (isEditMode && businessId) {
-        await updateBusiness(businessId, data);
+        await updateBusiness(businessId, data, entityLangcode || undefined);
       } else {
         await createBusiness(data);
       }
 
-      // ✅ Fix GO_BACK: reemplazar en vez de back() para evitar el error
-      router.replace(`/${langcode}/dashboard` as any);
+      const returnPath = isAdmin
+        ? `/${langcode}/admin?tab=businesses&toast=business_saved`
+        : `/${langcode}/dashboard?tab=businesses&toast=business_saved`;
+      router.replace(returnPath as any);
     } catch (err: any) {
       setValidationError(err.message ?? 'Error saving business');
     } finally {
       setSaving(false);
     }
-  }, [form, isEditMode, businessId, router, imageUri, imageFilename, uploadedImageId, langcode]);
+  }, [form, isEditMode, businessId, router, imageUri, imageFilename, uploadedImageId, langcode, languageCode, entityLangcode, t]);
   // ── Loading / auth guard render ───────────────────────────────────────────
   if (isAuthLoading || !user || isLoadingBusiness) {
     return (
@@ -312,7 +383,7 @@ export default function CreateBusinessScreen() {
             <View ref={categoryBtnRef} collapsable={false}>
               <TouchableOpacity
                 style={styles.input}
-                onPress={openCategoryPicker}
+                onPress={() => openPicker('category')}
                 activeOpacity={0.7}
               >
                 <Text
@@ -325,6 +396,30 @@ export default function CreateBusinessScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Language */}
+            <Text style={styles.label}>
+              {isEditMode
+                ? t('createBusiness.field.languageLocked', 'Language (set at creation)')
+                : t('createBusiness.field.language', 'Language')}
+            </Text>
+            <View ref={langBtnRef} collapsable={false}>
+              <TouchableOpacity
+                style={[styles.input, isEditMode && styles.inputLocked]}
+                onPress={() => openPicker('lang')}
+                activeOpacity={isEditMode ? 1 : 0.7}
+              >
+                <Text
+                  style={{
+                    color: languageLabel ? (isEditMode ? '#6B7280' : '#111827') : '#9CA3AF',
+                    fontSize: 15,
+                  }}
+                >
+                  {languageLabel || languageCode}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <ImagePickerField
               label="Logo"
               currentImageUrl={imageUri ?? existingLogoUrl}
@@ -481,7 +576,57 @@ export default function CreateBusinessScreen() {
         </Modal>
       )}
 
-      {/* Desktop dropdown category picker */}
+      {/* Mobile fullscreen language picker */}
+      {!isDesktop && (
+        <Modal
+          visible={langPickerVisible}
+          transparent={false}
+          animationType="slide"
+          onRequestClose={() => setLangPickerVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderTitle}>
+                {t('createBusiness.field.language', 'Language')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setLangPickerVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.pickerSearch}
+              value={langSearch}
+              onChangeText={setLangSearch}
+              placeholder="Search language..."
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+              {...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})}
+            />
+            <FlatList
+              data={filteredLanguages}
+              keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.pickerItem}
+                  onPress={() => selectLanguage(item.id, item.name)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.pickerItemText}>{item.name}</Text>
+                  {languageCode === item.id && (
+                    <Ionicons name="checkmark" size={18} color={AMBER} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </Modal>
+      )}
+
+      {/* Desktop dropdown picker (category or language) */}
       {isDesktop && ddConfig && (
         <Modal
           visible
@@ -502,39 +647,61 @@ export default function CreateBusinessScreen() {
                 style={styles.ddSearchInput}
                 value={ddSearch}
                 onChangeText={setDdSearch}
-                placeholder="Search category..."
+                placeholder={ddConfig.type === 'category' ? 'Search category...' : 'Search language...'}
                 placeholderTextColor="#9CA3AF"
                 autoFocus
                 {...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})}
               />
             </View>
             <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
-              {[{ id: '', name: 'No category' }, ...filteredCategoriesDd].map((item) => (
-                <TouchableOpacity
-                  key={item.id || '__clear__'}
-                  style={[
-                    styles.ddOption,
-                    form.categoryId === item.id && item.id !== '' && styles.ddOptionActive,
-                  ]}
-                  onPress={() => selectCategory(item.id, item.name)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.ddOptionText,
-                      form.categoryId === item.id &&
-                        item.id !== '' &&
-                        styles.ddOptionTextActive,
-                      !item.id && styles.pickerItemClear,
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  {form.categoryId === item.id && item.id !== '' && (
-                    <Ionicons name="checkmark" size={16} color={AMBER} />
-                  )}
-                </TouchableOpacity>
-              ))}
+              {ddConfig.type === 'category'
+                ? [{ id: '', name: 'No category' }, ...filteredCategoriesDd].map((item) => (
+                    <TouchableOpacity
+                      key={item.id || '__clear__'}
+                      style={[
+                        styles.ddOption,
+                        form.categoryId === item.id && item.id !== '' && styles.ddOptionActive,
+                      ]}
+                      onPress={() => selectCategory(item.id, item.name)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.ddOptionText,
+                          form.categoryId === item.id && item.id !== '' && styles.ddOptionTextActive,
+                          !item.id && styles.pickerItemClear,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      {form.categoryId === item.id && item.id !== '' && (
+                        <Ionicons name="checkmark" size={16} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  ))
+                : filteredLanguagesDd.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.ddOption,
+                        languageCode === item.id && styles.ddOptionActive,
+                      ]}
+                      onPress={() => selectLanguage(item.id, item.name)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.ddOptionText,
+                          languageCode === item.id && styles.ddOptionTextActive,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      {languageCode === item.id && (
+                        <Ionicons name="checkmark" size={16} color={AMBER} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
             </ScrollView>
           </View>
         </Modal>
@@ -593,6 +760,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     paddingTop: 10,
   },
+  inputLocked: { backgroundColor: '#F3F4F6', opacity: 0.75 },
 
   row: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   rowField: { flex: 1, minWidth: 100 },

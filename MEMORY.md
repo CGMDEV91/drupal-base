@@ -829,3 +829,49 @@ El endpoint de roles en `auth.service.ts` usaba `?fields[user--user]=roles`, que
 - El endpoint de upload en Drupal JSON:API requiere módulo `jsonapi` ≥ Drupal 9.3 con soporte de file upload (habilitado por defecto en Drupal 10/11).
 - En native, si `expo-image-picker` no está instalado, el componente silencia el error. Considerar instalar `expo-image-picker` (`npx expo install expo-image-picker`) para habilitar el picker nativo.
 - En web, los Blob URLs (`URL.createObjectURL`) son efímeros — si el componente se desmonta antes de guardar, la URI puede quedar inválida. Considerar `FileReader.readAsDataURL` como alternativa más robusta si se detecta este problema.
+
+---
+
+## Sesión 2026-03-26 — Bug fixes: lat/lon, redirects post-save, toast notifications
+
+**Resumen**: Cuatro correcciones relacionadas con el guardado de negocios y tours: fix del campo `field_location` que no se actualizaba en edición, redirecciones post-save con params `tab` y `toast`, y sistema de toast animado en el dashboard.
+
+**Trabajo realizado**:
+
+### Fix 1: `field_location` no se guardaba en edición (`lib/drupal-client.ts`)
+- **Causa**: `updateBusinessNode` solo ejecutaba `attributes.field_location = {...}` cuando `data.lat !== undefined && data.lon !== undefined`. Si el usuario no tocaba las coordenadas pero el formulario enviaba `lat: undefined, lon: undefined` (caso de campos vacíos), la clave nunca se incluía en el payload PATCH, y Drupal no actualizaba el campo.
+- **Fix**: Cambiado a `if ('lat' in data || 'lon' in data)` — el bloque se ejecuta siempre que alguna de las claves esté presente en el objeto (en `create-business.tsx` el spread de `BusinessInput` siempre incluye `lat` y `lon`). Dentro, `hasCoords` valida si ambos son números válidos; si no, envía `null` para limpiar el geopoint en Drupal.
+
+### Fix 2: Redireccion post-save en `create-business.tsx`
+- `router.replace` cambiado de `/${langcode}/dashboard` a `/${langcode}/dashboard?tab=businesses&toast=business_saved`.
+
+### Fix 3: Redirección post-save en `create-tour.tsx`
+- `router.replace` cambiado de `/${langcode}/dashboard` a `/${langcode}/dashboard?tab=tours&toast=tour_saved`.
+
+### Fix 4: Tab inicial y toast animado en `dashboard.tsx`
+- `useLocalSearchParams` ahora lee `tab` y `toast` además de `langcode`.
+- `VALID_TABS` array + helper `isValidTab()` para validar el param `tab` antes de usarlo como `TabId`.
+- `initialTab` deriva del param `tab` (si es válido) o default `'tours'`; inicializa `activeTab` state.
+- Toast system:
+  - `toastMessage` state + `toastOpacity` `Animated.Value` (ref) + `toastTimeoutRef` para limpiar el timer.
+  - `useEffect` reacciona al cambio de `toastParam`: resuelve la clave i18n `toast.<param>` (con fallback al valor raw si la clave no existe), lanza animación fade-in (250ms), espera 2.5s, lanza fade-out (400ms), limpia el mensaje.
+  - Toast renderizado como `Animated.View` con `position: 'absolute'`, `bottom: 32`, `alignSelf: 'center'`, fondo `#1F2937`, icono `checkmark-circle` blanco, texto.
+- Añadido `Animated` a los imports de React Native. Añadido `useRef` a los imports de React.
+
+### i18n
+- `en.json`: añadidas `toast.business_saved` y `toast.tour_saved`.
+- `es.json`: añadidas `toast.business_saved` ("Negocio guardado correctamente") y `toast.tour_saved` ("Tour guardado correctamente").
+
+**Archivos modificados**:
+- `frontend/stepuptours/lib/drupal-client.ts`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-business.tsx`
+- `frontend/stepuptours/app/[langcode]/dashboard/create-tour.tsx`
+- `frontend/stepuptours/app/[langcode]/dashboard.tsx`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+
+**Pendiente / Próximos pasos**:
+- Probar el flujo completo: crear negocio → redirige a dashboard tab businesses con toast verde.
+- Probar edición de negocio con coordenadas: verificar que lat/lon llegan a Drupal correctamente y que se pueden limpiar (enviando null).
+- Verificar que el toast no interfiere con el contenido en mobile (bottom: 32 puede solapar con la barra de navegación del sistema en algunos dispositivos — considerar añadir `SafeAreaView` offset).
+- Las traducciones de `fr.json` y `de.json` siguen siendo `{}` — añadir cuando se activen esos idiomas.

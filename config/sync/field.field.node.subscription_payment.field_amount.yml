@@ -1,0 +1,23 @@
+uuid: b1f0a0df-654f-4e2e-87f0-0daef300c5bc
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_amount
+    - node.type.subscription_payment
+id: node.subscription_payment.field_amount
+field_name: field_amount
+entity_type: node
+bundle: subscription_payment
+label: Amount
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -183,13 +183,22 @@ class SubscriptionController extends ControllerBase {
     }
 
     // Calculate subscription dates.
-    $startDate = new \DateTime('today');
+    $startDate = new \DateTime('now');
     $endDate   = clone $startDate;
 
-    if ($billingCycle === 'annual') {
-      $endDate->modify('+1 year');
-    } else {
-      $endDate->modify('+1 month');
+    switch ($billingCycle) {
+      case 'minute':
+        $endDate->modify('+1 minute');
+        break;
+
+      case 'anually':
+      case 'annual':
+        $endDate->modify('+1 year');
+        break;
+
+      default: // monthly
+        $endDate->modify('+1 month');
+        break;
     }
 
     // Create subscription node.
@@ -201,8 +210,8 @@ class SubscriptionController extends ControllerBase {
       'field_user'                => ['target_id' => $userUid],
       'field_plan'                => ['target_id' => (int) $plan->id()],
       'field_subscription_status' => 'active',
-      'field_start_date'          => $startDate->format('Y-m-d'),
-      'field_end_date'            => $endDate->format('Y-m-d'),
+      'field_start_date'          => $startDate->format('Y-m-d\TH:i:s'),
+      'field_end_date'            => $endDate->format('Y-m-d\TH:i:s'),
       'field_auto_renewal'        => $autoRenewal,
       'field_last_payment_at'     => (new \DateTime())->format('Y-m-d\TH:i:s'),
       'field_payment_reference'   => $paymentIntentId,

@@ -1,0 +1,19 @@
+uuid: 87b4569c-60a8-4ccc-ab63-0ea3ec20b2e1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_period_end
+    - node.type.subscription_payment
+id: node.subscription_payment.field_period_end
+field_name: field_period_end
+entity_type: node
+bundle: subscription_payment
+label: 'Period end'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

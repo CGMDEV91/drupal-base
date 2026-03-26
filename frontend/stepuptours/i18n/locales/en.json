@@ -156,6 +156,8 @@
 
   "subscription.monthly": "Monthly",
   "subscription.annual": "Annual",
+  "subscription.minute": "Test (1 min)",
+  "subscription.perMinute": "minute",
   "subscription.free": "Free",
   "subscription.autoRenew": "Auto-renewal",
   "subscription.autoRenewal": "Auto-renewal",
@@ -384,5 +386,12 @@
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "common.error": "Error",
-  "common.retry": "Retry"
+  "common.retry": "Retry",
+
+  "toast.business_saved": "Business saved successfully",
+  "toast.tour_saved": "Tour saved successfully",
+
+  "createBusiness.field.language": "Language",
+  "createBusiness.field.languageLocked": "Language (set at creation)",
+  "createTour.field.languageLocked": "Language (set at creation)"
 }

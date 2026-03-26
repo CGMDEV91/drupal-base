@@ -1,7 +1,7 @@
 // app/[langcode]/admin.tsx
 // Administration page — tab navigation for administrator role only
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -40,8 +41,17 @@ const TABS: Tab[] = [
   { id: 'users', labelKey: 'admin.tabs.users', icon: 'people-outline' },
 ];
 
+const VALID_ADMIN_TABS: TabId[] = ['settings', 'translations', 'businesses', 'donations', 'users'];
+function isValidAdminTab(value: string): value is TabId {
+  return VALID_ADMIN_TABS.includes(value as TabId);
+}
+
 export default function AdminScreen() {
-  const { langcode } = useLocalSearchParams<{ langcode: string }>();
+  const { langcode, tab: tabParam, toast: toastParam } = useLocalSearchParams<{
+    langcode: string;
+    tab?: string;
+    toast?: string;
+  }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -49,7 +59,34 @@ export default function AdminScreen() {
 
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
-  const [activeTab, setActiveTab] = useState<TabId>('settings');
+
+  const initialTab: TabId = tabParam && isValidAdminTab(tabParam) ? tabParam : 'settings';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // ── Scroll to top on tab change ────────────────────────────────────────────
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeTab]);
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!toastParam) return;
+    const i18nKey = `toast.${toastParam}`;
+    const resolved = t(i18nKey);
+    const message = resolved !== i18nKey ? resolved : toastParam;
+    setToastMessage(message);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start(() => {
+      toastTimeoutRef.current = setTimeout(() => {
+        Animated.timing(toastOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => setToastMessage(null));
+      }, 2500);
+    });
+    return () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); };
+  }, [toastParam]);
 
   const isAdmin = user?.roles?.includes('administrator');
 
@@ -152,6 +189,7 @@ export default function AdminScreen() {
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
       {isMobile ? (
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 48 }}
         >
@@ -171,6 +209,7 @@ export default function AdminScreen() {
         <>
           {desktopTabBar}
           <ScrollView
+            ref={scrollRef}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 48 }}
           >
@@ -187,6 +226,14 @@ export default function AdminScreen() {
           </ScrollView>
         </>
       )}
+
+      {/* Toast notification */}
+      {toastMessage ? (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity }]} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -271,5 +318,30 @@ const styles = StyleSheet.create({
   },
   mobileTabLabelActive: {
     color: '#FFFFFF',
+  },
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  toast: {
+    position: 'absolute',
+    bottom: 32,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    maxWidth: 360,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

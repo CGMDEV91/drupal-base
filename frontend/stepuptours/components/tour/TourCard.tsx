@@ -198,12 +198,12 @@ const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
 const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f8f8f8',
     overflow: 'hidden',
     maxWidth: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
     marginBottom: 20,

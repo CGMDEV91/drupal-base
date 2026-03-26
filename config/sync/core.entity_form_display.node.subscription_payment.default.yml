@@ -1,22 +1,23 @@
-uuid: 5fa4e8c7-833f-4d21-b010-5ce3b1963e40
+uuid: d0961677-73da-4d90-8d4f-753aed9ab957
 langcode: en
 status: true
 dependencies:
   config:
-    - field.field.node.subscription.field_auto_renewal
-    - field.field.node.subscription.field_end_date
-    - field.field.node.subscription.field_plan
-    - field.field.node.subscription.field_start_date
-    - field.field.node.subscription.field_stripe_customer_id
-    - field.field.node.subscription.field_stripe_subscription_id
-    - field.field.node.subscription.field_subscription_status
-    - field.field.node.subscription.field_user
-    - node.type.subscription
+    - field.field.node.subscription_payment.field_amount
+    - field.field.node.subscription_payment.field_payment_status
+    - field.field.node.subscription_payment.field_period_end
+    - field.field.node.subscription_payment.field_period_start
+    - field.field.node.subscription_payment.field_plan
+    - field.field.node.subscription_payment.field_stripe_invoice_id
+    - field.field.node.subscription_payment.field_stripe_payment_intent
+    - field.field.node.subscription_payment.field_subscription
+    - field.field.node.subscription_payment.field_user
+    - node.type.subscription_payment
   module:
     - path
-id: node.subscription.default
+id: node.subscription_payment.default
 targetEntityType: node
-bundle: subscription
+bundle: subscription_payment
 mode: default
 content:
   created:
@@ -25,16 +26,28 @@ content:
     region: content
     settings: {  }
     third_party_settings: {  }
-  field_auto_renewal:
-    type: boolean_checkbox
-    weight: 126
+  field_amount:
+    type: number
+    weight: 124
     region: content
     settings:
-      display_label: true
+      placeholder: ''
     third_party_settings: {  }
-  field_end_date:
+  field_payment_status:
+    type: options_select
+    weight: 127
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_period_end:
     type: datetime_timestamp
-    weight: 125
+    weight: 129
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_period_start:
+    type: datetime_timestamp
+    weight: 128
     region: content
     settings: {  }
     third_party_settings: {  }
@@ -48,33 +61,31 @@ content:
       size: 60
       placeholder: ''
     third_party_settings: {  }
-  field_start_date:
-    type: datetime_timestamp
-    weight: 124
-    region: content
-    settings: {  }
-    third_party_settings: {  }
-  field_stripe_customer_id:
+  field_stripe_invoice_id:
     type: string_textfield
-    weight: 128
+    weight: 125
     region: content
     settings:
       size: 60
       placeholder: ''
     third_party_settings: {  }
-  field_stripe_subscription_id:
+  field_stripe_payment_intent:
     type: string_textfield
-    weight: 127
+    weight: 126
     region: content
     settings:
       size: 60
       placeholder: ''
     third_party_settings: {  }
-  field_subscription_status:
-    type: options_select
-    weight: 123
+  field_subscription:
+    type: entity_reference_autocomplete
+    weight: 121
     region: content
-    settings: {  }
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
     third_party_settings: {  }
   field_user:
     type: entity_reference_autocomplete

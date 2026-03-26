@@ -34,6 +34,20 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function cycleLabel(billingCycle: string, t: (key: string) => string): string {
+  if (billingCycle === 'monthly') return t('subscription.monthly');
+  if (billingCycle === 'annual') return t('subscription.annual');
+  if (billingCycle === 'minute') return t('subscription.minute');
+  return billingCycle;
+}
+
+function cyclePriceUnit(billingCycle: string, t: (key: string) => string): string {
+  if (billingCycle === 'monthly') return t('subscription.month');
+  if (billingCycle === 'annual') return t('subscription.year');
+  if (billingCycle === 'minute') return t('subscription.perMinute');
+  return billingCycle;
+}
+
 function formatDateShort(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -147,13 +161,13 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
         <Text style={styles.planPrice}>
           {plan.price === 0
             ? t('subscription.free')
-            : `${plan.price} € / ${plan.billingCycle === 'monthly' ? t('subscription.monthly').toLowerCase() : t('subscription.annual').toLowerCase()}`}
+            : `${plan.price} € / ${cycleLabel(plan.billingCycle, t).toLowerCase()}`}
         </Text>
       </View>
 
       {/* Details */}
       <View style={styles.section}>
-        <InfoRow label={t('dashboard.subscription.cycle')} value={plan.billingCycle === 'monthly' ? t('subscription.monthly') : plan.billingCycle === 'annual' ? t('subscription.annual') : '—'} />
+        <InfoRow label={t('dashboard.subscription.cycle')} value={cycleLabel(plan.billingCycle, t)} />
         <InfoRow label={t('dashboard.subscription.starts')} value={formatDate(subscription.startDate)} />
         <InfoRow label={t('dashboard.subscription.ends')} value={formatDate(subscription.endDate)} />
         <InfoRow label={t('dashboard.subscription.type')} value={subscription.status === 'active' ? t('subscription.statusActive') : subscription.status} />
@@ -231,7 +245,6 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
   const { t } = useTranslation();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [autoRenewal, setAutoRenewal] = useState(true);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -241,25 +254,11 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
     getSubscriptionPlans()
       .then((data) => {
         setPlans(data);
-        const match = data.find((p) => p.billingCycle === billingCycle);
-        if (match) setSelectedPlan(match);
+        if (data.length > 0) setSelectedPlan(data[0]);
       })
       .catch(() => {})
       .finally(() => setLoadingPlans(false));
   }, []);
-
-  // When cycle changes, find matching plan
-  useEffect(() => {
-    if (plans.length === 0) return;
-    const match = plans.find((p) => p.billingCycle === billingCycle);
-    if (match) setSelectedPlan(match);
-  }, [billingCycle, plans]);
-
-  const annualPlan   = plans.find((p) => p.billingCycle === 'annual');
-  const monthlyPlan  = plans.find((p) => p.billingCycle === 'monthly');
-  const annualSaving = monthlyPlan && annualPlan
-    ? Math.round((1 - annualPlan.price / (monthlyPlan.price * 12)) * 100)
-    : 20;
 
   if (subscribeSuccess) {
     return (
@@ -290,29 +289,41 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
         </Text>
       ) : (
         <>
-          {/* Billing cycle toggle — only show if both cycles exist */}
-          {monthlyPlan && annualPlan && (
-            <View style={styles.cycleToggle}>
-              <TouchableOpacity
-                style={[styles.cycleBtn, billingCycle === 'monthly' && styles.cycleBtnActive]}
-                onPress={() => setBillingCycle('monthly')}
-              >
-                <Text style={[styles.cycleBtnText, billingCycle === 'monthly' && styles.cycleBtnTextActive]}>
-                  {t('subscription.monthly')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cycleBtn, billingCycle === 'annual' && styles.cycleBtnActive]}
-                onPress={() => setBillingCycle('annual')}
-              >
-                <Text style={[styles.cycleBtnText, billingCycle === 'annual' && styles.cycleBtnTextActive]}>
-                  {t('subscription.annual')} · {t('subscription.savePct', { pct: annualSaving })}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Plan list — all available plans as selectable cards */}
+          <View style={styles.planList}>
+            {plans.map((plan) => {
+              const isSelected = selectedPlan?.id === plan.id;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[styles.planPickerCard, isSelected && styles.planPickerCardSelected]}
+                  onPress={() => {
+                    setSelectedPlan(plan);
+                    setCheckoutOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.planPickerRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.planPickerName}>{plan.title}</Text>
+                      <Text style={styles.planPickerCycle}>{cycleLabel(plan.billingCycle, t)}</Text>
+                    </View>
+                    <View style={styles.planPickerPriceCol}>
+                      <Text style={[styles.planPickerPrice, isSelected && styles.planPickerPriceSelected]}>
+                        {plan.price.toFixed(2)} €
+                      </Text>
+                      <Text style={styles.planPickerPriceUnit}>/ {cyclePriceUnit(plan.billingCycle, t)}</Text>
+                    </View>
+                    <View style={[styles.planPickerRadio, isSelected && styles.planPickerRadioSelected]}>
+                      {isSelected && <View style={styles.planPickerRadioDot} />}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-          {/* Plan card */}
+          {/* Selected plan detail + checkout */}
           {selectedPlan && (
             <View style={styles.planSelectionCard}>
               <View style={styles.planSelectionHeader}>
@@ -325,7 +336,7 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
               <Text style={styles.planSelectionPrice}>
                 {selectedPlan.price.toFixed(2)} €
                 <Text style={styles.planSelectionCycle}>
-                  {' '}/ {billingCycle === 'monthly' ? t('subscription.month') : t('subscription.year')}
+                  {' '}/ {cyclePriceUnit(selectedPlan.billingCycle, t)}
                 </Text>
               </Text>
 
@@ -454,7 +465,7 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
       <View style={checkoutStyles.summary}>
         <Text style={checkoutStyles.summaryPlan}>{plan.title}</Text>
         <Text style={checkoutStyles.summaryPrice}>
-          {plan.price.toFixed(2)} € / {plan.billingCycle === 'monthly' ? t('subscription.month') : t('subscription.year')}
+          {plan.price.toFixed(2)} € / {cyclePriceUnit(plan.billingCycle, t)}
         </Text>
       </View>
 
@@ -737,29 +748,50 @@ const styles = StyleSheet.create({
   noSubTitle: { fontSize: 18, fontWeight: '700', color: '#374151' },
   noSubSub: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 24 },
 
-  // Cycle toggle
-  cycleToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 4,
+  // Plan picker list
+  planList: {
+    gap: 10,
     marginBottom: 16,
   },
-  cycleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cycleBtnActive: {
+  planPickerCard: {
     backgroundColor: '#FFFFFF',
-    ...Platform.select({
-      web: { boxShadow: '0 1px 4px rgba(0,0,0,0.1)' } as any,
-      default: { elevation: 2, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4 },
-    }),
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  cycleBtnText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  cycleBtnTextActive: { color: '#111827' },
+  planPickerCardSelected: {
+    borderColor: AMBER,
+    backgroundColor: '#FFFBEB',
+  },
+  planPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  planPickerName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  planPickerCycle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  planPickerPriceCol: { alignItems: 'flex-end' },
+  planPickerPrice: { fontSize: 16, fontWeight: '700', color: '#374151' },
+  planPickerPriceSelected: { color: AMBER_DARK },
+  planPickerPriceUnit: { fontSize: 11, color: '#9CA3AF' },
+  planPickerRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planPickerRadioSelected: { borderColor: AMBER },
+  planPickerRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: AMBER,
+  },
 
   // Plan selection card
   planSelectionCard: {
