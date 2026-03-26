@@ -801,6 +801,7 @@ const styles = StyleSheet.create({
     borderColor: AMBER,
     padding: 20,
     gap: 12,
+    marginBottom: 30,
   },
   planSelectionHeader: {
     flexDirection: 'row',

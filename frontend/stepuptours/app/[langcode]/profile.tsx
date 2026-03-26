@@ -602,6 +602,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     alignSelf: 'center',
+    marginBottom: 20,
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -653,12 +654,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
     color: AMBER_DARK,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
     textAlign: 'center',

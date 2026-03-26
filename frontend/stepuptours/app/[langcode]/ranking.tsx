@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
   mainCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginTop: 20,
-    marginBottom: 8,
+    marginTop: 30,
+    marginBottom: 30,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     padding: 12,

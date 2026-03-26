@@ -359,6 +359,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
+    marginBottom: 30,
   },
   tableRow: {
     flexDirection: 'row',
