@@ -166,9 +166,6 @@ const styles = StyleSheet.create({
   },
 
   // Scroll content: centred on desktop
-  scrollContent: {
-    paddingBottom: 48,
-  },
   inner: {
     maxWidth: 900,
     alignSelf: 'center',

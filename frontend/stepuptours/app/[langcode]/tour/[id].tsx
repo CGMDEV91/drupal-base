@@ -173,23 +173,27 @@ export default function TourDetailScreen() {
     (b): b is NonNullable<typeof b> => b !== null,
   );
 
+  const DEFAULT_IMAGES = [
+    require('@/assets/images/default-tour-1.jpg'),
+    require('@/assets/images/default-tour-2.jpg'),
+    require('@/assets/images/default-tour-3.jpg'),
+  ];
+
+  // Fuera del componente para que no cambie en cada render
+  const hashId = tour.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
+
   return (
     <View style={styles.screen}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Banner */}
         <View style={styles.bannerContainer}>
-          {tour.image ? (
-            <Image
-              source={tour.image}
-              style={styles.bannerImage}
-              contentFit="cover"
-              transition={300}
-            />
-          ) : (
-            <View style={[styles.bannerImage, styles.bannerPlaceholder]}>
-              <Ionicons name="image-outline" size={48} color="#9CA3AF" />
-            </View>
-          )}
+          <Image
+            source={tour.image ? { uri: tour.image } : stableDefault}
+            style={styles.bannerImage}
+            contentFit="cover"
+            transition={300}
+          />
           <View style={styles.bannerOverlay} />
           <View style={styles.bannerTextContainer}>
             <Text style={[styles.bannerTitle, isMobile && { fontSize: 22 }]}>{tour.title}</Text>

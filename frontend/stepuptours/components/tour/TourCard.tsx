@@ -55,11 +55,11 @@ export function TourCard({
     require('@/assets/images/default-tour-1.jpg'),
     require('@/assets/images/default-tour-2.jpg'),
     require('@/assets/images/default-tour-3.jpg'),
-];
+  ];
 
-// Fuera del componente para que no cambie en cada render
-const hashId = tour.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
+  // Fuera del componente para que no cambie en cada render
+  const hashId = tour.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
 
   const handlePress = () => {
     router.push(`/${langcode}/tour/${tour.id}`);
@@ -77,7 +77,7 @@ const stableDefault = DEFAULT_IMAGES[hashId % DEFAULT_IMAGES.length];
     >
       {/* Image with overlays */}
       <View style={[styles.imageContainer, { height: imageHeight }]}>
-          <Image
+        <Image
           source={tour.image ? { uri: tour.image } : stableDefault}
           style={styles.image}
           contentFit="cover"
