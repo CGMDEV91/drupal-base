@@ -12,55 +12,84 @@ function getAuthHeader(): Record<string, string> {
   return { Authorization: `Basic ${session.token}` };
 }
 
-export interface SubscriptionIntentResult {
+export interface CreateSubscriptionResult {
   clientSecret: string;
   paymentIntentId: string;
-  planTitle: string;
-  price: number;
-  billingCycle: string;
+  stripeCustomerId: string;
 }
 
-export interface ActivatedSubscription {
-  id: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  autoRenewal: boolean;
+/**
+ * Creates a Stripe Customer + PaymentIntent for the given plan.
+ * Returns the clientSecret ready to be confirmed with stripe.confirmCardPayment().
+ * After confirmation, call activateStripeSubscription().
+ */
+export async function createStripeSubscription(
+  planId: string,
+): Promise<CreateSubscriptionResult> {
+  const { data } = await axios.post(
+    `${BASE_URL}/api/subscription/create`,
+    { planId },
+    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
+  );
+  return data;
+}
+
+/**
+ * After stripe.confirmCardPayment() succeeds, call this to:
+ * - Attach the payment method to the Stripe Customer
+ * - Create the Stripe Subscription (trial until next billing date)
+ * - Create the Drupal subscription + subscription_payment nodes
+ */
+export async function activateStripeSubscription(data: {
+  paymentIntentId: string;
   planId: string;
-  planTitle: string;
-  billingCycle: string;
-  price: number;
-}
-
-/**
- * Creates a Stripe PaymentIntent for the given subscription plan.
- */
-export async function createSubscriptionIntent(
-  planId: string,
-  autoRenewal = true,
-): Promise<SubscriptionIntentResult> {
-  const { data } = await axios.post(
-    `${BASE_URL}/api/subscription/intent`,
-    { planId, autoRenewal },
-    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
-  );
-  return data;
-}
-
-/**
- * Called after Stripe payment is confirmed.
- * Verifies the PaymentIntent server-side and creates the subscription node.
- * Idempotent — safe to call even if the webhook already processed it.
- */
-export async function activateSubscription(
-  paymentIntentId: string,
-  planId: string,
-  autoRenewal = true,
-): Promise<ActivatedSubscription> {
-  const { data } = await axios.post(
+  stripeCustomerId: string;
+}): Promise<void> {
+  await axios.post(
     `${BASE_URL}/api/subscription/activate`,
-    { paymentIntentId, planId, autoRenewal },
+    data,
     { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
   );
-  return data;
+}
+
+/**
+ * Cancels the Stripe Subscription immediately via backend.
+ * Marks the Drupal subscription as 'cancelled'.
+ */
+export async function cancelStripeSubscription(
+  subscriptionNodeId: string,
+): Promise<void> {
+  await axios.post(
+    `${BASE_URL}/api/subscription/cancel`,
+    { subscriptionId: subscriptionNodeId },
+    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
+  );
+}
+
+/**
+ * Disables auto-renewal: schedules Stripe Subscription to cancel at period end.
+ * Drupal subscription stays active; user retains access until end date.
+ */
+export async function disableSubscriptionAutoRenewal(
+  subscriptionNodeId: string,
+): Promise<void> {
+  await axios.post(
+    `${BASE_URL}/api/subscription/disable-renewal`,
+    { subscriptionId: subscriptionNodeId },
+    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
+  );
+}
+
+/**
+ * Re-enables auto-renewal: removes cancel_at_period_end from the Stripe
+ * Subscription and sets field_auto_renewal = true in Drupal.
+ */
+export async function enableSubscriptionAutoRenewal(
+  subscriptionNodeId: string,
+): Promise<void> {
+  await axios.post(
+    `${BASE_URL}/api/subscription/enable-renewal`,
+    { subscriptionId: subscriptionNodeId },
+    { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
+  );
 }

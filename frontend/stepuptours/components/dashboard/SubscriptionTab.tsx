@@ -1,7 +1,7 @@
 // components/dashboard/SubscriptionTab.tsx
 // Subscription management: active plan details or plan selection + Stripe checkout
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,29 +9,29 @@ import {
   StyleSheet,
   Switch,
   TouchableOpacity,
-  Alert,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getActiveSubscription, getSubscriptionPlans, updateSubscription } from '../../services/dashboard.service';
-import { createSubscriptionIntent, activateSubscription } from '../../services/subscription.service';
+import { getActiveSubscription, getSubscriptionPlans, getPaymentHistoryByUser } from '../../services/dashboard.service';
+import { createStripeSubscription, activateStripeSubscription, cancelStripeSubscription, disableSubscriptionAutoRenewal, enableSubscriptionAutoRenewal } from '../../services/subscription.service';
 import { getStripePromise } from '../../lib/stripe';
-import type { Subscription, SubscriptionPlan } from '../../types';
+import type { Subscription, SubscriptionPlan, SubscriptionPayment } from '../../types';
 
 const AMBER = '#F59E0B';
 const AMBER_DARK = '#D97706';
 
 interface SubscriptionTabProps {
   userId: string;
+  onScrollTop?: () => void;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  if (isNaN(d.getTime())) return '—';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
 function cycleLabel(billingCycle: string, t: (key: string) => string): string {
@@ -48,21 +48,23 @@ function cyclePriceUnit(billingCycle: string, t: (key: string) => string): strin
   return billingCycle;
 }
 
-function formatDateShort(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-}
-
 // ── Main tab ─────────────────────────────────────────────────────────────────
 
-export function SubscriptionTab({ userId }: SubscriptionTabProps) {
+export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
   const { t } = useTranslation();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingRenewal, setUpdatingRenewal] = useState(false);
+  const [cancelConfirming, setCancelConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [successToast, setSuccessToast] = useState(false);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+  }, []);
 
   const loadSubscription = useCallback(async () => {
     setLoading(true);
@@ -81,15 +83,27 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
     loadSubscription();
   }, [loadSubscription]);
 
+  const handleSubscribeSuccess = useCallback(() => {
+    onScrollTop?.();
+    loadSubscription();
+    setSuccessToast(true);
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => setSuccessToast(false), 3500);
+  }, [loadSubscription, onScrollTop]);
+
   const handleAutoRenewalToggle = useCallback(
     async (value: boolean) => {
       if (!subscription) return;
       setUpdatingRenewal(true);
       try {
-        await updateSubscription(subscription.id, value);
+        if (!value) {
+          await disableSubscriptionAutoRenewal(subscription.id);
+        } else {
+          await enableSubscriptionAutoRenewal(subscription.id);
+        }
         setSubscription((prev) => (prev ? { ...prev, autoRenewal: value } : prev));
       } catch {
-        // revert on failure — no-op, state unchanged
+        // revert on failure — state unchanged, switch reverts
       } finally {
         setUpdatingRenewal(false);
       }
@@ -97,28 +111,24 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
     [subscription],
   );
 
-  const handleCancelSubscription = useCallback(() => {
+  const handleCancelConfirmed = useCallback(async () => {
     if (!subscription) return;
-    Alert.alert(
-      t('subscription.cancelTitle'),
-      t('subscription.cancelConfirm', { date: formatDate(subscription.endDate) }),
-      [
-        { text: t('subscription.cancelBack'), style: 'cancel' },
-        {
-          text: t('subscription.cancelConfirmBtn'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateSubscription(subscription.id, false);
-              setSubscription((prev) => (prev ? { ...prev, autoRenewal: false } : prev));
-            } catch {
-              Alert.alert(t('subscription.errorTitle'), t('subscription.cancelError'));
-            }
-          },
-        },
-      ],
-    );
-  }, [subscription, t]);
+    setCancelling(true);
+    try {
+      await cancelStripeSubscription(subscription.id);
+      // Subscription stays active until endDate — just disable renewal in local state
+      setSubscription((prev) => (prev ? { ...prev, autoRenewal: false } : prev));
+      setCancelConfirming(false);
+    } catch {
+      setCancelConfirming(false);
+    } finally {
+      setCancelling(false);
+    }
+  }, [subscription]);
+
+  const isExpired = subscription
+    ? new Date(subscription.endDate) < new Date()
+    : false;
 
   if (loading) {
     return (
@@ -137,8 +147,9 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
     );
   }
 
-  if (!subscription) {
-    return <NoSubscriptionView onSubscribed={loadSubscription} />;
+  // No subscription or subscription has expired → show plan selector + payment history
+  if (!subscription || isExpired) {
+    return <NoSubscriptionView onSubscribed={handleSubscribeSuccess} userId={userId} />;
   }
 
   // ── Active subscription ───────────────────────────────────────────────────
@@ -150,6 +161,17 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
 
   return (
     <View style={styles.container}>
+      {/* Success toast */}
+      {successToast && (
+        <View style={styles.successToast}>
+          <Ionicons name="checkmark-circle" size={18} color="#15803D" />
+          <Text style={styles.successToastText}>{t('subscription.successTitle')}</Text>
+          <TouchableOpacity onPress={() => setSuccessToast(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={16} color="#15803D" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Plan header */}
       <View style={[styles.planCard, plan.planType === 'premium' && styles.planCardPremium]}>
         <View style={styles.planCardHeader}>
@@ -195,10 +217,47 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
         )}
       </View>
 
-      {subscription.autoRenewal && (
-        <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSubscription}>
+      {/* Warning when renewal is disabled */}
+      {!subscription.autoRenewal && (
+        <View style={styles.warningBox}>
+          <Ionicons name="information-circle-outline" size={18} color="#92400E" />
+          <Text style={styles.warningText}>
+            {t('subscription.renewalDisabledWarning', { date: formatDate(subscription.endDate) })}
+          </Text>
+        </View>
+      )}
+
+      {subscription.autoRenewal && !cancelConfirming && (
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => setCancelConfirming(true)}>
           <Text style={styles.cancelBtnText}>{t('subscription.cancel')}</Text>
         </TouchableOpacity>
+      )}
+
+      {cancelConfirming && (
+        <View style={styles.cancelConfirmBox}>
+          <Text style={styles.cancelConfirmText}>
+            {t('subscription.cancelConfirm', { date: formatDate(subscription.endDate) })}
+          </Text>
+          <View style={styles.cancelConfirmBtns}>
+            <TouchableOpacity
+              style={styles.cancelConfirmBack}
+              onPress={() => setCancelConfirming(false)}
+              disabled={cancelling}
+            >
+              <Text style={styles.cancelConfirmBackText}>{t('subscription.cancelBack')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelConfirmDo}
+              onPress={handleCancelConfirmed}
+              disabled={cancelling}
+            >
+              {cancelling
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.cancelConfirmDoText}>{t('subscription.cancelConfirmBtn')}</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* Plan limits */}
@@ -209,28 +268,8 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
         <LimitCard icon="language-outline" label={t('dashboard.subscription.maxLanguages')} value={maxLangLabel} />
       </View>
 
-      {/* Last payment */}
-      <Text style={styles.sectionTitle}>{t('subscription.lastPayment')}</Text>
-      <View style={styles.section}>
-        <View style={[styles.tableRow, styles.tableHeaderRow]}>
-          <Text style={[styles.tableCell, styles.tableHeader, { flex: 1.5 }]}>{t('dashboard.donations.date')}</Text>
-          <Text style={[styles.tableCell, styles.tableHeader, { flex: 2 }]}>{t('subscription.plan')}</Text>
-          <Text style={[styles.tableCell, styles.tableHeader, { flex: 1, textAlign: 'right' }]}>{t('subscription.amount')}</Text>
-        </View>
-        {subscription.lastPaymentAt ? (
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 1.5 }]}>{formatDateShort(subscription.lastPaymentAt)}</Text>
-            <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{plan.title}</Text>
-            <Text style={[styles.tableCell, { flex: 1, textAlign: 'right', color: '#16A34A', fontWeight: '600' }]}>
-              {plan.price.toFixed(2)} €
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { color: '#9CA3AF' }]}>{t('subscription.noPayments')}</Text>
-          </View>
-        )}
-      </View>
+      {/* Payment history */}
+      <PaymentHistorySection userId={userId} />
     </View>
   );
 }
@@ -239,16 +278,16 @@ export function SubscriptionTab({ userId }: SubscriptionTabProps) {
 
 interface NoSubscriptionViewProps {
   onSubscribed: () => void;
+  userId: string;
 }
 
-function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
+function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
   const { t } = useTranslation();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [autoRenewal, setAutoRenewal] = useState(true);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
 
   useEffect(() => {
     getSubscriptionPlans()
@@ -259,18 +298,6 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
       .catch(() => {})
       .finally(() => setLoadingPlans(false));
   }, []);
-
-  if (subscribeSuccess) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.successView}>
-          <Ionicons name="checkmark-circle" size={64} color="#16A34A" />
-          <Text style={styles.successTitle}>{t('subscription.successTitle')}</Text>
-          <Text style={styles.successSub}>{t('subscription.successSub')}</Text>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -378,10 +405,7 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
                 <SubscriptionCheckout
                   plan={selectedPlan}
                   autoRenewal={autoRenewal}
-                  onSuccess={() => {
-                    setSubscribeSuccess(true);
-                    setTimeout(() => onSubscribed(), 1500);
-                  }}
+                  onSuccess={() => onSubscribed()}
                   onCancel={() => setCheckoutOpen(false)}
                 />
               )}
@@ -389,6 +413,9 @@ function NoSubscriptionView({ onSubscribed }: NoSubscriptionViewProps) {
           )}
         </>
       )}
+
+      {/* Payment history — always visible */}
+      <PaymentHistorySection userId={userId} />
     </View>
   );
 }
@@ -425,15 +452,15 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
     setProcessing(true);
     setError('');
     try {
-      // 1. Create PaymentIntent on backend
-      const intent = await createSubscriptionIntent(plan.id, autoRenewal);
+      // 1. Create Stripe Subscription on backend → returns clientSecret of first invoice
+      const result = await createStripeSubscription(plan.id);
 
-      // 2. Confirm with CardElement
+      // 2. Confirm payment with CardElement
       const cardEl = elements.getElement(CardElement);
       if (!cardEl) throw new Error('Card not mounted');
 
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        intent.clientSecret,
+        result.clientSecret,
         { payment_method: { card: cardEl } },
       );
 
@@ -443,12 +470,22 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
         return;
       }
 
-      // 3. Activate subscription on backend
+      // 3. Activate: attach PM to customer, create Stripe Subscription + Drupal nodes
       if (paymentIntent?.status === 'succeeded') {
-        await activateSubscription(paymentIntent.id, plan.id, autoRenewal);
+        await activateStripeSubscription({
+          paymentIntentId:   paymentIntent.id,
+          planId:            plan.id,
+          stripeCustomerId:  result.stripeCustomerId,
+        });
         onSuccess();
       }
     } catch (err: any) {
+      const backendCode = err?.response?.data?.code;
+      if (backendCode === 'ALREADY_SUBSCRIBED') {
+        setError(t('subscription.alreadySubscribed'));
+        setProcessing(false);
+        return;
+      }
       setError(err?.response?.data?.error ?? err.message ?? t('subscription.paymentError'));
       setProcessing(false);
     }
@@ -555,6 +592,73 @@ function PlanFeature({ icon, text }: { icon: string; text: string }) {
       <Ionicons name={icon as any} size={16} color={AMBER} />
       <Text style={styles.featureText}>{text}</Text>
     </View>
+  );
+}
+
+// ── Payment history ───────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
+  const normalized = status === 'succeeded' ? 'succeed' : status; // handle old data
+  const config = ({
+    succeed:  { label: t('subscription.status.paid'),     bg: '#DCFCE7', text: '#15803D' },
+    failed:   { label: t('subscription.status.failed'),   bg: '#FEE2E2', text: '#DC2626' },
+    refunded: { label: t('subscription.status.refunded'), bg: '#FEF3C7', text: '#D97706' },
+  } as Record<string, { label: string; bg: string; text: string }>)[normalized] ?? { label: '—', bg: '#F3F4F6', text: '#6B7280' };
+
+  return (
+    <View style={{ backgroundColor: config.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: config.text }}>{config.label}</Text>
+    </View>
+  );
+}
+
+function PaymentHistorySection({ userId }: { userId: string }) {
+  const { t } = useTranslation();
+  const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPaymentHistoryByUser(userId)
+      .then(setPayments)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) {
+    return <ActivityIndicator color={AMBER} style={{ marginVertical: 16 }} />;
+  }
+
+  return (
+    <>
+      <Text style={styles.sectionTitle}>{t('subscription.paymentHistoryTitle')}</Text>
+      <View style={styles.section}>
+        <View style={[styles.tableRow, styles.tableHeaderRow]}>
+          <Text style={[styles.tableCell, styles.tableHeader, { flex: 1.4 }]}>{t('dashboard.donations.date')}</Text>
+          <Text style={[styles.tableCell, styles.tableHeader, { flex: 2 }]}>{t('subscription.plan')}</Text>
+          <Text style={[styles.tableCell, styles.tableHeader, { flex: 1.1, textAlign: 'right' }]}>{t('subscription.amount')}</Text>
+          <Text style={[styles.tableCell, styles.tableHeader, { flex: 0.9, textAlign: 'right' }]}>{t('subscription.status')}</Text>
+        </View>
+        {payments.length === 0 ? (
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCell, { color: '#9CA3AF' }]}>{t('subscription.noPayments')}</Text>
+          </View>
+        ) : (
+          payments.map((p) => (
+            <View key={p.id} style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 1.4 }]}>{formatDate(p.periodStart)}</Text>
+              <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.planTitle}</Text>
+              <Text style={[styles.tableCell, { flex: 1.1, textAlign: 'right', color: '#16A34A', fontWeight: '600' }]}>
+                {p.amount.toFixed(2)} €
+              </Text>
+              <View style={[styles.tableCell, { flex: 0.9, alignItems: 'flex-end' }]}>
+                <StatusBadge status={p.status} />
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+    </>
   );
 }
 
@@ -690,6 +794,35 @@ const styles = StyleSheet.create({
   renewalLabel: { fontSize: 14, fontWeight: '600', color: '#111827' },
   renewalSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 
+  // Success toast
+  successToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  successToastText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#15803D' },
+
+  // Warning
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  warningText: { flex: 1, fontSize: 13, color: '#92400E', lineHeight: 18 },
+
   // Cancel
   cancelBtn: {
     borderWidth: 1,
@@ -697,9 +830,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   cancelBtnText: { color: '#EF4444', fontWeight: '600', fontSize: 14 },
+  cancelConfirmBox: {
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  cancelConfirmText: { fontSize: 13, color: '#374151', textAlign: 'center' },
+  cancelConfirmBtns: { flexDirection: 'row', gap: 10 },
+  cancelConfirmBack: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  cancelConfirmBackText: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
+  cancelConfirmDo: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  cancelConfirmDoText: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
 
   // Limits
   limitsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },

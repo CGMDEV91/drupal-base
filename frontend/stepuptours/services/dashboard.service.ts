@@ -17,9 +17,10 @@ import {
   mapDrupalProfessionalProfile,
   mapDrupalSubscription,
   mapDrupalSubscriptionPlan,
+  mapDrupalSubscriptionPayment,
   getApiLanguage,
 } from '../lib/drupal-client';
-import type { Tour, TourStep, Donation, ProfessionalProfile, Subscription, SubscriptionPlan } from '../types';
+import type { Tour, TourStep, Donation, ProfessionalProfile, Subscription, SubscriptionPlan, SubscriptionPayment } from '../types';
 
 // ── Tours ─────────────────────────────────────────────────────────────────────
 
@@ -453,12 +454,48 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
 export async function getActiveSubscription(userId: string): Promise<Subscription | null> {
   const params = [
     `filter[field_user.id]=${userId}`,
-    `filter[field_subscription_status]=active`,
     buildInclude(['field_plan']),
+    'sort=-field_end_date',
+    'page[limit]=5',
+    'fields[node--subscription]=id,field_user,field_plan,field_subscription_status,field_start_date,field_end_date,field_auto_renewal,field_stripe_subscription_id,field_stripe_customer_id',
   ].join('&');
   const raw = await drupalGet<any[]>('/node/subscription', params);
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  return list.length > 0 ? mapDrupalSubscription(list[0]) : null;
+  if (list.length === 0) return null;
+  const mapped = list.map(mapDrupalSubscription);
+  // Return the subscription with the latest end date that is still active or cancelled-within-period
+  const now = new Date();
+  const valid = mapped.filter(s =>
+    (s.status === 'active' || s.status === 'cancelled') &&
+    new Date(s.endDate) > now
+  );
+  return valid.length > 0 ? valid[0] : null;
+}
+
+export async function getSubscriptionPayments(subscriptionId: string): Promise<SubscriptionPayment[]> {
+  const params = [
+    `filter[field_subscription.id]=${subscriptionId}`,
+    'sort=-field_period_start',
+    buildInclude(['field_plan']),
+    'fields[node--subscription_payment]=id,field_subscription,field_user,field_plan,field_amount,field_stripe_invoice_id,field_stripe_payment_intent,field_payment_status,field_period_start,field_period_end',
+    'fields[node--subscription_plan]=title',
+  ].join('&');
+  const raw = await drupalGet<any[]>('/node/subscription_payment', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalSubscriptionPayment);
+}
+
+export async function getPaymentHistoryByUser(userId: string): Promise<SubscriptionPayment[]> {
+  const params = [
+    `filter[field_user.id]=${userId}`,
+    'sort=-field_period_start',
+    buildInclude(['field_plan']),
+    'fields[node--subscription_payment]=id,field_subscription,field_user,field_plan,field_amount,field_stripe_invoice_id,field_stripe_payment_intent,field_payment_status,field_period_start,field_period_end',
+    'fields[node--subscription_plan]=title',
+  ].join('&');
+  const raw = await drupalGet<any[]>('/node/subscription_payment', params);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(mapDrupalSubscriptionPayment);
 }
 
 export async function updateSubscription(

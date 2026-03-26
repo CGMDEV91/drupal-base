@@ -89,7 +89,7 @@ export interface SubscriptionPlan {
   id: string;
   title: string;
   planType: 'free' | 'premium';
-  billingCycle: 'monthly' | 'annual' | 'none';
+  billingCycle: 'monthly' | 'annual' | 'minute' | 'none';
   price: number;
   maxFeaturedDetail: number;
   maxFeaturedSteps: number;   // -1 = unlimited
@@ -103,11 +103,25 @@ export interface Subscription {
   id: string;
   userId: string;
   plan: SubscriptionPlan;
-  status: 'active' | 'cancelled' | 'expired' | 'trial';
+  status: 'active' | 'cancelled' | 'expired' | 'past_due' | 'trial';
   startDate: string;
   endDate: string;
   autoRenewal: boolean;
-  lastPaymentAt: string | null;
+  stripeSubscriptionId: string | null;
+  stripeCustomerId: string | null;
+}
+
+export interface SubscriptionPayment {
+  id: string;
+  subscriptionId: string;
+  userId: string;
+  planTitle: string;
+  amount: number;
+  stripeInvoiceId: string;
+  stripePaymentIntent: string;
+  status: 'succeeded' | 'failed' | 'refunded';
+  periodStart: string;
+  periodEnd: string;
 }
 
 export interface BillingAddress {

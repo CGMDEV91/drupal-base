@@ -180,9 +180,10 @@
   "subscription.successTitle": "¡Suscripción activada!",
   "subscription.successSub": "Tu plan premium ya está activo. Disfruta de todas las funciones.",
   "subscription.maxSteps": "Destacados por paso",
-  "subscription.lastPayment": "Último pago",
+  "subscription.paymentHistory": "Historial de pagos",
   "subscription.plan": "Plan",
   "subscription.amount": "Importe",
+  "subscription.status": "Estado",
   "subscription.noPayments": "Sin registros de pago",
   "subscription.cancel": "Cancelar suscripción",
   "subscription.cancelTitle": "Cancelar suscripción",
@@ -191,6 +192,8 @@
   "subscription.cancelConfirmBtn": "Cancelar suscripción",
   "subscription.cancelError": "No se pudo cancelar la suscripción. Inténtalo de nuevo.",
   "subscription.errorTitle": "Error",
+  "subscription.renewalDisabledWarning": "La renovación automática está desactivada. Tu suscripción sigue activa hasta el {{date}}.",
+  "subscription.paymentHistoryTitle": "Historial de pagos",
   "subscription.paymentError": "El pago falló. Inténtalo de nuevo.",
   "subscription.feature.businesses": "{{n}} negocios destacados por tour",
   "subscription.feature.steps": "{{n}} negocios destacados por paso",
@@ -393,5 +396,10 @@
 
   "createBusiness.field.language": "Idioma",
   "createBusiness.field.languageLocked": "Idioma (establecido al crear)",
-  "createTour.field.languageLocked": "Idioma (establecido al crear)"
+  "createTour.field.languageLocked": "Idioma (establecido al crear)",
+
+  "subscription.status.paid": "Pagado",
+  "subscription.status.failed": "Fallido",
+  "subscription.status.refunded": "Devuelto",
+  "subscription.alreadySubscribed": "Ya tienes una suscripción activa."
 }

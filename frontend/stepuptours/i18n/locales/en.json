@@ -180,9 +180,10 @@
   "subscription.successTitle": "Subscription activated!",
   "subscription.successSub": "Your premium plan is now active. Enjoy all features.",
   "subscription.maxSteps": "Featured per step",
-  "subscription.lastPayment": "Last payment",
+  "subscription.paymentHistory": "Payment History",
   "subscription.plan": "Plan",
   "subscription.amount": "Amount",
+  "subscription.status": "Status",
   "subscription.noPayments": "No payment records",
   "subscription.cancel": "Cancel subscription",
   "subscription.cancelTitle": "Cancel subscription",
@@ -191,6 +192,8 @@
   "subscription.cancelConfirmBtn": "Cancel subscription",
   "subscription.cancelError": "Could not cancel subscription. Please try again.",
   "subscription.errorTitle": "Error",
+  "subscription.renewalDisabledWarning": "Auto-renewal is off. Your subscription stays active until {{date}}.",
+  "subscription.paymentHistoryTitle": "Payment History",
   "subscription.paymentError": "Payment failed. Please try again.",
   "subscription.feature.businesses": "{{n}} featured businesses per tour",
   "subscription.feature.steps": "{{n}} featured businesses per step",
@@ -393,5 +396,10 @@
 
   "createBusiness.field.language": "Language",
   "createBusiness.field.languageLocked": "Language (set at creation)",
-  "createTour.field.languageLocked": "Language (set at creation)"
+  "createTour.field.languageLocked": "Language (set at creation)",
+
+  "subscription.status.paid": "Paid",
+  "subscription.status.failed": "Failed",
+  "subscription.status.refunded": "Refunded",
+  "subscription.alreadySubscribed": "You already have an active subscription."
 }

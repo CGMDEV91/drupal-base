@@ -175,7 +175,21 @@
       "Bash(wsl -e bash -c \"ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/components/dashboard/\")",
       "Bash(wsl -e bash -c \"grep -n ''paddingBottom\\\\|footer\\\\|Footer\\\\|marginBottom'' /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app/\\\\[langcode\\\\]/dashboard.tsx | tail -20\")",
       "Bash(ls /home/carlos/devel/test-sites/stepuptours/MEMORY*)",
-      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app -name *.tsx)"
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app -name *.tsx)",
+      "Bash(chmod +x /home/carlos/devel/test-sites/stepuptours/scripts/test-subscription-renewal.sh)",
+      "Bash(cmd /c \"dir \\\\wsl.localhost\\\\Ubuntu\\\\home\\\\carlos\\\\devel\\\\test-sites\\\\stepuptours\\\\web\\\\modules\\\\custom\\\\stepuptours_api\\\\src\\\\Controller\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush field:info subscription_payment 2>&1 | head -80\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush field:info node --bundle=subscription_payment 2>&1 | grep -E ''period|payment_status|invoice'' -A3\")",
+      "Bash(wsl -d Ubuntu -- ls /home/carlos/devel/test-sites/stepuptours/config/sync/)",
+      "Bash(wsl.exe -d Ubuntu ls /home/carlos/devel/test-sites/stepuptours/config/sync/)",
+      "Bash(wsl.exe -d Ubuntu -- ls \"/home/carlos/devel/test-sites/stepuptours/config/sync/\")",
+      "Bash(wsl.exe -d Ubuntu -- cat \"/home/carlos/devel/test-sites/stepuptours/config/sync/field.storage.node.field_payment_status.yml\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush cr\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush watchdog:show --count=20 --type=stepuptours_api 2>&1\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush watchdog:show --count=10 2>&1\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -E ''subscription\\\\.'' /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/i18n/locales/en.json | head -50\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush watchdog:show --count=5 2>&1\")",
+      "Bash(wsl.exe -d:*)"
     ],
     "defaultMode": "acceptEdits"
   }

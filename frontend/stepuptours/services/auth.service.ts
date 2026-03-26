@@ -4,6 +4,7 @@
 import axios from 'axios';
 import { sessionStorage, inactivityTracker } from '../lib/session';
 import { mapDrupalUser } from '../lib/drupal-client';
+import { getUserById } from './user.service';
 import type { AuthCredentials, AuthSession, User } from '../types';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://stepuptours.ddev.site';
@@ -39,7 +40,7 @@ export async function login(credentials: AuthCredentials): Promise<AuthSession> 
   let response: any;
   try {
     response = await axios.get(
-      `${BASE_URL}/jsonapi/user/user?filter[name]=${credentials.username}&fields[user--user]=name,mail,field_public_name,field_experience_points,field_country,user_picture,created&include=field_country`,
+      `${BASE_URL}/jsonapi/user/user?filter[name]=${credentials.username}&fields[user--user]=name,mail,field_public_name,field_experience_points,field_country,user_picture,created,preferred_langcode,langcode&include=field_country`,
       {
         headers: {
           'Accept': 'application/vnd.api+json',
@@ -63,11 +64,12 @@ export async function login(credentials: AuthCredentials): Promise<AuthSession> 
   const rawUser = {
     ...users[0].attributes,
     id: users[0].id,
-    field_country: users[0].relationships?.field_country?.data
-      ? response.data?.included?.find(
-          (i: any) => i.id === users[0].relationships.field_country.data.id
-        )?.attributes
-      : null,
+    field_country: (() => {
+      const rel = users[0].relationships?.field_country?.data;
+      if (!rel) return null;
+      const inc = response.data?.included?.find((i: any) => i.id === rel.id);
+      return inc ? { id: inc.id, ...inc.attributes } : null;
+    })(),
     roles,
   };
 
@@ -120,13 +122,18 @@ export async function restoreSession(): Promise<AuthSession | null> {
       return null;
     }
 
-    // Obtener roles frescos desde Drupal
-    const freshRoles = await fetchUserRoles(users[0].id, authHeader);
+    const userId = users[0].id;
+
+    // Obtener roles y perfil completo frescos desde Drupal
+    const [freshRoles, freshUser] = await Promise.all([
+      fetchUserRoles(userId, authHeader),
+      getUserById(userId),
+    ]);
 
     const refreshed: AuthSession = {
       ...session,
       user: {
-        ...session.user,
+        ...freshUser,
         roles: freshRoles,
       },
     };

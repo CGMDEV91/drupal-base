@@ -150,10 +150,10 @@ stepuptours_api.admin_donations:
       - basic_auth
       - cookie
 
-stepuptours_api.subscription_intent:
-  path: '/api/subscription/intent'
+stepuptours_api.subscription_create:
+  path: '/api/subscription/create'
   defaults:
-    _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::intent'
+    _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::createSubscription'
   methods: [POST, OPTIONS]
   requirements:
     _user_is_logged_in: 'TRUE'
@@ -167,6 +167,45 @@ stepuptours_api.subscription_activate:
   path: '/api/subscription/activate'
   defaults:
     _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::activate'
+  methods: [POST, OPTIONS]
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE
+    _auth:
+      - basic_auth
+      - cookie
+
+stepuptours_api.subscription_enable_renewal:
+  path: '/api/subscription/enable-renewal'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::enableRenewal'
+  methods: [POST, OPTIONS]
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE
+    _auth:
+      - basic_auth
+      - cookie
+
+stepuptours_api.subscription_disable_renewal:
+  path: '/api/subscription/disable-renewal'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::disableRenewal'
+  methods: [POST, OPTIONS]
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE
+    _auth:
+      - basic_auth
+      - cookie
+
+stepuptours_api.subscription_cancel:
+  path: '/api/subscription/cancel'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\SubscriptionController::cancel'
   methods: [POST, OPTIONS]
   requirements:
     _user_is_logged_in: 'TRUE'

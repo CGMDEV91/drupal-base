@@ -14,6 +14,7 @@ import type {
   TourActivity,
   Subscription,
   SubscriptionPlan,
+  SubscriptionPayment,
   Donation,
   ProfessionalProfile,
 } from '../types';
@@ -413,7 +414,7 @@ export function mapDrupalSubscription(raw: any): Subscription {
       id: plan?.id ?? '',
       title: plan?.title ?? '',
       planType: plan?.field_plan_type ?? 'free',
-      billingCycle: plan?.field_billing_cycle ?? 'none',
+      billingCycle: normalizeBillingCycle(plan?.field_billing_cycle),
       price: parseFloat(plan?.field_price ?? '0'),
       maxFeaturedDetail: plan?.field_max_featured_detail ?? 1,
       maxFeaturedSteps: plan?.field_max_featured_steps ?? 3,
@@ -426,7 +427,23 @@ export function mapDrupalSubscription(raw: any): Subscription {
     startDate: raw.field_start_date ?? '',
     endDate: raw.field_end_date ?? '',
     autoRenewal: raw.field_auto_renewal ?? false,
-    lastPaymentAt: raw.field_last_payment_at ?? null,
+    stripeSubscriptionId: raw.field_stripe_subscription_id ?? null,
+    stripeCustomerId: raw.field_stripe_customer_id ?? null,
+  };
+}
+
+export function mapDrupalSubscriptionPayment(raw: any): SubscriptionPayment {
+  return {
+    id: raw.id,
+    subscriptionId: raw.field_subscription?.id ?? '',
+    userId: raw.field_user?.id ?? '',
+    planTitle: raw.field_plan?.title ?? '',
+    amount: parseFloat(raw.field_amount ?? '0'),
+    stripeInvoiceId: raw.field_stripe_invoice_id ?? '',
+    stripePaymentIntent: raw.field_stripe_payment_intent ?? '',
+    status: raw.field_payment_status ?? 'succeed',
+    periodStart: raw.field_period_start ?? '',
+    periodEnd: raw.field_period_end ?? '',
   };
 }
 

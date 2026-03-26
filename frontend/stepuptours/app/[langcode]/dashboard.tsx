@@ -67,9 +67,20 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const scrollRef = useRef<ScrollView>(null);
 
-  // ── Scroll to top on tab change ────────────────────────────────────────────
+  // ── Scroll to top on mount + tab change ───────────────────────────────────
+  useEffect(() => {
+    // Prevent browser from restoring scroll position on page refresh (web only)
+    if (typeof window !== 'undefined' && window.history?.scrollRestoration) {
+      window.history.scrollRestoration = 'manual';
+    }
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // Second pass after async content renders
+    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 80);
+    return () => clearTimeout(t);
   }, [activeTab]);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
@@ -200,7 +211,7 @@ export default function DashboardScreen() {
           <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
             {activeTab === 'tours' && <MyToursTab userId={user.id} />}
             {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
-            {activeTab === 'subscription' && <SubscriptionTab userId={user.id} />}
+            {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
             {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
             {activeTab === 'donations' && <DonationsTab userId={user.id} />}
           </View>
@@ -219,7 +230,7 @@ export default function DashboardScreen() {
             <View style={{ maxWidth: CONTENT_MAX_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20 }}>
               {activeTab === 'tours' && <MyToursTab userId={user.id} />}
               {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
-              {activeTab === 'subscription' && <SubscriptionTab userId={user.id} />}
+              {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
               {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
               {activeTab === 'donations' && <DonationsTab userId={user.id} />}
             </View>
