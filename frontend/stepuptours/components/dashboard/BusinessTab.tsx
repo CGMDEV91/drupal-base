@@ -455,6 +455,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     padding: 14,
     gap: 10,
+    marginBottom: 30,
   },
   cardHeader: {
     flexDirection: 'row',

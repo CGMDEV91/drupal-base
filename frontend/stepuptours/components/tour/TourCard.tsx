@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 40,
     paddingBottom: 12,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1))',
   },
   title: {
     color: '#FFFFFF',
