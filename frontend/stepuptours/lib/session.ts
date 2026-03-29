@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
 import type { AuthSession } from '../types';
 
 const SESSION_KEY = 'app_session';
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos
 
 // ── Abstracción de almacenamiento ─────────────────────────────────────────────
 // En web usa sessionStorage (se borra al cerrar el navegador/pestaña),

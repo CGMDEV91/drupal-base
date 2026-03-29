@@ -189,7 +189,14 @@
       "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush watchdog:show --count=10 2>&1\")",
       "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -E ''subscription\\\\.'' /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/i18n/locales/en.json | head -50\")",
       "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /home/carlos/devel/test-sites/stepuptours && ddev drush watchdog:show --count=5 2>&1\")",
-      "Bash(wsl.exe -d:*)"
+      "Bash(wsl.exe -d:*)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours -name *.php -path */scripts/*)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/web -name check_sub* -o -name test_sub*)",
+      "Bash(find /mnt/c/Users/cgonzale -name *.yml)",
+      "Read(//usr/local/bin/**)",
+      "Read(//home/carlos/.local/bin/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/lib/**)",
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/**)"
     ],
     "defaultMode": "acceptEdits"
   }

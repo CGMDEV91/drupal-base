@@ -20,7 +20,48 @@ function stepuptours_api_cron(): void {
   $now = \Drupal::time()->getRequestTime();
   $logger = \Drupal::logger('stepuptours_api');
 
-  // Load active subscriptions with auto_renewal enabled that have expired.
+  // ── Mark expired subscriptions ────────────────────────────────────────────
+  // Case A: active subscriptions with auto_renewal=OFF whose end date passed.
+  $expiredNids = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription')
+    ->condition('field_subscription_status', 'active')
+    ->condition('field_end_date', $now, '<=')
+    ->condition('field_auto_renewal', 0)
+    ->accessCheck(FALSE)
+    ->execute();
+
+  // Case B: explicitly cancelled subscriptions whose end date passed.
+  // (status was set to 'cancelled' by the cancel endpoint or the
+  // customer.subscription.deleted webhook — regardless of auto_renewal.)
+  $cancelledExpiredNids = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription')
+    ->condition('field_subscription_status', 'cancelled')
+    ->condition('field_end_date', $now, '<=')
+    ->accessCheck(FALSE)
+    ->execute();
+
+  $toExpire = array_unique(array_merge(array_values($expiredNids), array_values($cancelledExpiredNids)));
+
+  if (!empty($toExpire)) {
+    $expireNodes = \Drupal::entityTypeManager()->getStorage('node')->loadMultiple($toExpire);
+    foreach ($expireNodes as $sub) {
+      $sub->set('field_subscription_status', 'expired');
+      $sub->save();
+      $logger->info(
+        'Subscription @nid marked as expired (end_date: @end).',
+        [
+          '@nid' => $sub->id(),
+          '@end' => date('Y-m-d H:i:s', (int) $sub->get('field_end_date')->value),
+        ]
+      );
+    }
+  }
+
+  // ── Auto-renew subscriptions (non-Stripe only) ───────────────────────────
+  // Stripe-managed subscriptions are renewed via invoice.payment_succeeded
+  // webhook — Stripe charges the saved payment method automatically.
+  // This block only handles subscriptions without a Stripe subscription ID
+  // (e.g. manual/free plans granted by an admin).
   $nids = \Drupal::entityQuery('node')
     ->condition('type', 'subscription')
     ->condition('field_subscription_status', 'active')
@@ -28,6 +69,110 @@ function stepuptours_api_cron(): void {
     ->condition('field_end_date', $now, '<=')
     ->accessCheck(FALSE)
     ->execute();
+
+  // Filter out Stripe-managed subscriptions in PHP — entity query notExists()
+  // only catches NULL, not empty string (stored when Stripe creation failed).
+  $nids = array_filter($nids, function ($nid) {
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+    $stripeId = $node ? ($node->get('field_stripe_subscription_id')->value ?? '') : '';
+    return empty($stripeId);
+  });
+
+  // ── Stripe sync: recover missed webhooks ─────────────────────────────────
+  // Stripe-managed subscriptions with auto_renewal=ON whose end_date passed
+  // but whose Drupal status is still 'active'. This happens when the
+  // invoice.payment_succeeded webhook was missed (e.g. stripe listen was not
+  // running). We query Stripe for the current period end and update Drupal.
+  $staleCandidates = \Drupal::entityQuery('node')
+    ->condition('type', 'subscription')
+    ->condition('field_subscription_status', 'active')
+    ->condition('field_auto_renewal', 1)
+    ->condition('field_end_date', $now, '<=')
+    ->accessCheck(FALSE)
+    ->execute();
+
+  // Only Stripe-managed ones.
+  $staleStripeNids = array_filter(array_values($staleCandidates), function ($nid) {
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+    $stripeId = $node ? ($node->get('field_stripe_subscription_id')->value ?? '') : '';
+    return !empty($stripeId);
+  });
+
+  if (!empty($staleStripeNids)) {
+    $stripeKey = \Drupal::config('stepuptours_api.settings')->get('stripe_secret_key')
+      ?? $_ENV['STRIPE_SECRET_KEY']
+      ?? getenv('STRIPE_SECRET_KEY');
+
+    if (!empty($stripeKey)) {
+      \Stripe\Stripe::setApiKey($stripeKey);
+      $storage = \Drupal::entityTypeManager()->getStorage('node');
+
+      foreach ($staleStripeNids as $nid) {
+        /** @var \Drupal\node\NodeInterface $sub */
+        $sub      = $storage->load($nid);
+        $stripeId = $sub->get('field_stripe_subscription_id')->value;
+
+        try {
+          $stripeSub = \Stripe\Subscription::retrieve([
+            'id'     => $stripeId,
+            'expand' => ['latest_invoice'],
+          ]);
+          $subStatus = $stripeSub->status ?? 'unknown';
+
+          if (in_array($subStatus, ['active', 'trialing'])) {
+            // Get period end from latest paid invoice (most reliable in SDK v19).
+            $newPeriodEnd = 0;
+            $invoice = $stripeSub->latest_invoice ?? NULL;
+            if ($invoice && is_object($invoice)) {
+              $invArr       = $invoice->toArray();
+              $newPeriodEnd = (int) ($invArr['period_end'] ?? 0);
+            }
+            // Fallbacks: subscription-level fields.
+            if ($newPeriodEnd <= $now) {
+              $subArr       = $stripeSub->toArray();
+              $newPeriodEnd = (int) ($subArr['current_period_end']
+                ?? $subArr['trial_end']
+                ?? 0);
+            }
+
+            if ($newPeriodEnd > $now) {
+              $sub->set('field_end_date', $newPeriodEnd);
+              $sub->save();
+              $logger->info(
+                'Cron Stripe sync: updated end_date for subscription @nid (@stripe) to @end (missed webhook recovery).',
+                [
+                  '@nid'    => $nid,
+                  '@stripe' => $stripeId,
+                  '@end'    => date('Y-m-d H:i:s', $newPeriodEnd),
+                ]
+              );
+            }
+          }
+          elseif (in_array($subStatus, ['canceled', 'unpaid', 'past_due'])) {
+            // Stripe cancelled or failed — mark Drupal subscription accordingly.
+            $drupalStatus = $subStatus === 'past_due' ? 'past_due' : 'cancelled';
+            $sub->set('field_subscription_status', $drupalStatus);
+            $sub->save();
+            $logger->warning(
+              'Cron Stripe sync: subscription @nid (@stripe) has Stripe status "@stripe_status" — marked as @drupal_status.',
+              [
+                '@nid'          => $nid,
+                '@stripe'       => $stripeId,
+                '@stripe_status' => $subStatus,
+                '@drupal_status' => $drupalStatus,
+              ]
+            );
+          }
+        }
+        catch (\Exception $e) {
+          $logger->error(
+            'Cron Stripe sync: error retrieving Stripe subscription @id — @msg',
+            ['@id' => $stripeId, '@msg' => $e->getMessage()]
+          );
+        }
+      }
+    }
+  }
 
   if (empty($nids)) {
     return;
@@ -45,27 +190,15 @@ function stepuptours_api_cron(): void {
 
     /** @var \Drupal\node\NodeInterface $plan */
     $plan = reset($planRef);
-    $billingCycle = $plan->get('field_billing_cycle')->value ?? 'monthly';
+    $billingCycle = $plan->get('field_billing_cycle')->value ?? 'month';
 
     // Calculate new end date from the current end date (not from now, to avoid
     // drift when cron fires late).
+    // field_billing_cycle values ('day', 'month', 'year') are valid PHP modify
+    // units — no mapping table needed.
     $currentEnd = (int) $sub->get('field_end_date')->value;
     $endDate = new \DateTime('@' . $currentEnd);
-
-    switch ($billingCycle) {
-      case 'minute':
-        $endDate->modify('+1 minute');
-        break;
-
-      case 'anually':
-      case 'annual':
-        $endDate->modify('+1 year');
-        break;
-
-      default: // monthly
-        $endDate->modify('+1 month');
-        break;
-    }
+    $endDate->modify('+1 ' . $billingCycle);
 
     $newEnd = $endDate->getTimestamp();
     $sub->set('field_end_date', $newEnd);

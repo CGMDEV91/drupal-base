@@ -470,12 +470,12 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
         return;
       }
 
-      // 3. Activate: attach PM to customer, create Stripe Subscription + Drupal nodes
+      // 3. Activate: attach PM to subscription + create Drupal nodes
       if (paymentIntent?.status === 'succeeded') {
         await activateStripeSubscription({
-          paymentIntentId:   paymentIntent.id,
-          planId:            plan.id,
-          stripeCustomerId:  result.stripeCustomerId,
+          subscriptionId:  result.subscriptionId,  // Stripe sub ID (sub_xxx)
+          paymentIntentId: paymentIntent.id,
+          planId:          plan.id,
         });
         onSuccess();
       }

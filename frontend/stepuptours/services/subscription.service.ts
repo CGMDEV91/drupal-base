@@ -14,13 +14,19 @@ function getAuthHeader(): Record<string, string> {
 
 export interface CreateSubscriptionResult {
   clientSecret: string;
+  subscriptionId: string;  // Stripe Subscription ID (sub_xxx)
   paymentIntentId: string;
   stripeCustomerId: string;
 }
 
 /**
- * Creates a Stripe Customer + PaymentIntent for the given plan.
- * Returns the clientSecret ready to be confirmed with stripe.confirmCardPayment().
+ * Creates a Stripe Subscription for the given plan.
+ * Returns the clientSecret of the first invoice's PaymentIntent, ready to be
+ * confirmed with stripe.confirmCardPayment().
+ *
+ * The Stripe Subscription handles BOTH the initial charge AND all future
+ * auto-renewals — no separate PaymentIntent, no double charges.
+ *
  * After confirmation, call activateStripeSubscription().
  */
 export async function createStripeSubscription(
@@ -36,14 +42,16 @@ export async function createStripeSubscription(
 
 /**
  * After stripe.confirmCardPayment() succeeds, call this to:
- * - Attach the payment method to the Stripe Customer
- * - Create the Stripe Subscription (trial until next billing date)
+ * - Verify the PaymentIntent and attach the PM to the Stripe Subscription
  * - Create the Drupal subscription + subscription_payment nodes
+ *
+ * subscriptionId = Stripe Subscription ID (sub_xxx) from createStripeSubscription().
+ * paymentIntentId = PI ID from confirmCardPayment result.
  */
 export async function activateStripeSubscription(data: {
-  paymentIntentId: string;
+  subscriptionId: string;   // Stripe Subscription ID (sub_xxx)
+  paymentIntentId: string;  // PaymentIntent ID from confirmCardPayment
   planId: string;
-  stripeCustomerId: string;
 }): Promise<void> {
   await axios.post(
     `${BASE_URL}/api/subscription/activate`,

@@ -20,6 +20,15 @@ settings:
     -
       value: minute
       label: 'minute (test)'
+    -
+      value: month
+      label: month
+    -
+      value: year
+      label: year
+    -
+      value: day
+      label: day
   allowed_values_function: ''
 module: options
 locked: false
