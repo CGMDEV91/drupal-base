@@ -34,11 +34,21 @@ interface SubscriptionTabProps {
   onScrollTop?: () => void;
 }
 
-function formatDate(dateStr: string | null | undefined): string {
+function formatDate(dateStr: string | null | undefined, format: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' | 'DD/MM/YYYY HH:mm' = 'DD/MM/YYYY'): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '—';
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  const dd   = String(d.getDate()).padStart(2, '0');
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh   = String(d.getHours()).padStart(2, '0');
+  const min  = String(d.getMinutes()).padStart(2, '0');
+  switch (format) {
+    case 'MM/DD/YYYY':    return `${mm}/${dd}/${yyyy}`;
+    case 'YYYY-MM-DD':    return `${yyyy}-${mm}-${dd}`;
+    case 'DD/MM/YYYY HH:mm': return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    default:              return `${dd}/${mm}/${yyyy}`;
+  }
 }
 
 function cycleLabel(billingCycle: string, t: (key: string) => string): string {
@@ -736,7 +746,7 @@ function PaymentHistorySection({ userId }: { userId: string }) {
         ) : (
           payments.map((p) => (
             <View key={p.id} style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 1.4 }]}>{formatDate(p.periodStart)}</Text>
+              <Text style={[styles.tableCell, { flex: 1.4 }]}>{formatDate(p.periodStart, 'DD/MM/YYYY HH:mm')}</Text>
               <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{p.planTitle}</Text>
               <Text style={[styles.tableCell, { flex: 1.1, textAlign: 'right', color: '#16A34A', fontWeight: '600' }]}>
                 {p.amount.toFixed(2)} €
