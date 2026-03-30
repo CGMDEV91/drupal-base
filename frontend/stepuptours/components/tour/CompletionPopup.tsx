@@ -24,16 +24,18 @@ import { getStripePromise } from '../../lib/stripe';
 // Stripe imports — web only (tree-shaken on native)
 let Elements: any = null;
 let CardElement: any = null;
+let PaymentElement: any = null;
 let useStripe: any = null;
 let useElements: any = null;
 
 if (Platform.OS === 'web') {
   try {
     const stripeReact = require('@stripe/react-stripe-js');
-    Elements = stripeReact.Elements;
-    CardElement = stripeReact.CardElement;
-    useStripe = stripeReact.useStripe;
-    useElements = stripeReact.useElements;
+    Elements      = stripeReact.Elements;
+    CardElement   = stripeReact.CardElement;
+    PaymentElement = stripeReact.PaymentElement;
+    useStripe     = stripeReact.useStripe;
+    useElements   = stripeReact.useElements;
   } catch {
     // Stripe not available
   }
@@ -212,10 +214,61 @@ interface DonationCardFormProps {
   isDonationValid: boolean;
   guideRevenue: number;
   platformRevenue: number;
+  paymentIntentId?: string;
   onSuccess: (paidAmount: number) => void;
 }
 
-function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platformRevenue, onSuccess }: DonationCardFormProps) {
+function DonationCheckout({ tourId, amount, isDonationValid, guideRevenue, platformRevenue, onSuccess }: DonationCardFormProps) {
+  const { t } = useTranslation();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [initError, setInitError] = useState('');
+  const prevAmount = useRef('');
+
+  // Crear el intent cuando el importe es válido y ha cambiado
+  useEffect(() => {
+    if (!isDonationValid || amount === prevAmount.current) return;
+    prevAmount.current = amount;
+
+    setClientSecret(null);
+    setInitError('');
+
+    createDonationIntent(tourId, parseFloat(amount))
+      .then((intent) => {
+        setClientSecret(intent.clientSecret);
+        setPaymentIntentId(intent.paymentIntentId);
+      })
+      .catch((err: any) => {
+        setInitError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
+      });
+  }, [amount, isDonationValid, tourId]);
+
+  if (!isDonationValid) return null;
+
+  if (initError) {
+    return <Text style={{ fontSize: 12, color: '#EF4444', textAlign: 'center' }}>{initError}</Text>;
+  }
+
+  if (!clientSecret) {
+    return <ActivityIndicator color={AMBER} style={{ marginVertical: 12 }} />;
+  }
+
+  return (
+    <Elements stripe={stripePromise} options={{ clientSecret }}>
+      <DonationCardForm
+        tourId={tourId}
+        amount={amount}
+        isDonationValid={isDonationValid}
+        guideRevenue={guideRevenue}
+        platformRevenue={platformRevenue}
+        paymentIntentId={paymentIntentId!}
+        onSuccess={onSuccess}
+      />
+    </Elements>
+  );
+}
+
+function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platformRevenue, paymentIntentId, onSuccess }: DonationCardFormProps) {
   const { t } = useTranslation();
   const stripe = useStripe ? useStripe() : null;
   const elements = useElements ? useElements() : null;
@@ -228,17 +281,22 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
     setError(null);
     try {
       const parsedAmount = parseFloat(amount);
-      const intent = await createDonationIntent(tourId, parsedAmount);
-      const cardElement = CardElement ? elements.getElement(CardElement) : null;
-      if (!cardElement) { setError(t('donation.error')); return; }
-      const { error: stripeError } = await stripe.confirmCardPayment(intent.clientSecret, {
-        payment_method: { card: cardElement },
+
+      const { error: stripeError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
       });
+
       if (stripeError) {
         setError(stripeError.message ?? t('donation.error'));
         return;
       }
-      await activateDonation(intent.paymentIntentId);
+
+      // Activar en Drupal
+      if (paymentIntentId) {
+        await activateDonation(paymentIntentId);
+      }
       onSuccess(parsedAmount);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? err.message ?? t('donation.error'));
@@ -260,26 +318,11 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
         </Text>
       </View>
 
-      {/* Stripe CardElement */}
-      {CardElement && (
-        <View style={donationStyles.cardWrap}>
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '15px',
-                  color: '#111827',
-                  fontFamily: 'system-ui, sans-serif',
-                  '::placeholder': { color: '#9CA3AF' },
-                },
-                invalid: { color: '#EF4444' },
-              },
-            }}
-          />
-        </View>
-      )}
+      {/* PaymentElement — incluye Apple Pay, Google Pay, card, etc. */}
+      <View style={donationStyles.cardWrap}>
+        <PaymentElement options={{layout: 'tabs'}} />
+      </View>
 
-      {/* Error */}
       {error && (
         <View style={donationStyles.errorRow}>
           <Ionicons name="alert-circle" size={14} color="#EF4444" />
@@ -287,7 +330,6 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
         </View>
       )}
 
-      {/* Pay button + Stripe badge */}
       <View style={donationStyles.payRow}>
         <TouchableOpacity
           style={[donationStyles.payBtn, (!isDonationValid || processing) && donationStyles.payBtnDisabled]}
@@ -307,7 +349,6 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
           )}
         </TouchableOpacity>
 
-        {/* Stripe trust badge */}
         <View style={donationStyles.stripeBadge}>
           <Ionicons name="lock-closed" size={10} color="#9CA3AF" />
           <Text style={donationStyles.stripeBadgeText}>Stripe</Text>
@@ -316,7 +357,6 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
     </View>
   );
 }
-
 // ---------------------------------------------------------------------------
 // CompletionPopup
 // ---------------------------------------------------------------------------
@@ -504,16 +544,14 @@ export function CompletionPopup({
 
                 {/* Web: Stripe Elements form */}
                 {Platform.OS === 'web' && Elements && (
-                  <Elements stripe={stripePromise}>
-                    <DonationCardForm
-                      tourId={tourId}
-                      amount={donationAmount}
-                      isDonationValid={isDonationValid}
-                      guideRevenue={guideRevenue}
-                      platformRevenue={platformRevenue}
-                      onSuccess={handleDonationSuccess}
-                    />
-                  </Elements>
+                  <DonationCheckout
+                    tourId={tourId}
+                    amount={donationAmount}
+                    isDonationValid={isDonationValid}
+                    guideRevenue={guideRevenue}
+                    platformRevenue={platformRevenue}
+                    onSuccess={handleDonationSuccess}
+                  />
                 )}
 
                 {/* Native: simple donate button */}

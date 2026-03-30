@@ -11,6 +11,18 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Stripe webhook handler.
  * POST /api/payment/webhook
+ *
+ * NEW FLOW (Checkout Sessions API):
+ * ─────────────────────────────────
+ * The primary event for subscription creation is now checkout.session.completed.
+ * When mode=subscription, the session object contains:
+ *   - session->subscription  (Stripe sub ID)
+ *   - session->customer      (Stripe customer ID)
+ *   - session->metadata      (plan_nid, user_uid set on the CheckoutSession)
+ *   - session->subscription_data->metadata propagated to the Subscription object
+ *
+ * Renewals are handled by invoice.payment_succeeded as before (no change there).
+ * The old PaymentIntent-based first-payment flow and the trial_end hack are gone.
  */
 class WebhookController extends ControllerBase {
 
@@ -33,7 +45,7 @@ class WebhookController extends ControllerBase {
 
     \Stripe\Stripe::setApiKey($secretKey);
 
-    // Verify webhook signature if secret is configured.
+    // ── Verify webhook signature ───────────────────────────────────────────
     $event = NULL;
     if (!empty($webhookSecret) && $webhookSecret !== 'whsec_PLACEHOLDER') {
       try {
@@ -45,7 +57,7 @@ class WebhookController extends ControllerBase {
         return new JsonResponse(['error' => 'Invalid signature'], 400);
       }
     } else {
-      // No webhook secret configured — parse payload directly (dev mode).
+      // No webhook secret configured — parse payload directly (dev/test mode).
       $data = json_decode($payload, TRUE);
       if (!$data || !isset($data['type'])) {
         return new JsonResponse(['error' => 'Invalid payload'], 400);
@@ -57,22 +69,34 @@ class WebhookController extends ControllerBase {
 
     try {
       switch ($event->type) {
+
+        // ── PRIMARY: Checkout Session completed ──────────────────────────
+        // Fired once when a customer finishes a Checkout Session.
+        // For mode=subscription this is the authoritative event for creating
+        // Drupal subscription and subscription_payment nodes.
+        case 'checkout.session.completed':
+          $this->handleCheckoutSessionCompleted($event->data->object);
+          break;
+
+        // ── RENEWAL: Invoice payment succeeded ──────────────────────────
+        // Fired on every subsequent billing cycle renewal.
+        // The first invoice is also covered here as a safe fallback thanks
+        // to idempotency checks — whichever handler runs first wins.
         case 'invoice.payment_succeeded':
           $this->handleInvoicePaymentSucceeded($event->data->object);
           break;
 
-        // invoice_payment.paid is fired by Stripe's newer Invoice Payment API
-        // for subscription renewals triggered via billing_cycle_anchor reset or
-        // other proration flows. It has a different object structure — we fetch
-        // the full Invoice and delegate to the same handler.
+        // ── RENEWAL ALTERNATIVE (newer Stripe billing flows) ─────────────
         case 'invoice_payment.paid':
           $this->handleInvoicePaymentPaidEvent($event->data->object);
           break;
 
+        // ── FAILED PAYMENT ───────────────────────────────────────────────
         case 'invoice.payment_failed':
           $this->handleInvoicePaymentFailed($event->data->object);
           break;
 
+        // ── SUBSCRIPTION LIFECYCLE ───────────────────────────────────────
         case 'customer.subscription.deleted':
           $this->handleSubscriptionDeleted($event->data->object);
           break;
@@ -85,19 +109,25 @@ class WebhookController extends ControllerBase {
           // No trials in use — ignore silently.
           break;
 
+        // ── ONE-TIME DONATIONS ───────────────────────────────────────────
+        // Only handle payment_intent.succeeded when metadata explicitly marks
+        // the type as a donation (not subscription). Subscription payments are
+        // now fully handled via checkout.session.completed + invoice events.
         case 'payment_intent.succeeded':
-          // Donations only (type != subscription in metadata).
           $pi   = $event->data->object;
           $meta = self::extractMetadata($pi);
-          if (($meta['type'] ?? '') !== 'subscription') {
+          if (!empty($meta) && ($meta['type'] ?? '') === 'donation') {
             $this->handlePaymentIntentSucceeded($pi);
           }
           break;
 
-        // Known events that require no action — silence to keep logs clean.
+        // ── KNOWN NOISE — silenced ───────────────────────────────────────
         case 'customer.created':
         case 'customer.updated':
         case 'customer.subscription.created':
+        case 'checkout.session.async_payment_succeeded':
+        case 'checkout.session.async_payment_failed':
+        case 'checkout.session.expired':
         case 'payment_intent.created':
         case 'payment_intent.processing':
         case 'payment_method.attached':
@@ -108,6 +138,7 @@ class WebhookController extends ControllerBase {
         case 'invoice.finalized':
         case 'invoice.paid':
         case 'invoice.upcoming':
+        case 'invoice.updated':
         case 'setup_intent.created':
         case 'setup_intent.succeeded':
         case 'invoiceitem.created':
@@ -130,23 +161,273 @@ class WebhookController extends ControllerBase {
     return new JsonResponse(['received' => TRUE], 200);
   }
 
+  // ── Checkout Session handler ────────────────────────────────────────────────
+
+  /**
+   * checkout.session.completed
+   *
+   * This is the PRIMARY handler for new subscriptions created via the
+   * Checkout Sessions API (mode=subscription, ui_mode=elements).
+   *
+   * The session object contains:
+   *   - session->subscription   : Stripe sub ID (sub_xxx)
+   *   - session->customer        : Stripe customer ID (cus_xxx)
+   *   - session->metadata        : plan_nid, user_uid set when creating the session
+   *   - session->payment_intent  : PI ID for the initial invoice (if sync payment)
+   *   - session->invoice         : Invoice ID for the initial payment
+   *
+   * Idempotency: if a subscription node already exists for this Stripe sub ID
+   * (e.g. because invoice.payment_succeeded ran first), we skip node creation
+   * and only patch any missing fields (invoice_id, payment_intent_id).
+   */
+  private function handleCheckoutSessionCompleted(object $session): void {
+    // Only handle subscription mode sessions.
+    if (($session->mode ?? '') !== 'subscription') {
+      // Donation / one-time payment sessions are handled via payment_intent.succeeded.
+      return;
+    }
+
+    $stripeSubId = is_string($session->subscription ?? NULL)
+      ? $session->subscription
+      : ($session->subscription->id ?? '');
+
+    $customerId = is_string($session->customer ?? NULL)
+      ? $session->customer
+      : ($session->customer->id ?? '');
+
+    $sessionId = $session->id ?? '';
+    $meta      = self::extractMetadata($session);
+
+    $planNid = (int) ($meta['plan_nid'] ?? 0);
+    $userUid = (int) ($meta['user_uid'] ?? 0);
+
+    if (empty($stripeSubId) || $planNid === 0 || $userUid === 0) {
+      \Drupal::logger('stepuptours_api')->error(
+        'checkout.session.completed (@sid): missing stripe_sub_id, plan_nid or user_uid in session metadata.',
+        ['@sid' => $sessionId]
+      );
+      return;
+    }
+
+    // ── Idempotency: subscription node may already exist (invoice event won) ──
+    $existingNodes = \Drupal::entityTypeManager()
+      ->getStorage('node')
+      ->loadByProperties([
+        'type'                         => 'subscription',
+        'field_stripe_subscription_id' => $stripeSubId,
+      ]);
+
+    if (!empty($existingNodes)) {
+      // Node already created by invoice.payment_succeeded — nothing to do.
+      \Drupal::logger('stepuptours_api')->info(
+        'checkout.session.completed (@sid): subscription node already exists for sub @sub — skipping.',
+        ['@sid' => $sessionId, '@sub' => $stripeSubId]
+      );
+      return;
+    }
+
+    // ── Retrieve authoritative subscription data from Stripe ─────────────────
+    $stripeSub = \Stripe\Subscription::retrieve($stripeSubId);
+    $subArr    = $stripeSub->toArray();
+
+    // Prefer subscription-level metadata (propagated via subscription_data[metadata]).
+    // Fall back to session-level metadata if not set on the subscription yet.
+    $subMeta = self::extractMetadata($stripeSub);
+    $planNid = (int) ($subMeta['plan_nid'] ?? $planNid);
+    $userUid = (int) ($subMeta['user_uid'] ?? $userUid);
+
+    $plan = \Drupal::entityTypeManager()->getStorage('node')->load($planNid);
+    if (!$plan) {
+      \Drupal::logger('stepuptours_api')->error(
+        'checkout.session.completed: plan @nid not found', ['@nid' => $planNid]
+      );
+      return;
+    }
+
+    // ── Period dates ─────────────────────────────────────────────────────────
+    $periodStartTs = (int) (
+      $subArr['current_period_start']
+      ?? ($subArr['items']['data'][0]['current_period_start'] ?? time())
+    );
+    $periodEndTs = (int) (
+      $subArr['current_period_end']
+      ?? ($subArr['items']['data'][0]['current_period_end'] ?? 0)
+    );
+
+    if ($periodEndTs <= 0) {
+      $billingCycle = $plan->get('field_billing_cycle')->value ?? 'month';
+      $periodEndTs  = (new \DateTime())->modify('+1 ' . $billingCycle)->getTimestamp();
+    }
+
+    // ── Invoice / PaymentIntent details ──────────────────────────────────────
+    $invoiceId = is_string($session->invoice ?? NULL)
+      ? $session->invoice
+      : ($session->invoice->id ?? '');
+
+    // The initial invoice holds the PI for the first payment.
+    // If not expanded on the session, fetch the invoice.
+    $piId   = '';
+    $amount = (float) ($plan->get('field_price')->value ?? 0);
+
+    if (!empty($invoiceId)) {
+      try {
+        $invoice = \Stripe\Invoice::retrieve($invoiceId);
+        $piId    = is_string($invoice->payment_intent ?? NULL)
+          ? $invoice->payment_intent
+          : ($invoice->payment_intent->id ?? '');
+        $amount = ($invoice->amount_paid ?? (int) round($amount * 100)) / 100;
+      } catch (\Exception $e) {
+        // Non-fatal — proceed without PI/invoice details.
+        \Drupal::logger('stepuptours_api')->warning(
+          'checkout.session.completed: could not retrieve invoice @inv — @msg',
+          ['@inv' => $invoiceId, '@msg' => $e->getMessage()]
+        );
+      }
+    }
+
+    // ── Deactivate any other active subscriptions for this user ──────────────
+    $activeOthers = \Drupal::entityTypeManager()
+      ->getStorage('node')
+      ->loadByProperties([
+        'type'                      => 'subscription',
+        'field_user'                => $userUid,
+        'field_subscription_status' => 'active',
+      ]);
+
+    foreach ($activeOthers as $other) {
+      $otherStripeId = $other->get('field_stripe_subscription_id')->value ?? '';
+      if (!empty($otherStripeId) && $otherStripeId !== $stripeSubId) {
+        try {
+          \Stripe\Subscription::update($otherStripeId, ['cancel_at_period_end' => TRUE]);
+        } catch (\Exception $e) {
+          \Drupal::logger('stepuptours_api')->warning(
+            'Could not cancel previous Stripe sub @id: @msg',
+            ['@id' => $otherStripeId, '@msg' => $e->getMessage()]
+          );
+        }
+      }
+      $otherEnd    = (int) ($other->get('field_end_date')->value ?? 0);
+      $otherStatus = ($otherEnd > 0 && $otherEnd <= time()) ? 'expired' : 'cancelled';
+      $other->set('field_subscription_status', $otherStatus);
+      $other->save();
+    }
+
+    // ── Create subscription node ──────────────────────────────────────────────
+    $user    = \Drupal\user\Entity\User::load($userUid);
+    $name    = $user ? $user->getAccountName() : 'user' . $userUid;
+    $startDt = (new \DateTime())->setTimestamp($periodStartTs);
+
+    $subNode = \Drupal::entityTypeManager()->getStorage('node')->create([
+      'type'                         => 'subscription',
+      'title'                        => 'Subscription ' . $name . ' ' . $startDt->format('Y-m-d'),
+      'status'                       => 1,
+      'uid'                          => $userUid,
+      'field_user'                   => ['target_id' => $userUid],
+      'field_plan'                   => ['target_id' => $planNid],
+      'field_subscription_status'    => 'active',
+      'field_start_date'             => $periodStartTs,
+      'field_end_date'               => $periodEndTs,
+      'field_auto_renewal'           => TRUE,
+      'field_stripe_subscription_id' => $stripeSubId,
+      'field_stripe_customer_id'     => $customerId,
+    ]);
+    $subNode->save();
+
+    // ── Create subscription_payment node (only if not already created) ────────
+    $paymentCreated = FALSE;
+
+    if (!empty($piId)) {
+      $existingByPi = \Drupal::entityTypeManager()
+        ->getStorage('node')
+        ->loadByProperties([
+          'type'                        => 'subscription_payment',
+          'field_stripe_payment_intent' => $piId,
+        ]);
+      if (!empty($existingByPi)) {
+        $existing = reset($existingByPi);
+        $existing->set('field_subscription', ['target_id' => $subNode->id()]);
+        $existing->save();
+        $paymentCreated = TRUE;
+      }
+    }
+
+    if (!$paymentCreated && !empty($invoiceId)) {
+      $existingByInvoice = \Drupal::entityTypeManager()
+        ->getStorage('node')
+        ->loadByProperties([
+          'type'                    => 'subscription_payment',
+          'field_stripe_invoice_id' => $invoiceId,
+        ]);
+      if (!empty($existingByInvoice)) {
+        $existing = reset($existingByInvoice);
+        $existing->set('field_subscription', ['target_id' => $subNode->id()]);
+        $existing->save();
+        $paymentCreated = TRUE;
+      }
+    }
+
+    if (!$paymentCreated && $amount > 0) {
+      $payment = \Drupal::entityTypeManager()->getStorage('node')->create([
+        'type'                        => 'subscription_payment',
+        'title'                       => 'Payment ' . ($invoiceId ?: $sessionId),
+        'status'                      => 1,
+        'uid'                         => $userUid,
+        'field_subscription'          => ['target_id' => $subNode->id()],
+        'field_user'                  => ['target_id' => $userUid],
+        'field_plan'                  => ['target_id' => $planNid],
+        'field_amount'                => (string) $amount,
+        'field_stripe_invoice_id'     => $invoiceId,
+        'field_stripe_payment_intent' => $piId,
+        'field_payment_status'        => 'succeed',
+        'field_period_start'          => $periodStartTs,
+        'field_period_end'            => $periodEndTs,
+      ]);
+      $payment->save();
+    }
+
+    \Drupal::logger('stepuptours_api')->info(
+      'Subscription created via checkout.session.completed: node @nid, sub @sub, user @uid, end @end',
+      [
+        '@nid' => $subNode->id(),
+        '@sub' => $stripeSubId,
+        '@uid' => $userUid,
+        '@end' => date('Y-m-d H:i:s', $periodEndTs),
+      ]
+    );
+  }
+
   // ── Invoice handlers ────────────────────────────────────────────────────────
 
   /**
    * invoice.payment_succeeded
-   * Creates/updates the subscription node and records a subscription_payment.
+   *
+   * Handles renewal payments (and the initial payment as a safe fallback).
+   * For new subscriptions created via Checkout Sessions, checkout.session.completed
+   * is the primary handler and this runs second — idempotency ensures no duplicates.
+   *
+   * Metadata is read from the Stripe Subscription object (propagated via
+   * subscription_data[metadata] when creating the CheckoutSession).
    */
   private function handleInvoicePaymentSucceeded(object $invoice): void {
-    $stripeSubId = $invoice->subscription ?? '';
-    $invoiceId   = $invoice->id ?? '';
-    $amountPaid  = (int) ($invoice->amount_paid ?? 0);
+    $stripeSubId = '';
+    if (!empty($invoice->subscription)) {
+      $stripeSubId = is_string($invoice->subscription)
+        ? $invoice->subscription
+        : ($invoice->subscription->id ?? '');
+    }
+
+    $invoiceId  = $invoice->id ?? '';
+    $amountPaid = (int) ($invoice->amount_paid ?? 0);
 
     if (empty($stripeSubId) || empty($invoiceId)) {
-      \Drupal::logger('stepuptours_api')->warning('invoice.payment_succeeded: missing subscription or invoice id');
+      \Drupal::logger('stepuptours_api')->warning(
+        'invoice.payment_succeeded: missing subscription or invoice id (invoice: @inv, sub: @sub)',
+        ['@inv' => $invoiceId ?: 'n/a', '@sub' => $stripeSubId ?: 'n/a']
+      );
       return;
     }
 
-    // ── Idempotency (paid invoices only — $0 invoices never create payment nodes) ──
+    // ── Idempotency ───────────────────────────────────────────────────────────
     if ($amountPaid > 0) {
       $existingByInvoice = \Drupal::entityTypeManager()
         ->getStorage('node')
@@ -159,7 +440,7 @@ class WebhookController extends ControllerBase {
         return;
       }
 
-      $piIdForCheck = is_string($invoice->payment_intent)
+      $piIdForCheck = is_string($invoice->payment_intent ?? NULL)
         ? $invoice->payment_intent
         : ($invoice->payment_intent->id ?? '');
 
@@ -172,7 +453,6 @@ class WebhookController extends ControllerBase {
           ]);
 
         if (!empty($existingByPi)) {
-          // Update with invoice_id so future lookups find it by invoice.
           $existing = reset($existingByPi);
           $existing->set('field_stripe_invoice_id', $invoiceId);
           $existing->save();
@@ -181,7 +461,7 @@ class WebhookController extends ControllerBase {
       }
     }
 
-    // ── Retrieve Stripe Subscription (metadata + authoritative period end) ──
+    // ── Retrieve Stripe Subscription ─────────────────────────────────────────
     $stripeSub = \Stripe\Subscription::retrieve($stripeSubId);
     $meta      = self::extractMetadata($stripeSub);
     $subArr    = $stripeSub->toArray();
@@ -191,36 +471,33 @@ class WebhookController extends ControllerBase {
     $customerId = $invoice->customer ?? '';
 
     if ($planNid === 0 || $userUid === 0) {
-      \Drupal::logger('stepuptours_api')->warning('invoice.payment_succeeded: missing plan_nid or user_uid in Stripe metadata');
+      \Drupal::logger('stepuptours_api')->warning(
+        'invoice.payment_succeeded: missing plan_nid or user_uid in Stripe subscription metadata (sub: @sub)',
+        ['@sub' => $stripeSubId]
+      );
       return;
     }
 
     $plan = \Drupal::entityTypeManager()->getStorage('node')->load($planNid);
     if (!$plan) {
-      \Drupal::logger('stepuptours_api')->error('invoice.payment_succeeded: plan @nid not found', ['@nid' => $planNid]);
+      \Drupal::logger('stepuptours_api')->error(
+        'invoice.payment_succeeded: plan @nid not found', ['@nid' => $planNid]
+      );
       return;
     }
 
-    $billingCycle = $plan->get('field_billing_cycle')->value ?? 'month';
+    $billingCycle = $plan->get('field_billing_cycle')->value;
     $periodStart  = (new \DateTime())->setTimestamp((int) ($invoice->period_start ?? time()));
 
-    // ── Authoritative end date from Stripe Subscription ──────────────────────
-    // DO NOT use invoice->period_end: for trial→active invoices it equals
-    // trial_end (not trial_end+interval), and for proration invoices it equals
-    // the new billing anchor (not anchor+interval).
-    // In Stripe API 2024+, current_period_end moved from subscription level to
-    // per-item level. Check both.
+    // Authoritative end date from the Stripe Subscription.
     $newEndTs = $subArr['current_period_end']
       ?? ($subArr['items']['data'][0]['current_period_end'] ?? NULL);
 
-    // Fallback: add one billing interval to now.
-    // field_billing_cycle values ('day', 'month', 'year') are valid PHP modify
-    // units — no mapping table needed.
     if (empty($newEndTs)) {
       $newEndTs = (new \DateTime())->modify('+1 ' . $billingCycle)->getTimestamp();
     }
 
-    // ── Find or create the subscription node ──────────────────────────────
+    // ── Find or create subscription node ─────────────────────────────────────
     $subNodes = \Drupal::entityTypeManager()
       ->getStorage('node')
       ->loadByProperties([
@@ -232,7 +509,6 @@ class WebhookController extends ControllerBase {
       $subNode           = reset($subNodes);
       $cancelAtPeriodEnd = !empty($subArr['cancel_at_period_end']);
 
-      // Only advance end_date — never go backward.
       $currentEndDate = (int) ($subNode->get('field_end_date')->value ?? 0);
       if ((int) $newEndTs > $currentEndDate) {
         $subNode->set('field_end_date', (int) $newEndTs);
@@ -244,20 +520,16 @@ class WebhookController extends ControllerBase {
       }
       $subNode->save();
     } else {
-      // $0 invoices (trial period) fire before activate() creates the node.
-      // Skip node creation here — activate() is responsible for the initial node.
-      // Paid renewal invoices reaching this branch mean activate() was missed
-      // (e.g. webhook received before the user completed the flow), so we
-      // create the node as a recovery path for paid invoices only.
+      // Fallback: checkout.session.completed hasn't run yet (race) or was missed.
+      // Only create the node here for paid invoices — $0 invoices are not first payments.
       if ($amountPaid <= 0) {
         \Drupal::logger('stepuptours_api')->info(
-          'Skipping $0 invoice @inv for sub @sub — no node yet, activate() will create it.',
+          'invoice.payment_succeeded: skipping $0 invoice @inv for sub @sub — no subscription node yet.',
           ['@inv' => $invoiceId, '@sub' => $stripeSubId]
         );
         return;
       }
 
-      // Deactivate any other active subscriptions for this user.
       $activeOthers = \Drupal::entityTypeManager()
         ->getStorage('node')
         ->loadByProperties([
@@ -293,7 +565,7 @@ class WebhookController extends ControllerBase {
       $subNode->save();
     }
 
-    // ── Skip payment creation for $0 invoices (end_date already synced above) ──
+    // Skip payment node for $0 invoices.
     if ($amountPaid <= 0) {
       \Drupal::logger('stepuptours_api')->info(
         'Synced end_date from $0 invoice @inv for sub @sub (new end: @ts).',
@@ -302,9 +574,9 @@ class WebhookController extends ControllerBase {
       return;
     }
 
-    // ── Create subscription_payment node ──────────────────────────────────
+    // ── Create subscription_payment node ──────────────────────────────────────
     $amount = $amountPaid / 100;
-    $piId   = is_string($invoice->payment_intent)
+    $piId   = is_string($invoice->payment_intent ?? NULL)
       ? $invoice->payment_intent
       : ($invoice->payment_intent->id ?? '');
 
@@ -326,15 +598,14 @@ class WebhookController extends ControllerBase {
     $payment->save();
 
     \Drupal::logger('stepuptours_api')->info(
-      'Subscription payment recorded: invoice @inv for user @uid, amount @amount, end @end',
+      'Renewal payment recorded: invoice @inv for user @uid, amount @amount, end @end',
       ['@inv' => $invoiceId, '@uid' => $userUid, '@amount' => $amount, '@end' => date('Y-m-d H:i:s', (int) $newEndTs)]
     );
   }
 
   /**
    * invoice.payment_failed
-   * Records a failed payment. Does not modify subscription status yet
-   * (Stripe will retry and eventually fire customer.subscription.deleted).
+   * Records a failed payment and marks the subscription as past_due.
    */
   private function handleInvoicePaymentFailed(object $invoice): void {
     $stripeSubId = $invoice->subscription ?? '';
@@ -344,7 +615,6 @@ class WebhookController extends ControllerBase {
       return;
     }
 
-    // Idempotency.
     $existing = \Drupal::entityTypeManager()
       ->getStorage('node')
       ->loadByProperties([
@@ -356,7 +626,6 @@ class WebhookController extends ControllerBase {
       return;
     }
 
-    // Get metadata from Stripe Subscription.
     $userUid = 0;
     $planNid = 0;
     if (!empty($stripeSubId)) {
@@ -366,18 +635,17 @@ class WebhookController extends ControllerBase {
         $userUid   = (int) ($meta['user_uid'] ?? 0);
         $planNid   = (int) ($meta['plan_nid'] ?? 0);
       } catch (\Exception $e) {
-        // Continue even if we can't retrieve metadata.
+        // Continue even without metadata.
       }
     }
 
     $periodStart = (new \DateTime())->setTimestamp((int) ($invoice->period_start ?? time()));
     $periodEnd   = (new \DateTime())->setTimestamp((int) ($invoice->period_end ?? time()));
     $amount      = ($invoice->amount_due ?? 0) / 100;
-    $piId        = is_string($invoice->payment_intent)
+    $piId        = is_string($invoice->payment_intent ?? NULL)
       ? $invoice->payment_intent
       : ($invoice->payment_intent->id ?? '');
 
-    // Find subscription node to link to.
     $subNodeId = NULL;
     if (!empty($stripeSubId)) {
       $subNodes = \Drupal::entityTypeManager()
@@ -389,8 +657,6 @@ class WebhookController extends ControllerBase {
       if (!empty($subNodes)) {
         $subNode   = reset($subNodes);
         $subNodeId = $subNode->id();
-
-        // Mark as past_due.
         $subNode->set('field_subscription_status', 'past_due');
         $subNode->save();
       }
@@ -412,8 +678,8 @@ class WebhookController extends ControllerBase {
       $fields['field_subscription'] = ['target_id' => $subNodeId];
     }
     if ($userUid > 0) {
-      $fields['uid']         = $userUid;
-      $fields['field_user']  = ['target_id' => $userUid];
+      $fields['uid']        = $userUid;
+      $fields['field_user'] = ['target_id' => $userUid];
     }
     if ($planNid > 0) {
       $fields['field_plan'] = ['target_id' => $planNid];
@@ -429,14 +695,7 @@ class WebhookController extends ControllerBase {
 
   /**
    * customer.subscription.deleted
-   *
-   * Fired by Stripe when the subscription period ends after cancel_at_period_end
-   * or after an immediate cancellation. At this point the user has no active
-   * Stripe subscription → mark Drupal node as 'expired' directly.
-   *
-   * Note: 'cancelled' is only used while the sub is still within its paid period
-   * (user clicked cancel but end_date is in the future). Once the period ends
-   * Stripe fires this event and we go straight to 'expired'.
+   * Marks the Drupal subscription node as expired.
    */
   private function handleSubscriptionDeleted(object $stripeSub): void {
     $stripeSubId = $stripeSub->id ?? '';
@@ -471,10 +730,6 @@ class WebhookController extends ControllerBase {
   /**
    * customer.subscription.updated
    * Syncs cancel_at_period_end → field_auto_renewal.
-   * This fires whenever the Stripe subscription is modified (e.g. renewal
-   * toggled on/off). We use it as the authoritative source of truth so that
-   * field_auto_renewal stays consistent with Stripe even if the API call
-   * succeeded but the direct Drupal update failed.
    */
   private function handleSubscriptionUpdated(object $stripeSub): void {
     $stripeSubId = $stripeSub->id ?? '';
@@ -493,11 +748,9 @@ class WebhookController extends ControllerBase {
       return;
     }
 
-    $node = reset($nodes);
-
-    // cancel_at_period_end=true means the user disabled auto-renewal.
+    $node              = reset($nodes);
     $cancelAtPeriodEnd = (bool) ($stripeSub->cancel_at_period_end ?? FALSE);
-    $autoRenewal = !$cancelAtPeriodEnd;
+    $autoRenewal       = !$cancelAtPeriodEnd;
 
     $current = (bool) $node->get('field_auto_renewal')->value;
     if ($current === $autoRenewal) {
@@ -517,7 +770,6 @@ class WebhookController extends ControllerBase {
 
   /**
    * Safely extract metadata from a Stripe object.
-   * Handles both StripeObject (SDK) and plain stdClass/array (dev mode).
    */
   private static function extractMetadata(object $stripeObject): array {
     $meta = $stripeObject->metadata ?? [];
@@ -530,7 +782,8 @@ class WebhookController extends ControllerBase {
   }
 
   /**
-   * Handle successful PaymentIntent for donations.
+   * Handle successful PaymentIntent for one-time donations.
+   * Only called when metadata type === 'donation'.
    */
   private function handlePaymentIntentSucceeded(object $paymentIntent): void {
     $metadata = self::extractMetadata($paymentIntent);
@@ -586,20 +839,10 @@ class WebhookController extends ControllerBase {
   }
 
   /**
-   * invoice_payment.paid
-   *
-   * Fired by Stripe's newer Invoice Payment API for some billing flows such as
-   * billing_cycle_anchor resets (proration invoices). The event data object is
-   * an InvoicePayment, not an Invoice — fetch the full Invoice and delegate to
-   * the existing handleInvoicePaymentSucceeded() handler.
-   *
-   * Both invoice.payment_succeeded and invoice_payment.paid may fire for the
-   * same underlying invoice in some flows. The idempotency check on
-   * field_stripe_invoice_id inside handleInvoicePaymentSucceeded() prevents
-   * duplicate subscription_payment nodes.
+   * invoice_payment.paid — newer Stripe Invoice Payment API.
+   * Fetch the full invoice and delegate to handleInvoicePaymentSucceeded().
    */
   private function handleInvoicePaymentPaidEvent(object $invoicePayment): void {
-    // The invoice field is either a string ID or an expanded Invoice object.
     $invoiceId = is_string($invoicePayment->invoice ?? NULL)
       ? $invoicePayment->invoice
       : ($invoicePayment->invoice->id ?? '');
@@ -611,18 +854,10 @@ class WebhookController extends ControllerBase {
       return;
     }
 
-    $config    = \Drupal::config('stepuptours.payment');
-    $secretKey = $config->get('stripe_secret_key') ?? '';
-    if (empty($secretKey) || $secretKey === 'sk_test_PLACEHOLDER') {
-      return;
-    }
-
     try {
-      \Stripe\Stripe::setApiKey($secretKey);
       $invoice = \Stripe\Invoice::retrieve($invoiceId);
       $this->handleInvoicePaymentSucceeded($invoice);
-    }
-    catch (\Exception $e) {
+    } catch (\Exception $e) {
       \Drupal::logger('stepuptours_api')->error(
         'invoice_payment.paid: could not process invoice @id — @msg',
         ['@id' => $invoiceId, '@msg' => $e->getMessage()]

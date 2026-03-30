@@ -36,9 +36,9 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
+  { id: 'subscription', labelKey: 'dashboard.tabs.subscription', icon: 'card-outline' },
   { id: 'tours', labelKey: 'dashboard.tabs.tours', icon: 'map-outline' },
   { id: 'businesses', labelKey: 'dashboard.tabs.businesses', icon: 'business-outline' },
-  { id: 'subscription', labelKey: 'dashboard.tabs.subscription', icon: 'card-outline' },
   { id: 'payment', labelKey: 'dashboard.tabs.payment', icon: 'wallet-outline' },
   { id: 'donations', labelKey: 'dashboard.tabs.donations', icon: 'heart-outline' },
 ];
@@ -63,7 +63,7 @@ export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
 
-  const initialTab: TabId = tabParam && isValidTab(tabParam) ? tabParam : 'tours';
+  const initialTab: TabId = tabParam && isValidTab(tabParam) ? tabParam : 'subscription';
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -209,9 +209,9 @@ export default function DashboardScreen() {
           <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
           {mobileTabBar}
           <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+            {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
             {activeTab === 'tours' && <MyToursTab userId={user.id} />}
             {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
-            {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
             {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
             {activeTab === 'donations' && <DonationsTab userId={user.id} />}
           </View>
@@ -228,9 +228,9 @@ export default function DashboardScreen() {
           >
             <PageBanner icon="grid-outline" iconBgColor="#F59E0B" title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} showBack={false} />
             <View style={{ maxWidth: CONTENT_MAX_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20 }}>
+              {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
               {activeTab === 'tours' && <MyToursTab userId={user.id} />}
               {activeTab === 'businesses' && <BusinessTab userId={user.id} />}
-              {activeTab === 'subscription' && <SubscriptionTab userId={user.id} onScrollTop={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />}
               {activeTab === 'payment' && <PaymentDataTab userId={user.id} />}
               {activeTab === 'donations' && <DonationsTab userId={user.id} />}
             </View>

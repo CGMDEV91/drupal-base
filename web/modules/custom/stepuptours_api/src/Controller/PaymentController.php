@@ -107,6 +107,7 @@ class PaymentController extends ControllerBase {
       $paymentIntent = \Stripe\PaymentIntent::create([
         'amount' => (int) round($amount * 100), // cents
         'currency' => strtolower($currency),
+        'payment_method_types' => ['card'],
         'metadata' => [
           'tour_id' => $tourId,
           'tour_nid' => (string) $tour->id(),

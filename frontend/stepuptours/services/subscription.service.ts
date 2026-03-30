@@ -1,6 +1,4 @@
 // services/subscription.service.ts
-// Subscription payment flow — agnostic of backend internals
-
 import axios from 'axios';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -12,26 +10,26 @@ function getAuthHeader(): Record<string, string> {
   return { Authorization: `Basic ${session.token}` };
 }
 
-export interface CreateSubscriptionResult {
+export interface CreateCheckoutSessionResult {
   clientSecret: string;
-  subscriptionId: string;  // Stripe Subscription ID (sub_xxx)
-  paymentIntentId: string;
-  stripeCustomerId: string;
+  checkoutSessionId: string;
+}
+
+export interface CheckoutSessionStatus {
+  status: 'open' | 'complete' | 'expired';
+  paymentStatus: 'paid' | 'unpaid' | 'no_payment_required';
+  subscriptionId: string | null;
+  customerId: string | null;
 }
 
 /**
- * Creates a Stripe Subscription for the given plan.
- * Returns the clientSecret of the first invoice's PaymentIntent, ready to be
- * confirmed with stripe.confirmCardPayment().
- *
- * The Stripe Subscription handles BOTH the initial charge AND all future
- * auto-renewals — no separate PaymentIntent, no double charges.
- *
- * After confirmation, call activateStripeSubscription().
+ * Crea un Stripe CheckoutSession (mode=subscription, ui_mode=elements).
+ * Devuelve clientSecret para EmbeddedCheckoutProvider y checkoutSessionId
+ * para verificar el estado después del pago.
  */
-export async function createStripeSubscription(
+export async function createStripeCheckoutSession(
   planId: string,
-): Promise<CreateSubscriptionResult> {
+): Promise<CreateCheckoutSessionResult> {
   const { data } = await axios.post(
     `${BASE_URL}/api/subscription/create`,
     { planId },
@@ -41,28 +39,23 @@ export async function createStripeSubscription(
 }
 
 /**
- * After stripe.confirmCardPayment() succeeds, call this to:
- * - Verify the PaymentIntent and attach the PM to the Stripe Subscription
- * - Create the Drupal subscription + subscription_payment nodes
- *
- * subscriptionId = Stripe Subscription ID (sub_xxx) from createStripeSubscription().
- * paymentIntentId = PI ID from confirmCardPayment result.
+ * Verifica el estado del CheckoutSession tras completar el pago.
+ * Llamar desde onComplete del EmbeddedCheckoutProvider.
  */
-export async function activateStripeSubscription(data: {
-  subscriptionId: string;   // Stripe Subscription ID (sub_xxx)
-  paymentIntentId: string;  // PaymentIntent ID from confirmCardPayment
-  planId: string;
-}): Promise<void> {
-  await axios.post(
-    `${BASE_URL}/api/subscription/activate`,
-    data,
+export async function getCheckoutSessionStatus(
+  sessionId: string,
+): Promise<CheckoutSessionStatus> {
+  const { data } = await axios.post(
+    `${BASE_URL}/api/subscription/session-status`,
+    { sessionId },
     { headers: { 'Content-Type': 'application/json', ...getAuthHeader() } },
   );
+  return data;
 }
 
 /**
- * Cancels the Stripe Subscription immediately via backend.
- * Marks the Drupal subscription as 'cancelled'.
+ * Cancela la suscripción al final del período actual.
+ * Marca el nodo Drupal como 'cancelled'.
  */
 export async function cancelStripeSubscription(
   subscriptionNodeId: string,
@@ -75,8 +68,8 @@ export async function cancelStripeSubscription(
 }
 
 /**
- * Disables auto-renewal: schedules Stripe Subscription to cancel at period end.
- * Drupal subscription stays active; user retains access until end date.
+ * Desactiva la renovación automática (cancel_at_period_end=true en Stripe).
+ * El usuario mantiene acceso hasta la fecha de fin.
  */
 export async function disableSubscriptionAutoRenewal(
   subscriptionNodeId: string,
@@ -89,8 +82,7 @@ export async function disableSubscriptionAutoRenewal(
 }
 
 /**
- * Re-enables auto-renewal: removes cancel_at_period_end from the Stripe
- * Subscription and sets field_auto_renewal = true in Drupal.
+ * Reactiva la renovación automática (cancel_at_period_end=false en Stripe).
  */
 export async function enableSubscriptionAutoRenewal(
   subscriptionNodeId: string,

@@ -1,5 +1,5 @@
 // components/dashboard/SubscriptionTab.tsx
-// Subscription management: active plan details or plan selection + Stripe checkout
+// Subscription management: active plan details or plan selection + Stripe Checkout Elements
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
@@ -13,11 +13,18 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { getActiveSubscription, getSubscriptionPlans, getPaymentHistoryByUser } from '../../services/dashboard.service';
-import { createStripeSubscription, activateStripeSubscription, cancelStripeSubscription, disableSubscriptionAutoRenewal, enableSubscriptionAutoRenewal } from '../../services/subscription.service';
+import { createStripeCheckoutSession, getCheckoutSessionStatus, cancelStripeSubscription, disableSubscriptionAutoRenewal, enableSubscriptionAutoRenewal } from '../../services/subscription.service';
 import { getStripePromise } from '../../lib/stripe';
 import type { Subscription, SubscriptionPlan, SubscriptionPayment } from '../../types';
+
+// NEW: Import from @stripe/react-stripe-js/checkout instead of @stripe/react-stripe-js
+// CheckoutProvider uses the CheckoutSession clientSecret (not a PaymentIntent secret).
+// useCheckout() gives access to the checkout object and checkout.confirm() to complete payment.
+import {
+  EmbeddedCheckoutProvider,
+  EmbeddedCheckout,
+} from '@stripe/react-stripe-js';
 
 const AMBER = '#F59E0B';
 const AMBER_DARK = '#D97706';
@@ -48,7 +55,7 @@ function cyclePriceUnit(billingCycle: string, t: (key: string) => string): strin
   return billingCycle;
 }
 
-// ── Main tab ─────────────────────────────────────────────────────────────────
+// ── Main tab ──────────────────────────────────────────────────────────────────
 
 export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
   const { t } = useTranslation();
@@ -103,7 +110,7 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         }
         setSubscription((prev) => (prev ? { ...prev, autoRenewal: value } : prev));
       } catch {
-        // revert on failure — state unchanged, switch reverts
+        // Revert on failure — state unchanged, switch reverts.
       } finally {
         setUpdatingRenewal(false);
       }
@@ -116,7 +123,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
     setCancelling(true);
     try {
       await cancelStripeSubscription(subscription.id);
-      // Subscription stays active until endDate — just disable renewal in local state
       setSubscription((prev) => (prev ? { ...prev, autoRenewal: false } : prev));
       setCancelConfirming(false);
     } catch {
@@ -147,12 +153,9 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
     );
   }
 
-  // No subscription or subscription has expired → show plan selector + payment history
   if (!subscription || isExpired) {
     return <NoSubscriptionView onSubscribed={handleSubscribeSuccess} userId={userId} />;
   }
-
-  // ── Active subscription ───────────────────────────────────────────────────
 
   const plan = subscription.plan;
   const maxBusinessLabel = plan.maxFeaturedDetail === -1 ? t('dashboard.subscription.unlimited') : String(plan.maxFeaturedDetail);
@@ -161,7 +164,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
 
   return (
     <View style={styles.container}>
-      {/* Success toast */}
       {successToast && (
         <View style={styles.successToast}>
           <Ionicons name="checkmark-circle" size={18} color="#15803D" />
@@ -172,7 +174,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         </View>
       )}
 
-      {/* Plan header */}
       <View style={[styles.planCard, plan.planType === 'premium' && styles.planCardPremium]}>
         <View style={styles.planCardHeader}>
           <Text style={styles.planName}>{plan.title}</Text>
@@ -187,7 +188,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         </Text>
       </View>
 
-      {/* Details */}
       <View style={styles.section}>
         <InfoRow label={t('dashboard.subscription.cycle')} value={cycleLabel(plan.billingCycle, t)} />
         <InfoRow label={t('dashboard.subscription.starts')} value={formatDate(subscription.startDate)} />
@@ -195,7 +195,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         <InfoRow label={t('dashboard.subscription.type')} value={subscription.status === 'active' ? t('subscription.statusActive') : subscription.status} />
       </View>
 
-      {/* Auto-renewal */}
       <View style={styles.renewalRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.renewalLabel}>{t('dashboard.subscription.autoRenewal')}</Text>
@@ -217,7 +216,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         )}
       </View>
 
-      {/* Warning when renewal is disabled */}
       {!subscription.autoRenewal && (
         <View style={styles.warningBox}>
           <Ionicons name="information-circle-outline" size={18} color="#92400E" />
@@ -260,7 +258,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         </View>
       )}
 
-      {/* Plan limits */}
       <Text style={styles.sectionTitle}>{t('dashboard.subscription.limits')}</Text>
       <View style={styles.limitsGrid}>
         <LimitCard icon="business-outline" label={t('dashboard.subscription.maxBusiness')} value={maxBusinessLabel} />
@@ -268,7 +265,6 @@ export function SubscriptionTab({ userId, onScrollTop }: SubscriptionTabProps) {
         <LimitCard icon="language-outline" label={t('dashboard.subscription.maxLanguages')} value={maxLangLabel} />
       </View>
 
-      {/* Payment history */}
       <PaymentHistorySection userId={userId} />
     </View>
   );
@@ -286,7 +282,6 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [autoRenewal, setAutoRenewal] = useState(true);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   useEffect(() => {
@@ -301,7 +296,6 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.noSubHeader}>
         <Ionicons name="card-outline" size={48} color="#D1D5DB" />
         <Text style={styles.noSubTitle}>{t('subscription.noActiveTitle')}</Text>
@@ -316,7 +310,6 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
         </Text>
       ) : (
         <>
-          {/* Plan list — all available plans as selectable cards */}
           <View style={styles.planList}>
             {plans.map((plan) => {
               const isSelected = selectedPlan?.id === plan.id;
@@ -350,7 +343,6 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
             })}
           </View>
 
-          {/* Selected plan detail + checkout */}
           {selectedPlan && (
             <View style={styles.planSelectionCard}>
               <View style={styles.planSelectionHeader}>
@@ -376,20 +368,6 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
                 )}
               </View>
 
-              {/* Auto-renewal toggle */}
-              {selectedPlan.autoRenewal && (
-                <View style={styles.renewalRow}>
-                  <Text style={styles.renewalLabel}>{t('subscription.autoRenewal')}</Text>
-                  <Switch
-                    value={autoRenewal}
-                    onValueChange={setAutoRenewal}
-                    trackColor={{ false: '#E5E7EB', true: AMBER }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              )}
-
-              {/* Checkout */}
               {!checkoutOpen ? (
                 <TouchableOpacity
                   style={styles.subscribeBtn}
@@ -404,8 +382,7 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
               ) : (
                 <SubscriptionCheckout
                   plan={selectedPlan}
-                  autoRenewal={autoRenewal}
-                  onSuccess={() => onSubscribed()}
+                  onSuccess={onSubscribed}
                   onCancel={() => setCheckoutOpen(false)}
                 />
               )}
@@ -414,79 +391,199 @@ function NoSubscriptionView({ onSubscribed, userId }: NoSubscriptionViewProps) {
         </>
       )}
 
-      {/* Payment history — always visible */}
       <PaymentHistorySection userId={userId} />
     </View>
   );
 }
 
 // ── Checkout component ────────────────────────────────────────────────────────
+//
+// NEW FLOW:
+// 1. Backend creates a CheckoutSession (mode=subscription, ui_mode=elements)
+//    and returns { clientSecret, checkoutSessionId }.
+// 2. Frontend wraps with CheckoutProvider using that clientSecret.
+// 3. Inside the provider, StripeCheckoutForm renders a <PaymentElement> and
+//    calls checkout.confirm() when the user clicks Pay.
+// 4. On success, the frontend calls sessionStatus() to verify the session is
+//    'complete', then calls onSuccess() to refresh the parent.
+// 5. Drupal node creation happens in the webhook (checkout.session.completed).
 
 interface SubscriptionCheckoutProps {
   plan: SubscriptionPlan;
-  autoRenewal: boolean;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 function SubscriptionCheckout(props: SubscriptionCheckoutProps) {
+  const { t } = useTranslation();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
+  const [initError, setInitError] = useState('');
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setInitializing(true);
+    setInitError('');
+
+    createStripeCheckoutSession(props.plan.id)
+      .then((result) => {
+        if (cancelled) return;
+        setClientSecret(result.clientSecret);
+        setCheckoutSessionId(result.checkoutSessionId);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        const code = err?.response?.data?.code;
+        if (code === 'ALREADY_SUBSCRIBED') {
+          setInitError(t('subscription.alreadySubscribed'));
+        } else {
+          setInitError(err?.response?.data?.error ?? err.message ?? t('subscription.paymentError'));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInitializing(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [props.plan.id, t]);
+
   if (Platform.OS !== 'web') {
-    return <NativeCheckoutPlaceholder {...props} />;
+    return <NativeCheckoutPlaceholder onCancel={props.onCancel} />;
   }
+
+  if (initializing) {
+    return (
+      <View style={checkoutStyles.wrap}>
+        <ActivityIndicator color={AMBER} style={{ marginVertical: 20 }} />
+      </View>
+    );
+  }
+
+  if (initError) {
+    return (
+      <View style={checkoutStyles.wrap}>
+        <Text style={checkoutStyles.errorText}>{initError}</Text>
+        <TouchableOpacity style={checkoutStyles.cancelLink} onPress={props.onCancel}>
+          <Text style={checkoutStyles.cancelLinkText}>{t('subscription.cancelCheckout')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!clientSecret) {
+    return null;
+  }
+
+  // EmbeddedCheckoutProvider + EmbeddedCheckout renderizan el formulario
+  // completo de Stripe en un iframe. No necesitamos PaymentElement ni useCheckout.
+  // onComplete se llama cuando Stripe confirma el pago internamente.
+  const handleComplete = async () => {
+    if (!checkoutSessionId) return;
+    try {
+      const status = await getCheckoutSessionStatus(checkoutSessionId);
+      if (status.status === 'complete') {
+        props.onSuccess();
+      }
+    } catch {
+      // Si falla la verificación, onSuccess igualmente — el webhook creará el nodo.
+      props.onSuccess();
+    }
+  };
+
   return (
-    <Elements stripe={getStripePromise()}>
-      <StripeSubscriptionForm {...props} />
-    </Elements>
+    <View style={checkoutStyles.wrap}>
+      <View style={checkoutStyles.header}>
+        <Ionicons name="lock-closed-outline" size={14} color="#6B7280" />
+        <Text style={checkoutStyles.headerText}>{t('subscription.securePayment')}</Text>
+      </View>
+
+      {/* EmbeddedCheckout necesita estar dentro de un div con altura fija en web */}
+      <View style={checkoutStyles.embeddedWrap}>
+        <EmbeddedCheckoutProvider
+          stripe={getStripePromise()}
+          options={{
+            clientSecret,
+            onComplete: handleComplete,
+          }}
+        >
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
+      </View>
+
+      <TouchableOpacity style={checkoutStyles.cancelLink} onPress={props.onCancel}>
+        <Text style={checkoutStyles.cancelLinkText}>{t('subscription.cancelCheckout')}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
-function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: SubscriptionCheckoutProps) {
-  const { t } = useTranslation();
-  const stripe   = useStripe();
-  const elements = useElements();
+// ── Stripe Checkout form (web only) ──────────────────────────────────────────
+
+interface StripeCheckoutFormProps {
+  plan: SubscriptionPlan;
+  checkoutSessionId: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function StripeCheckoutForm({ plan, checkoutSessionId, onSuccess, onCancel }: StripeCheckoutFormProps) {
+  const { t }      = useTranslation();
+  const checkoutState = useCheckout();
   const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]           = useState('');
+
+  if (checkoutState.type === 'loading') {
+    return (
+      <View style={checkoutStyles.wrap}>
+        <ActivityIndicator color={AMBER} style={{ marginVertical: 20 }} />
+      </View>
+    );
+  }
+
+  if (checkoutState.type === 'error') {
+    return (
+      <View style={checkoutStyles.wrap}>
+        <Text style={checkoutStyles.errorText}>{checkoutState.error.message}</Text>
+        <TouchableOpacity style={checkoutStyles.cancelLink} onPress={onCancel}>
+          <Text style={checkoutStyles.cancelLinkText}>{t('subscription.cancelCheckout')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const { checkout } = checkoutState;
 
   const handlePay = async () => {
-    if (!stripe || !elements) return;
     setProcessing(true);
     setError('');
+
     try {
-      // 1. Create Stripe Subscription on backend → returns clientSecret of first invoice
-      const result = await createStripeSubscription(plan.id);
+      // checkout.confirm() handles everything:
+      // - Collects payment details from the embedded PaymentElement
+      // - Confirms the payment with Stripe
+      // - For 3DS/redirect methods, redirects to return_url automatically
+      // - For card payments, resolves inline
+      const result = await checkout.confirm();
 
-      // 2. Confirm payment with CardElement
-      const cardEl = elements.getElement(CardElement);
-      if (!cardEl) throw new Error('Card not mounted');
-
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        result.clientSecret,
-        { payment_method: { card: cardEl } },
-      );
-
-      if (stripeError) {
-        setError(stripeError.message ?? t('subscription.paymentError'));
+      if (result.type === 'error') {
+        setError(result.error.message ?? t('subscription.paymentError'));
         setProcessing(false);
         return;
       }
 
-      // 3. Activate: attach PM to subscription + create Drupal nodes
-      if (paymentIntent?.status === 'succeeded') {
-        await activateStripeSubscription({
-          subscriptionId:  result.subscriptionId,  // Stripe sub ID (sub_xxx)
-          paymentIntentId: paymentIntent.id,
-          planId:          plan.id,
-        });
+      // Payment succeeded — verify via session-status endpoint.
+      // The webhook will create the Drupal node asynchronously.
+      // We just need to confirm the session is 'complete' for the UI.
+      const status = await getCheckoutSessionStatus(checkoutSessionId);
+      if (status.status === 'complete') {
         onSuccess();
+      } else {
+        setError(t('subscription.paymentError'));
       }
     } catch (err: any) {
-      const backendCode = err?.response?.data?.code;
-      if (backendCode === 'ALREADY_SUBSCRIBED') {
-        setError(t('subscription.alreadySubscribed'));
-        setProcessing(false);
-        return;
-      }
-      setError(err?.response?.data?.error ?? err.message ?? t('subscription.paymentError'));
+      setError(err?.message ?? t('subscription.paymentError'));
+    } finally {
       setProcessing(false);
     }
   };
@@ -498,7 +595,6 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
         <Text style={checkoutStyles.headerText}>{t('subscription.securePayment')}</Text>
       </View>
 
-      {/* Summary */}
       <View style={checkoutStyles.summary}>
         <Text style={checkoutStyles.summaryPlan}>{plan.title}</Text>
         <Text style={checkoutStyles.summaryPrice}>
@@ -506,19 +602,13 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
         </Text>
       </View>
 
-      {/* CardElement */}
+      {/* PaymentElement renders all Stripe-supported payment methods.
+          It is controlled by the CheckoutProvider context — no
+          explicit stripe/elements props needed here. */}
       <View style={checkoutStyles.cardWrap}>
-        <CardElement
+        <PaymentElement
           options={{
-            style: {
-              base: {
-                fontSize: '15px',
-                color: '#111827',
-                fontFamily: 'system-ui, sans-serif',
-                '::placeholder': { color: '#9CA3AF' },
-              },
-              invalid: { color: '#EF4444' },
-            },
+            layout: 'tabs',
           }}
         />
       </View>
@@ -528,7 +618,7 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
       <TouchableOpacity
         style={[checkoutStyles.payBtn, processing && checkoutStyles.payBtnDisabled]}
         onPress={handlePay}
-        disabled={processing || !stripe}
+        disabled={processing}
         activeOpacity={0.85}
       >
         {processing ? (
@@ -550,7 +640,7 @@ function StripeSubscriptionForm({ plan, autoRenewal, onSuccess, onCancel }: Subs
   );
 }
 
-function NativeCheckoutPlaceholder({ plan, onCancel }: SubscriptionCheckoutProps) {
+function NativeCheckoutPlaceholder({ onCancel }: { onCancel: () => void }) {
   const { t } = useTranslation();
   return (
     <View style={checkoutStyles.wrap}>
@@ -599,7 +689,7 @@ function PlanFeature({ icon, text }: { icon: string; text: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
-  const normalized = status === 'succeeded' ? 'succeed' : status; // handle old data
+  const normalized = status === 'succeeded' ? 'succeed' : status;
   const config = ({
     succeed:  { label: t('subscription.status.paid'),     bg: '#DCFCE7', text: '#15803D' },
     failed:   { label: t('subscription.status.failed'),   bg: '#FEE2E2', text: '#DC2626' },
@@ -672,6 +762,10 @@ const checkoutStyles = StyleSheet.create({
     gap: 6,
     justifyContent: 'center',
   },
+  embeddedWrap: {
+    minHeight: 400,
+    width: '100%',
+  },
   headerText: { fontSize: 12, color: '#6B7280' },
   summary: {
     flexDirection: 'row',
@@ -727,7 +821,6 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 14, color: '#EF4444', textAlign: 'center', paddingHorizontal: 24 },
 
-  // Plan card (active)
   planCard: {
     backgroundColor: '#F3F4F6',
     borderRadius: 14,
@@ -755,7 +848,6 @@ const styles = StyleSheet.create({
   planTypeBadgeText: { fontSize: 11, fontWeight: '700', color: AMBER_DARK, letterSpacing: 1 },
   planPrice: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
 
-  // Section
   section: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -777,7 +869,6 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
   infoValue: { fontSize: 14, color: '#111827', fontWeight: '600', textTransform: 'capitalize' },
 
-  // Renewal
   renewalRow: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -794,7 +885,6 @@ const styles = StyleSheet.create({
   renewalLabel: { fontSize: 14, fontWeight: '600', color: '#111827' },
   renewalSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 
-  // Success toast
   successToast: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -809,7 +899,6 @@ const styles = StyleSheet.create({
   },
   successToastText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#15803D' },
 
-  // Warning
   warningBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -823,7 +912,6 @@ const styles = StyleSheet.create({
   },
   warningText: { flex: 1, fontSize: 13, color: '#92400E', lineHeight: 18 },
 
-  // Cancel
   cancelBtn: {
     borderWidth: 1,
     borderColor: '#EF4444',
@@ -861,7 +949,6 @@ const styles = StyleSheet.create({
   },
   cancelConfirmDoText: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
 
-  // Limits
   limitsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   limitCard: {
     flex: 1,
@@ -876,7 +963,6 @@ const styles = StyleSheet.create({
   limitValue: { fontSize: 18, fontWeight: '800', color: AMBER_DARK },
   limitLabel: { fontSize: 11, color: '#6B7280', fontWeight: '500', textAlign: 'center' },
 
-  // Table
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -899,7 +985,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // No subscription
   noSubHeader: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -908,7 +993,6 @@ const styles = StyleSheet.create({
   noSubTitle: { fontSize: 18, fontWeight: '700', color: '#374151' },
   noSubSub: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 24 },
 
-  // Plan picker list
   planList: {
     gap: 10,
     marginBottom: 16,
@@ -953,7 +1037,6 @@ const styles = StyleSheet.create({
     backgroundColor: AMBER,
   },
 
-  // Plan selection card
   planSelectionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -985,13 +1068,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   subscribeBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-
-  // Success
-  successView: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    gap: 14,
-  },
-  successTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  successSub: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 24 },
 });
