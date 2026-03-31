@@ -18,10 +18,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToursStore } from '../../../../stores/tours.store';
 import { useAuthStore } from '../../../../stores/auth.store';
 import { StepTimeline } from '../../../../components/tour/StepTimeline';
 import { CompletionPopup } from '../../../../components/tour/CompletionPopup';
+import { TourOnboardingModal, ONBOARDING_STORAGE_KEY } from '../../../../components/tour/TourOnboardingModal';
 import BackButton from '../../../../components/layout/BackButton';
 import { CONTENT_MAX_WIDTH } from '../../../../styles/theme';
 
@@ -44,6 +46,7 @@ export default function TourStepsScreen() {
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [xpAwardedBefore, setXpAwardedBefore] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Animated progress bar
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -65,6 +68,16 @@ export default function TourStepsScreen() {
       fetchTourDetail(id, user.id);
     }
   }, [id, user?.id]);
+
+  // Show onboarding on first visit (no completed steps and not dismissed before)
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_STORAGE_KEY).then((value) => {
+      if (!value && stepsCompleted.length === 0) {
+        setShowOnboarding(true);
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Track xpAwarded state before completion
   useEffect(() => {
@@ -207,6 +220,12 @@ export default function TourStepsScreen() {
           langcode={langcode ?? 'en'}
         />
       </ScrollView>
+
+      {/* Onboarding Modal */}
+      <TourOnboardingModal
+        visible={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
 
       {/* Completion Popup */}
       <CompletionPopup

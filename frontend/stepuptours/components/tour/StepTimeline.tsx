@@ -221,7 +221,13 @@ export function StepTimeline({
                   activeOpacity={0.7}
                 >
                   <View style={styles.stepHeaderLeft}>
-                    <Text style={styles.stepTitle} numberOfLines={isExpanded ? undefined : 1}>
+                    <Text
+                      style={[
+                        styles.stepTitle,
+                        state === 'completed' && styles.stepTitleCompleted,
+                      ]}
+                      numberOfLines={isExpanded ? undefined : 1}
+                    >
                       {step.title}
                     </Text>
                     <View style={[styles.pill, { backgroundColor: pill.bg }]}>
@@ -337,6 +343,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     marginBottom: 4,
+  },
+  stepTitleCompleted: {
+    textDecorationLine: 'line-through',
+    opacity: 0.65,
   },
   pill: {
     alignSelf: 'flex-start',

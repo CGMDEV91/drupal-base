@@ -252,6 +252,24 @@
   "card.unfavourite": "Remove from Favourites",
 
   "business.directions": "Get Directions",
+  "business.call": "Call",
+  "business.website": "Website",
+  "business.sponsored": "Sponsored",
+
+  "onboarding.title": "How the tour works",
+  "onboarding.subtitle": "Follow these simple steps to explore the tour",
+  "onboarding.step1.title": "Navigate to the place",
+  "onboarding.step1.desc": "Use the transport buttons to get directions to each stop.",
+  "onboarding.step2.title": "Confirm your arrival",
+  "onboarding.step2.desc": "Tap \"I'm Here\" when you've arrived at the location.",
+  "onboarding.step3.title": "Discover the content",
+  "onboarding.step3.desc": "Read the description, listen to the audio and explore local businesses.",
+  "onboarding.dontShow": "Don't show this again",
+  "onboarding.cta": "Let's go!",
+
+  "step.confirmTitle": "Are you here?",
+  "step.confirmSubtitle": "Confirm you've reached this stop to unlock the content.",
+  "step.confirmYes": "Yes, I'm here",
 
   "donation.split.platform": "Platform",
   "donation.split.guide": "Guide",
@@ -401,5 +419,15 @@
   "subscription.status.paid": "Paid",
   "subscription.status.failed": "Failed",
   "subscription.status.refunded": "Refunded",
-  "subscription.alreadySubscribed": "You already have an active subscription."
+  "subscription.alreadySubscribed": "You already have an active subscription.",
+
+  "step.aboutStop": "About this stop",
+  "step.readMore": "Read more",
+  "step.readLess": "Read less",
+  "step.notYet": "Not yet",
+  "step.alreadyHere": "Are you at {{title}}?",
+  "step.nearby": "Nearby",
+  "step.nearbyOsmBadge": "OSM · Free data",
+  "step.locationView": "Location view",
+  "step.howToGet": "How to get there"
 }

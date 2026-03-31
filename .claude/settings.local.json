@@ -196,7 +196,10 @@
       "Read(//usr/local/bin/**)",
       "Read(//home/carlos/.local/bin/**)",
       "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/lib/**)",
-      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/**)"
+      "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/**)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend -name *.json -path *locales*)",
+      "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend -name *.json -path *translation*)",
+      "Read(//mnt/wsl/instances/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)"
     ],
     "defaultMode": "acceptEdits"
   }

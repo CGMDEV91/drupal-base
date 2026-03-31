@@ -252,6 +252,24 @@
   "card.unfavourite": "Quitar de Favoritos",
 
   "business.directions": "Cómo Llegar",
+  "business.call": "Llamar",
+  "business.website": "Web",
+  "business.sponsored": "Patrocinado",
+
+  "onboarding.title": "Cómo funciona el tour",
+  "onboarding.subtitle": "Sigue estos sencillos pasos para explorar el tour",
+  "onboarding.step1.title": "Navega al lugar",
+  "onboarding.step1.desc": "Usa los botones de transporte para llegar a cada parada.",
+  "onboarding.step2.title": "Confirma tu llegada",
+  "onboarding.step2.desc": "Pulsa \"Ya estoy aquí\" cuando hayas llegado al lugar.",
+  "onboarding.step3.title": "Descubre el contenido",
+  "onboarding.step3.desc": "Lee la descripción, escucha el audio y explora los negocios locales.",
+  "onboarding.dontShow": "No mostrar de nuevo",
+  "onboarding.cta": "¡Empecemos!",
+
+  "step.confirmTitle": "¿Ya estás aquí?",
+  "step.confirmSubtitle": "Confirma que has llegado a esta parada para desbloquear el contenido.",
+  "step.confirmYes": "Sí, estoy aquí",
 
   "donation.split.platform": "Plataforma",
   "donation.split.guide": "Guía",
@@ -401,5 +419,15 @@
   "subscription.status.paid": "Pagado",
   "subscription.status.failed": "Fallido",
   "subscription.status.refunded": "Devuelto",
-  "subscription.alreadySubscribed": "Ya tienes una suscripción activa."
+  "subscription.alreadySubscribed": "Ya tienes una suscripción activa.",
+
+  "step.aboutStop": "Sobre esta parada",
+  "step.readMore": "Leer más",
+  "step.readLess": "Leer menos",
+  "step.notYet": "Aún no",
+  "step.alreadyHere": "¿Ya estás en {{title}}?",
+  "step.nearby": "También cerca",
+  "step.nearbyOsmBadge": "Datos OSM · Gratis",
+  "step.locationView": "Vista del lugar",
+  "step.howToGet": "Cómo llegar"
 }
