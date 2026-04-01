@@ -1,5 +1,5 @@
 // components/tour/CompletionPopup.tsx
-// Modal shown when a tour is completed — no internal scroll, Stripe integrated, mobile fullscreen
+// Modal shown when a tour is completed — mobile fullscreen with scroll, Stripe integrated
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -13,6 +13,8 @@ import {
   Easing,
   Platform,
   ActivityIndicator,
+  ScrollView,
+  Image,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -212,20 +214,18 @@ interface DonationCardFormProps {
   tourId: string;
   amount: string;
   isDonationValid: boolean;
-  guideRevenue: number;
-  platformRevenue: number;
   paymentIntentId?: string;
   onSuccess: (paidAmount: number) => void;
 }
 
-function DonationCheckout({ tourId, amount, isDonationValid, guideRevenue, platformRevenue, onSuccess }: DonationCardFormProps) {
+function DonationCheckout({ tourId, amount, isDonationValid, onSuccess }: DonationCardFormProps) {
   const { t } = useTranslation();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [initError, setInitError] = useState('');
   const prevAmount = useRef('');
 
-  // Crear el intent cuando el importe es válido y ha cambiado
+  // Create the intent when the amount is valid and has changed
   useEffect(() => {
     if (!isDonationValid || amount === prevAmount.current) return;
     prevAmount.current = amount;
@@ -259,8 +259,6 @@ function DonationCheckout({ tourId, amount, isDonationValid, guideRevenue, platf
         tourId={tourId}
         amount={amount}
         isDonationValid={isDonationValid}
-        guideRevenue={guideRevenue}
-        platformRevenue={platformRevenue}
         paymentIntentId={paymentIntentId!}
         onSuccess={onSuccess}
       />
@@ -268,7 +266,7 @@ function DonationCheckout({ tourId, amount, isDonationValid, guideRevenue, platf
   );
 }
 
-function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platformRevenue, paymentIntentId, onSuccess }: DonationCardFormProps) {
+function DonationCardForm({ tourId, amount, isDonationValid, paymentIntentId, onSuccess }: DonationCardFormProps) {
   const { t } = useTranslation();
   const stripe = useStripe ? useStripe() : null;
   const elements = useElements ? useElements() : null;
@@ -293,7 +291,7 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
         return;
       }
 
-      // Activar en Drupal
+      // Activate in Drupal
       if (paymentIntentId) {
         await activateDonation(paymentIntentId);
       }
@@ -307,20 +305,9 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
 
   return (
     <View style={donationStyles.wrap}>
-      {/* Split preview */}
-      <View style={donationStyles.splitRow}>
-        <Text style={donationStyles.splitText}>
-          {guideRevenue.toFixed(2)}€ → {t('donation.split.guide')}
-        </Text>
-        <Text style={donationStyles.splitSep}>·</Text>
-        <Text style={donationStyles.splitText}>
-          {platformRevenue.toFixed(2)}€ → {t('donation.split.platform')}
-        </Text>
-      </View>
-
-      {/* PaymentElement — incluye Apple Pay, Google Pay, card, etc. */}
+      {/* PaymentElement — includes Apple Pay, Google Pay, card, etc. */}
       <View style={donationStyles.cardWrap}>
-        <PaymentElement options={{layout: 'tabs'}} />
+        <PaymentElement options={{ layout: 'tabs' }} />
       </View>
 
       {error && (
@@ -357,6 +344,7 @@ function DonationCardForm({ tourId, amount, isDonationValid, guideRevenue, platf
     </View>
   );
 }
+
 // ---------------------------------------------------------------------------
 // CompletionPopup
 // ---------------------------------------------------------------------------
@@ -371,6 +359,10 @@ interface CompletionPopupProps {
   onDonate: (amount: number) => void;
   onClose: () => void;
   langcode: string;
+  guideId?: string;
+  guideName?: string;
+  guideAvatar?: string | null;
+  guideRoles?: string[];
 }
 
 // Stripe promise initialised once at module level (web only)
@@ -386,21 +378,26 @@ export function CompletionPopup({
   onDonate,
   onClose,
   langcode,
+  guideId,
+  guideName,
+  guideAvatar,
+  guideRoles,
 }: CompletionPopupProps) {
   const { t } = useTranslation();
   const [rating, setRating] = useState(0);
   const [donationAmount, setDonationAmount] = useState('1');
   const [donationSuccess, setDonationSuccess] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const isMobile = screenWidth < 640;
 
-  // Parse amount for validation + split preview
+  // Animated value for the Stripe form expand/collapse
+  const paymentAnim = useRef(new Animated.Value(0)).current;
+
+  // Parse amount for validation
   const parsedAmount = parseFloat(donationAmount);
   const isDonationValid = !isNaN(parsedAmount) && parsedAmount > 0.5;
-  // Rough split preview (70/30 — actual split comes from the backend on real payment)
-  const guideRevenue = isDonationValid ? parsedAmount * 0.7 : 0;
-  const platformRevenue = isDonationValid ? parsedAmount * 0.3 : 0;
 
   const handleRate = (value: number) => {
     setRating(value);
@@ -420,14 +417,203 @@ export function CompletionPopup({
     onDonate(parsedAmount);
   };
 
+  // Animate Stripe form in/out
+  useEffect(() => {
+    Animated.timing(paymentAnim, {
+      toValue: showPaymentForm ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [showPaymentForm]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!visible) {
       setRating(0);
       setDonationAmount('1');
       setDonationSuccess(false);
+      setShowPaymentForm(false);
     }
   }, [visible]);
+
+  // Whether to show the guide mini-card
+  const showGuideCard =
+    guideRoles?.includes('professional') &&
+    !guideRoles?.includes('administrator') &&
+    !!guideName;
+
+  // Shared card content — extracted so it can live inside ScrollView on mobile
+  const cardContent = (
+    <>
+      {/* Close button */}
+      <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8}>
+        <View style={styles.closeBtnInner}>
+          <Ionicons name="close" size={18} color="#6B7280" />
+        </View>
+      </TouchableOpacity>
+
+      {/* Header */}
+      <View style={styles.header}>
+        {isFirstCompletion && (
+          <View style={styles.iconCircle}>
+            <Ionicons name="ribbon" size={28} color="#FFFFFF" />
+          </View>
+        )}
+        <Text style={styles.title}>
+          {isFirstCompletion ? t('popup.congratulations') : t('popup.alreadyCompleted')}
+        </Text>
+        <Text style={styles.subtitle}>
+          {t('popup.completedTourOf')}{' '}
+          <Text style={styles.subtitleBold}>{tourName}</Text>
+        </Text>
+        {isFirstCompletion && xp > 0 && (
+          <View style={styles.xpBadge}>
+            <Ionicons name="flash" size={13} color={AMBER} />
+            <Text style={styles.xpText}>+{xp} XP</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Rating (first completion only) */}
+      {isFirstCompletion && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.ratingSection}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Ionicons name="star" size={13} color={AMBER} />
+              <Text style={styles.ratingPrompt}>{t('popup.rateExperience')}</Text>
+            </View>
+            <StarRating value={rating} interactive onRate={handleRate} size={30} />
+          </View>
+        </>
+      )}
+
+      {/* Donation section */}
+      <View style={styles.divider} />
+      <View style={styles.donationSection}>
+        <View style={styles.donationHeader}>
+          <Ionicons name="heart" size={14} color={AMBER} />
+          <Text style={styles.donationLabel}>{t('popup.donateLabel')}</Text>
+        </View>
+
+        {donationSuccess ? (
+          /* Success state */
+          <View style={styles.successSection}>
+            <Ionicons name="checkmark-circle" size={36} color="#22C55E" />
+            <Text style={styles.successTitle}>{t('donation.thankYou')}</Text>
+            <Text style={styles.successSub}>
+              {t('donation.donated', { amount: parseFloat(donationAmount).toFixed(2), tour: tourName })}
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Guide mini-card — professional guides only */}
+            {showGuideCard && (
+              <View style={styles.guideCard}>
+                {guideAvatar ? (
+                  <Image source={{ uri: guideAvatar }} style={styles.guideAvatar} />
+                ) : (
+                  <View style={[styles.guideAvatar, styles.guideAvatarFallback]}>
+                    <Text style={styles.guideAvatarInitials}>
+                      {guideName!.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.guideInfo}>
+                  <Text style={styles.guideCardLabel}>Tu guía</Text>
+                  <Text style={styles.guideCardName}>{guideName}</Text>
+                </View>
+                <Ionicons name="heart" size={16} color="#ea580c" />
+              </View>
+            )}
+
+            {/* Amount input */}
+            <View style={styles.amountRow}>
+              <Text style={styles.currencySymbol}>€</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={donationAmount}
+                onChangeText={(v) => {
+                  setDonationAmount(v);
+                  // Reset payment form when amount changes
+                  if (showPaymentForm) setShowPaymentForm(false);
+                }}
+                keyboardType="decimal-pad"
+                selectTextOnFocus
+                placeholder="1.00"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            {/* Step 1: "Apoyar al guía" button — web */}
+            {Platform.OS === 'web' && Elements && !showPaymentForm && (
+              <TouchableOpacity
+                style={[styles.supportBtn, !isDonationValid && styles.payBtnDisabled]}
+                onPress={() => isDonationValid && setShowPaymentForm(true)}
+                disabled={!isDonationValid}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="heart" size={14} color="#FFFFFF" />
+                <Text style={styles.payBtnText}>
+                  {t('popup.supportGuide', 'Apoyar al guía')} €{parseFloat(donationAmount || '0').toFixed(2)} →
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Step 2: Stripe form (animated expand) — web */}
+            {Platform.OS === 'web' && Elements && (
+              <Animated.View
+                style={{
+                  maxHeight: paymentAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 600],
+                  }),
+                  overflow: 'hidden',
+                }}
+              >
+                {showPaymentForm && (
+                  <>
+                    <DonationCheckout
+                      tourId={tourId}
+                      amount={donationAmount}
+                      isDonationValid={isDonationValid}
+                      onSuccess={handleDonationSuccess}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPaymentForm(false)}
+                      style={{ marginTop: 8, alignItems: 'center' }}
+                    />
+                  </>
+                )}
+              </Animated.View>
+            )}
+
+            {/* Native: simple donate button */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={[styles.payBtn, !isDonationValid && styles.payBtnDisabled]}
+                onPress={handleNativeDonate}
+                disabled={!isDonationValid}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="heart" size={14} color="#FFFFFF" />
+                <Text style={styles.payBtnText}>
+                  {t('popup.donate')} €{donationAmount}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+
+      {/* Back to home */}
+      <View style={styles.divider} />
+      <TouchableOpacity style={styles.homeBtn} onPress={onClose} activeOpacity={0.85}>
+        <Ionicons name="arrow-back" size={15} color={AMBER} />
+        <Text style={styles.homeBtnText}>{t('popup.goHome')}</Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <Modal
@@ -436,19 +622,21 @@ export function CompletionPopup({
       animationType={isMobile ? 'slide' : 'fade'}
       onRequestClose={onClose}
     >
-      {/* Overlay — on web overflow:auto lets browser handle vertical scroll if needed */}
+      {/* Overlay */}
       <View
         style={[
           styles.overlay,
           isMobile ? styles.overlayMobile : styles.overlayDesktop,
         ]}
       >
-        {/* Backdrop — pressable to close */}
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-          activeOpacity={1}
-        />
+        {/* Backdrop — pressable to close (desktop only; mobile card covers full screen) */}
+        {!isMobile && (
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            activeOpacity={1}
+          />
+        )}
 
         {/* Confetti */}
         {visible && (
@@ -464,122 +652,28 @@ export function CompletionPopup({
         )}
 
         {/* Card */}
-        <View style={[styles.card, isMobile ? styles.cardMobile : styles.cardDesktop]}>
-
-          {/* Close button */}
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8}>
-            <View style={styles.closeBtnInner}>
-              <Ionicons name="close" size={18} color="#6B7280" />
-            </View>
-          </TouchableOpacity>
-
-          {/* ── Header ── */}
-          <View style={styles.header}>
-            {isFirstCompletion && (
-              <View style={styles.iconCircle}>
-                <Ionicons name="ribbon" size={28} color="#FFFFFF" />
-              </View>
-            )}
-            <Text style={styles.title}>
-              {isFirstCompletion ? t('popup.congratulations') : t('popup.alreadyCompleted')}
-            </Text>
-            <Text style={styles.subtitle}>
-              {t('popup.completedTourOf')}{' '}
-              <Text style={styles.subtitleBold}>{tourName}</Text>
-            </Text>
-            {isFirstCompletion && xp > 0 && (
-              <View style={styles.xpBadge}>
-                <Ionicons name="flash" size={13} color={AMBER} />
-                <Text style={styles.xpText}>+{xp} XP</Text>
-              </View>
-            )}
+        {isMobile ? (
+          /* Mobile: full-screen card with ScrollView */
+          <View style={[styles.card, styles.cardMobile]}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingTop: 52,
+                paddingHorizontal: 24,
+                paddingBottom: 40,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {cardContent}
+            </ScrollView>
           </View>
-
-          {/* ── Rating (first completion only) ── */}
-          {isFirstCompletion && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.ratingSection}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Ionicons name="star" size={13} color={AMBER} />
-                  <Text style={styles.ratingPrompt}>{t('popup.rateExperience')}</Text>
-                </View>
-                <StarRating value={rating} interactive onRate={handleRate} size={30} />
-              </View>
-            </>
-          )}
-
-          {/* ── Donation section ── */}
-          <View style={styles.divider} />
-          <View style={styles.donationSection}>
-            <View style={styles.donationHeader}>
-              <Ionicons name="heart" size={14} color={AMBER} />
-              <Text style={styles.donationLabel}>{t('popup.donateLabel')}</Text>
-            </View>
-
-            {donationSuccess ? (
-              /* Success state */
-              <View style={styles.successSection}>
-                <Ionicons name="checkmark-circle" size={36} color="#22C55E" />
-                <Text style={styles.successTitle}>{t('donation.thankYou')}</Text>
-                <Text style={styles.successSub}>
-                  {t('donation.donated', { amount: parseFloat(donationAmount).toFixed(2), tour: tourName })}
-                </Text>
-              </View>
-            ) : (
-              <>
-                {/* Amount input */}
-                <View style={styles.amountRow}>
-                  <Text style={styles.currencySymbol}>€</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    value={donationAmount}
-                    onChangeText={setDonationAmount}
-                    keyboardType="decimal-pad"
-                    selectTextOnFocus
-                    placeholder="1.00"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-
-                {/* Web: Stripe Elements form */}
-                {Platform.OS === 'web' && Elements && (
-                  <DonationCheckout
-                    tourId={tourId}
-                    amount={donationAmount}
-                    isDonationValid={isDonationValid}
-                    guideRevenue={guideRevenue}
-                    platformRevenue={platformRevenue}
-                    onSuccess={handleDonationSuccess}
-                  />
-                )}
-
-                {/* Native: simple donate button */}
-                {Platform.OS !== 'web' && (
-                  <TouchableOpacity
-                    style={[styles.payBtn, !isDonationValid && styles.payBtnDisabled]}
-                    onPress={handleNativeDonate}
-                    disabled={!isDonationValid}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="heart" size={14} color="#FFFFFF" />
-                    <Text style={styles.payBtnText}>
-                      {t('popup.donate')} €{donationAmount}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
+        ) : (
+          /* Desktop: centered card, no scroll, padding on card itself */
+          <View style={[styles.card, styles.cardDesktop]}>
+            {cardContent}
           </View>
-
-          {/* ── Back to home ── */}
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.homeBtn} onPress={onClose} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={15} color="#6B7280" />
-            <Text style={styles.homeBtnText}>{t('popup.goHome')}</Text>
-          </TouchableOpacity>
-
-        </View>
+        )}
       </View>
     </Modal>
   );
@@ -592,20 +686,6 @@ export function CompletionPopup({
 const donationStyles = StyleSheet.create({
   wrap: {
     gap: 10,
-  },
-  splitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  splitText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  splitSep: {
-    fontSize: 11,
-    color: '#D1D5DB',
   },
   cardWrap: {
     borderWidth: 1,
@@ -694,19 +774,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     zIndex: 2,
-    padding: 28,
   },
   cardDesktop: {
     borderRadius: 20,
     maxWidth: 460,
     width: '100%',
+    padding: 28,
   },
   cardMobile: {
-    flex: 1,
     width: '100%',
-    paddingTop: 52,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
+    ...(Platform.OS === 'web'
+      ? { height: '100dvh' as any }
+      : { flex: 1 }),
   },
 
   closeBtn: {
@@ -724,7 +803,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ── Header ──
+  // Header
   header: {
     alignItems: 'center',
     paddingBottom: 4,
@@ -778,14 +857,14 @@ const styles = StyleSheet.create({
     color: '#D97706',
   },
 
-  // ── Divider ──
+  // Divider
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
     marginVertical: 16,
   },
 
-  // ── Rating ──
+  // Rating
   ratingSection: {
     alignItems: 'center',
     gap: 8,
@@ -797,7 +876,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Donation section ──
+  // Donation section
   donationSection: {
     gap: 10,
   },
@@ -814,6 +893,51 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
+
+  // Guide mini-card
+  guideCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 4,
+  },
+  guideAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  guideAvatarFallback: {
+    backgroundColor: '#ea580c',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guideAvatarInitials: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  guideInfo: {
+    flex: 1,
+  },
+  guideCardLabel: {
+    fontSize: 11,
+    color: '#9a3412',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  guideCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1c1917',
+  },
+
+  // Amount input
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -843,6 +967,19 @@ const styles = StyleSheet.create({
     color: '#111827',
     height: '100%',
   },
+
+  // "Apoyar al guía" button (step 1, web)
+  supportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#ea580c',
+    paddingVertical: 13,
+    borderRadius: 10,
+  },
+
+  // Native donate / fallback pay button
   payBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -861,7 +998,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ── Donation success ──
+  // Donation success
   successSection: {
     alignItems: 'center',
     gap: 6,
@@ -880,16 +1017,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // ── Home button ──
+  // Home button
   homeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: AMBER,
+    borderRadius: 10,
+    paddingVertical: 13,
   },
   homeBtnText: {
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: AMBER,
+    fontWeight: '700',
   },
 });

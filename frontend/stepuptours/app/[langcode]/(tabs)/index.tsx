@@ -721,7 +721,7 @@ export default function HomePage() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: '#FFFFFF', ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as any } : {}) },
 
   btnPrimary: { backgroundColor: AMBER, paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20 },
   btnPrimaryText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },

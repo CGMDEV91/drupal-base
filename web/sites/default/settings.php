@@ -815,6 +815,12 @@ $settings['entity_update_backup'] = TRUE;
  */
 $settings['migrate_node_migrate_type_classic'] = FALSE;
 
+$settings['trusted_host_patterns'] = [
+  '^localhost$',
+  '^127\.0\.0\.1$',
+  '.*\.ngrok-free\.dev$',
+];
+
 /**
  * The default settings for migration sources.
  *

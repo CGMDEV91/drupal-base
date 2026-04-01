@@ -199,7 +199,15 @@
       "Read(///wsl.localhost/Ubuntu/home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/**)",
       "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend -name *.json -path *locales*)",
       "Bash(find /home/carlos/devel/test-sites/stepuptours/frontend -name *.json -path *translation*)",
-      "Read(//mnt/wsl/instances/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)"
+      "Read(//mnt/wsl/instances/Ubuntu/home/carlos/devel/test-sites/stepuptours/**)",
+      "Bash(ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/.env*)",
+      "Bash(ls /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app.config* /home/carlos/devel/test-sites/stepuptours/frontend/stepuptours/app.json)",
+      "WebSearch",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:community.flutterflow.io)",
+      "WebFetch(domain:ngrok.com)",
+      "WebFetch(domain:talkrapp.com)",
+      "WebFetch(domain:developer.chrome.com)"
     ],
     "defaultMode": "acceptEdits"
   }

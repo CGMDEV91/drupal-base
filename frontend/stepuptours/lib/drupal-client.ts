@@ -43,11 +43,25 @@ function buildBaseURL(langcode: string): string {
 
 // ── Instancia Axios ───────────────────────────────────────────────────────────
 
+// Skip ngrok browser interstitial for ALL axios requests when behind a ngrok tunnel.
+// This interceptor is registered on the global axios instance so it covers
+// every direct axios.get/post call in the services too, not just drupalClient.
+if (BASE_URL.includes('ngrok')) {
+  axios.interceptors.request.use((config) => {
+    config.headers = config.headers ?? {};
+    config.headers['ngrok-skip-browser-warning'] = '1';
+    return config;
+  });
+}
+
+const ngrokHeaders = BASE_URL.includes('ngrok') ? { 'ngrok-skip-browser-warning': '1' } : {};
+
 const drupalClient: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}${JSON_API_PREFIX}`,
   headers: {
     'Content-Type': 'application/vnd.api+json',
     'Accept': 'application/vnd.api+json',
+    ...ngrokHeaders,
   },
   timeout: 15000,
 });
@@ -60,6 +74,7 @@ const drupalClientBase: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/vnd.api+json',
     'Accept': 'application/vnd.api+json',
+    ...ngrokHeaders,
   },
   timeout: 15000,
 });
@@ -139,10 +154,26 @@ export function buildPage(page: number, limit: number): string {
 
 // ── Helpers de imagen ─────────────────────────────────────────────────────────
 
+const DRUPAL_DEFAULT_HOST = 'stepuptours.ddev.site';
+
 function resolveImageUrl(raw: any): string | null {
   const url = raw?.uri?.url ?? raw?.url ?? null;
   if (!url) return null;
-  if (url.startsWith('http')) return url;
+  if (url.startsWith('http')) {
+    // When BASE_URL points to a different host (e.g. ngrok), rewrite
+    // absolute Drupal URLs so images are fetched through the active host.
+    try {
+      const currentHost = new URL(BASE_URL).host;
+      if (currentHost !== DRUPAL_DEFAULT_HOST) {
+        const parsed = new URL(url);
+        if (parsed.host === DRUPAL_DEFAULT_HOST) {
+          parsed.host = currentHost;
+          return parsed.toString();
+        }
+      }
+    } catch { /* ignore malformed URLs */ }
+    return url;
+  }
   return `${BASE_URL}${url}`;
 }
 

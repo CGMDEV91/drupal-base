@@ -50,6 +50,8 @@
   "popup.donateLabel": "Support the guide",
   "popup.donateDefault": "1",
   "popup.goHome": "Back to Home",
+  "popup.supportGuide": "Support the guide",
+  "popup.changeAmount": "Change amount",
   "popup.alreadyCompleted": "Tour completed again!",
 
   "rating.prompt": "Would you like to rate this tour?",
@@ -429,5 +431,6 @@
   "step.nearby": "Nearby",
   "step.nearbyOsmBadge": "OSM · Free data",
   "step.locationView": "Location view",
+  "step.goToSite": "Go to site",
   "step.howToGet": "How to get there"
 }

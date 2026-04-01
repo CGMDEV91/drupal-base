@@ -11,6 +11,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Animated,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -198,7 +199,7 @@ export default function DashboardScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <View style={{ flex: 1, backgroundColor: '#F9FAFB', ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as any } : {}) }}>
       {isMobile ? (
         // ── Mobile: banner + tabs + contenido en scroll único ────────────
         <ScrollView

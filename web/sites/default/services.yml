@@ -211,6 +211,8 @@ parameters:
       - 'http://localhost:8081'
       - 'http://localhost:19006'
       - 'http://localhost:3000'
+      - 'https://eduardo-coelanaglyphic-existentialistically.ngrok-free.dev'
+      - '*'
     exposedHeaders:
       - true
     maxAge: 1000

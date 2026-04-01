@@ -12,14 +12,8 @@ type: list_string
 settings:
   allowed_values:
     -
-      value: monthly
-      label: monthly
-    -
-      value: anually
-      label: annual
-    -
       value: minute
-      label: 'minute (test)'
+      label: minute
     -
       value: month
       label: month

@@ -533,6 +533,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+    ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as any } : {}),
   },
   profileBanner: {
     backgroundColor: '#1E293B',

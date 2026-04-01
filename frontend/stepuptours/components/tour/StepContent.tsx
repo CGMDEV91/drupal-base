@@ -1,5 +1,4 @@
 // components/tour/StepContent.tsx
-// Expanded content for a single tour step — active / confirmed states + dark TTS player
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -20,13 +19,13 @@ import { useTTS } from '../../hooks/useTTS';
 import { BusinessCard } from './BusinessCard';
 import { NearbyPlaces } from './NearbyPlaces';
 import type { TourStep } from '../../types';
+import { useWindowDimensions } from 'react-native';
 
-const ORANGE = '#ea580c';
-const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+const ORANGE      = '#ea580c';
+const SPEEDS      = [0.75, 1, 1.25, 1.5, 2];
 const BAR_HEIGHTS = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6];
 const PREVIEW_LINES = 4;
 
-// Allow-list for Google Maps WebView navigation
 function isGoogleMapsUrl(url: string): boolean {
   return (
     url.startsWith('about:') ||
@@ -40,8 +39,6 @@ function isGoogleMapsUrl(url: string): boolean {
   );
 }
 
-// JS injected into Street View WebView — availability detection only.
-// CSS scaling removed: it was shifting touch hit targets and blocking panorama navigation arrows.
 const SV_INJECT_JS = `
 (function() {
   setTimeout(function() {
@@ -69,18 +66,13 @@ function GoogleEmbed({ uri, height, interactive = false, onUnavailable }: EmbedP
   if (Platform.OS === 'web') {
     return (
       <View style={wrapStyle}>
-        {/* @ts-ignore — iframe is valid in RN-web */}
+        {/* @ts-ignore */}
         <iframe
           src={uri}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            pointerEvents: interactive ? 'auto' : 'none',
-          }}
+          style={{ width: '100%', height: '100%', border: 'none', pointerEvents: interactive ? 'auto' : 'none' }}
           loading="lazy"
           allowFullScreen
-          allow="accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; magnetometer; microphone; payment; usb; xr-spatial-tracking"
+          allow="accelerometer *; gyroscope *; geolocation *; fullscreen *; xr-spatial-tracking *"
           referrerPolicy="no-referrer-when-downgrade"
         />
         {!interactive && <View style={StyleSheet.absoluteFill} />}
@@ -97,15 +89,11 @@ function GoogleEmbed({ uri, height, interactive = false, onUnavailable }: EmbedP
         geolocationEnabled={interactive}
         allowsInlineMediaPlayback
         injectedJavaScript={onUnavailable ? SV_INJECT_JS : undefined}
-        onMessage={(e) => {
-          if (e.nativeEvent.data === 'sv_unavailable') onUnavailable?.();
-        }}
+        onMessage={(e) => { if (e.nativeEvent.data === 'sv_unavailable') onUnavailable?.(); }}
         onShouldStartLoadWithRequest={(req) => isGoogleMapsUrl(req.url)}
         style={{ flex: 1, backgroundColor: '#e8e8e8' }}
       />
-      {!interactive && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-only" />
-      )}
+      {!interactive && <View style={StyleSheet.absoluteFill} pointerEvents="box-only" />}
     </View>
   );
 }
@@ -124,17 +112,17 @@ interface StepContentProps {
 interface NavMode {
   labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
-  travelmode: string;   // Google Maps API travelmode
-  dirflg: string;       // legacy embed URL dirflg
-  androidMode: string;  // google.navigation: mode param
-  iosDirMode: string;   // comgooglemaps directionsmode param
+  travelmode: string;
+  dirflg: string;
+  androidMode: string;
+  iosDirMode: string;
 }
 
 const NAV_MODES: NavMode[] = [
-  { labelKey: 'step.walk',          icon: 'walk-outline',     travelmode: 'walking',   dirflg: 'w', androidMode: 'w', iosDirMode: 'walking' },
-  { labelKey: 'step.bike',          icon: 'bicycle-outline',  travelmode: 'bicycling', dirflg: 'b', androidMode: 'b', iosDirMode: 'bicycling' },
-  { labelKey: 'step.publicTransport',icon: 'bus-outline',      travelmode: 'transit',   dirflg: 'r', androidMode: 'r', iosDirMode: 'transit' },
-  { labelKey: 'step.drive',         icon: 'car-outline',      travelmode: 'driving',   dirflg: 'd', androidMode: 'd', iosDirMode: 'driving' },
+  { labelKey: 'step.walk',            icon: 'walk-outline',    travelmode: 'walking',   dirflg: 'w', androidMode: 'w', iosDirMode: 'walking'   },
+  { labelKey: 'step.bike',            icon: 'bicycle-outline', travelmode: 'bicycling', dirflg: 'b', androidMode: 'b', iosDirMode: 'bicycling' },
+  { labelKey: 'step.publicTransport', icon: 'bus-outline',     travelmode: 'transit',   dirflg: 'r', androidMode: 'r', iosDirMode: 'transit'   },
+  { labelKey: 'step.drive',           icon: 'car-outline',     travelmode: 'driving',   dirflg: 'd', androidMode: 'd', iosDirMode: 'driving'   },
 ];
 
 function formatTime(seconds: number): string {
@@ -148,30 +136,33 @@ const MAP_HEIGHT = 220;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StepContent({
-  step,
-  isCompleted,
-  isActive,
-  isExpanded,
-  onComplete,
-  langcode,
-}: StepContentProps) {
+                              step,
+                              isCompleted,
+                              isActive,
+                              isExpanded,
+                              onComplete,
+                              langcode,
+                            }: StepContentProps) {
   const { t } = useTranslation();
 
-  const [confirmed, setConfirmed] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [confirmed, setConfirmed]       = useState(false);
+  const [expanded, setExpanded]         = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
-  const [routeActive, setRouteActive] = useState(false);
-  // Hide Street View if Google reports no panorama at this location
-  const [svAvailable, setSvAvailable] = useState(true);
+  const [routeActive, setRouteActive]   = useState(false);
+  const [svAvailable, setSvAvailable]   = useState(true);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  // Responsive font scale: base 375px → clamp 0.9–1.35
+  const fontScale = Math.min(Math.max(width / 375, 0.9), 1.35);
+  const fs = (size: number) => Math.round(size * fontScale);
 
   const dirHeightAnim = useRef(new Animated.Value(0)).current;
 
   const descriptionText = step.description ?? '';
-  const ttsLangcode = step.contentLangcode ?? langcode;
-  const tts = useTTS(descriptionText, ttsLangcode);
-  const isPlaying = tts.playState === 'playing';
+  const ttsLangcode     = step.contentLangcode ?? langcode;
+  const tts             = useTTS(descriptionText, ttsLangcode);
+  const isPlaying       = tts.playState === 'playing';
 
-  // Waveform animated bars
   const waveAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0.4))).current;
   const waveLoops = useRef<Animated.CompositeAnimation[]>([]);
 
@@ -180,7 +171,7 @@ export function StepContent({
       waveLoops.current = waveAnims.map((anim, i) => {
         const loop = Animated.loop(
           Animated.sequence([
-            Animated.timing(anim, { toValue: 1, duration: 280 + i * 35, useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 1,    duration: 280 + i * 35, useNativeDriver: true }),
             Animated.timing(anim, { toValue: 0.25, duration: 280 + i * 35, useNativeDriver: true }),
           ])
         );
@@ -218,25 +209,24 @@ export function StepContent({
 
   const hasLocation = !!step.location;
 
-  // Street View panorama — output=svembed shows the actual 360° panorama
   const streetViewUrl = step.location
     ? `https://maps.google.com/maps?q=&layer=c&cbll=${step.location.lat},${step.location.lon}&cbp=12,0,0,0,0&output=svembed&hl=es`
     : null;
 
-  // Static location map for confirmed state
   const staticMapUrl = step.location
     ? `https://maps.google.com/maps?q=${step.location.lat},${step.location.lon}&z=17&output=embed`
     : null;
 
-  // Directions embed — static preview (non-interactive), shows route
-  const activeMode = NAV_MODES.find((m) => m.travelmode === selectedMode);
+  const activeMapUrl = svAvailable && streetViewUrl ? streetViewUrl : staticMapUrl;
+  const activeMapH   = svAvailable && streetViewUrl ? 320 : 140;
+
+  const activeMode    = NAV_MODES.find((m) => m.travelmode === selectedMode);
   const directionsUrl = step.location && activeMode
     ? `https://maps.google.com/maps?saddr=My+Location&daddr=${step.location.lat},${step.location.lon}&dirflg=${activeMode.dirflg}&output=embed`
     : null;
 
   const handleModeSelect = (mode: NavMode) => {
     if (selectedMode === mode.travelmode) {
-      // Collapse — reset route too
       setRouteActive(false);
       Animated.timing(dirHeightAnim, { toValue: 0, duration: 260, useNativeDriver: false }).start(
         () => setSelectedMode(null)
@@ -248,90 +238,60 @@ export function StepContent({
     }
   };
 
-  const handleStopRoute = () => {
+  const resetNavState = () => {
     setRouteActive(false);
     Animated.timing(dirHeightAnim, { toValue: 0, duration: 260, useNativeDriver: false }).start(
       () => setSelectedMode(null)
     );
   };
 
-  const handleStartNavigation = async () => {
+  const handleGoToSite = async () => {
     if (!step.location || !activeMode) return;
     const { lat, lon } = step.location;
 
-    // Request foreground location permission
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Ubicación necesaria',
-        'Para iniciar la navegación necesitamos acceder a tu ubicación actual.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Abrir configuración', onPress: () => Linking.openSettings() },
-        ]
-      );
-      return;
-    }
-
-    // Get current position
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    const { latitude: uLat, longitude: uLon } = pos.coords;
-
-    // Web fallback URL (opens in browser tab)
-    const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${uLat},${uLon}&destination=${lat},${lon}&travelmode=${activeMode.travelmode}`;
+    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=${activeMode.travelmode}`;
 
     if (Platform.OS === 'ios') {
-      const gmUrl = `comgooglemaps://?saddr=${uLat},${uLon}&daddr=${lat},${lon}&directionsmode=${activeMode.iosDirMode}`;
+      const gmUrl = `comgooglemaps://?daddr=${lat},${lon}&directionsmode=${activeMode.iosDirMode}`;
       const canGm = await Linking.canOpenURL(gmUrl).catch(() => false);
-      if (canGm) {
-        Linking.openURL(gmUrl);
-      } else {
-        // Fall back to Apple Maps
-        Linking.openURL(
-          `https://maps.apple.com/?saddr=${uLat},${uLon}&daddr=${lat},${lon}&dirflg=${activeMode.androidMode}`
-        );
-      }
+      Linking.openURL(canGm ? gmUrl : `https://maps.apple.com/?daddr=${lat},${lon}&dirflg=${activeMode.androidMode}`);
     } else if (Platform.OS === 'android') {
       const gmUrl = `google.navigation:q=${lat},${lon}&mode=${activeMode.androidMode}`;
       const canGm = await Linking.canOpenURL(gmUrl).catch(() => false);
       Linking.openURL(canGm ? gmUrl : webUrl);
     } else {
-      // Web — opens Google Maps in new tab
       Linking.openURL(webUrl);
     }
-
-    setRouteActive(true);
   };
 
-  // ── ACTIVE (not yet confirmed) ──────────────────────────────────────────────
+  // ─── Shared map block ────────────────────────────────────────────────────────
+  const mapBlock = hasLocation && activeMapUrl ? (
+    <View style={styles.svBlock}>
+      <View style={styles.svTagRow}>
+        <View style={styles.svTag}>
+          <View style={styles.svDot} />
+          <Text style={styles.svTagText}>
+            {svAvailable ? t('step.locationView') : step.title}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.mapOuter}>
+        <GoogleEmbed
+          uri={activeMapUrl}
+          height={activeMapH}
+          interactive={svAvailable}
+          onUnavailable={svAvailable ? () => setSvAvailable(false) : undefined}
+        />
+      </View>
+    </View>
+  ) : null;
+
+  // ── ACTIVE ───────────────────────────────────────────────────────────────────
   if (!confirmed && !isCompleted) {
     return (
       <View style={styles.container}>
+        {mapBlock}
 
-        {/* Street View — shown only if a panorama is available */}
-        {hasLocation && streetViewUrl && svAvailable ? (
-          <View style={styles.svBlock}>
-            {/* Badge ABOVE the embed so it never overlaps */}
-            <View style={styles.svTagRow}>
-              <View style={styles.svTag}>
-                <View style={styles.svDot} />
-                <Text style={styles.svTagText}>{t('step.locationView')}</Text>
-              </View>
-            </View>
-            <View style={styles.mapOuter}>
-              <GoogleEmbed
-                uri={streetViewUrl}
-                height={320}
-                interactive
-                onUnavailable={() => setSvAvailable(false)}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {/* CÓMO LLEGAR section */}
         {hasLocation ? (
           <>
             <View style={styles.sectionLabel}>
@@ -339,7 +299,6 @@ export function StepContent({
               <View style={styles.sectionLine} />
             </View>
 
-            {/* Transport chips */}
             <View style={styles.chipsRow}>
               {NAV_MODES.map((mode) => {
                 const active = selectedMode === mode.travelmode;
@@ -359,12 +318,11 @@ export function StepContent({
               })}
             </View>
 
-            {/* Directions map — animated height container */}
             <Animated.View
               style={[
                 styles.directionsWrap,
                 {
-                  height: dirHeightAnim,
+                  height:  dirHeightAnim,
                   opacity: dirHeightAnim.interpolate({ inputRange: [0, 80], outputRange: [0, 1] }),
                 },
               ]}
@@ -374,34 +332,17 @@ export function StepContent({
               ) : null}
             </Animated.View>
 
-            {/* Iniciar / Parar — visible whenever a mode is selected */}
             {selectedMode ? (
               <View style={styles.routeActions}>
-                {!routeActive ? (
-                  <TouchableOpacity
-                    style={styles.startRouteBtn}
-                    onPress={handleStartNavigation}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="navigate" size={16} color="#ffffff" />
-                    <Text style={styles.startRouteBtnText}>Iniciar navegación</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.stopRouteBtn}
-                    onPress={handleStopRoute}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="stop-circle" size={16} color="#ffffff" />
-                    <Text style={styles.stopRouteBtnText}>Parar navegación</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={styles.startRouteBtn} onPress={handleGoToSite} activeOpacity={0.85}>
+                  <Ionicons name="navigate" size={16} color="#ffffff" />
+                  <Text style={styles.startRouteBtnText}>{t('step.goToSite')}</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
           </>
         ) : null}
 
-        {/* Geo-pop inline — always visible when active */}
         {isActive && (
           <View style={styles.geoPop}>
             <View style={styles.geoPopIcon}>
@@ -412,19 +353,18 @@ export function StepContent({
                 {t('step.alreadyHere', { title: step.title })}
               </Text>
               <Text style={styles.geoPopSub}>{t('step.confirmSubtitle')}</Text>
-              <View style={styles.geoPopBtns}>
-                <TouchableOpacity
-                  style={styles.geoPopYes}
-                  onPress={() => setConfirmed(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                  <Text style={styles.geoPopYesText}>{t('step.confirmYes')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.geoPopNo} activeOpacity={0.7}>
-                  <Text style={styles.geoPopNoText}>{t('step.notYet')}</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Solo botón "Sí" — ocupa todo el ancho */}
+              <TouchableOpacity
+                style={styles.geoPopYes}
+                onPress={() => {
+                  resetNavState();
+                  setConfirmed(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                <Text style={styles.geoPopYesText}>{t('step.confirmYes')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -432,24 +372,63 @@ export function StepContent({
     );
   }
 
-  // ── CONFIRMED (or completed) ────────────────────────────────────────────────
+  // ── CONFIRMED / COMPLETED ────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Static location map */}
-      {hasLocation && staticMapUrl ? (
-        <View style={styles.mapOuter}>
-          <GoogleEmbed uri={staticMapUrl} height={140} interactive={false} />
-          <View style={styles.svTag}>
-            <View style={styles.svDot} />
-            <Text style={styles.svTagText}>{step.title}</Text>
+      {mapBlock}
+
+      {hasLocation ? (
+        <>
+          <View style={styles.sectionLabel}>
+            <Text style={styles.sectionLabelText}>{t('step.howToGet')}</Text>
+            <View style={styles.sectionLine} />
           </View>
-        </View>
+          <View style={styles.chipsRow}>
+            {NAV_MODES.map((mode) => {
+              const active = selectedMode === mode.travelmode;
+              return (
+                <TouchableOpacity
+                  key={mode.travelmode}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => handleModeSelect(mode)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={mode.icon} size={17} color={active ? ORANGE : '#57534e'} />
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {t(mode.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Animated.View
+            style={[
+              styles.directionsWrap,
+              {
+                height:  dirHeightAnim,
+                opacity: dirHeightAnim.interpolate({ inputRange: [0, 80], outputRange: [0, 1] }),
+              },
+            ]}
+          >
+            {directionsUrl ? (
+              <GoogleEmbed uri={directionsUrl} height={MAP_HEIGHT} interactive={false} />
+            ) : null}
+          </Animated.View>
+          {selectedMode ? (
+            <View style={styles.routeActions}>
+              <TouchableOpacity style={styles.startRouteBtn} onPress={handleGoToSite} activeOpacity={0.85}>
+                <Ionicons name="navigate" size={16} color="#ffffff" />
+                <Text style={styles.startRouteBtnText}>{t('step.goToSite')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </>
       ) : null}
 
-      {/* Dark TTS player */}
       {descriptionText ? (
-        <View style={styles.playerCard}>
+        <View style={[styles.playerCard, isDesktop && styles.playerCardDesktop]}>
           <View style={styles.playerRow}>
+            {/* Play / Pause */}
             <TouchableOpacity style={styles.playBtn} onPress={tts.handlePlayPause} activeOpacity={0.8}>
               {tts.playState === 'loading' ? (
                 <Ionicons name="ellipsis-horizontal" size={14} color="#FFFFFF" />
@@ -476,10 +455,7 @@ export function StepContent({
                 ))}
                 <View style={styles.waveDivider} />
                 {[6, 11, 5, 9, 12, 7].map((h, i) => (
-                  <View
-                    key={`r${i}`}
-                    style={[styles.waveBar, { height: h, backgroundColor: 'rgba(255,255,255,0.12)' }]}
-                  />
+                  <View key={`r${i}`} style={[styles.waveBar, { height: h, backgroundColor: 'rgba(255,255,255,0.12)' }]} />
                 ))}
               </View>
               <View style={styles.playerTimes}>
@@ -488,14 +464,19 @@ export function StepContent({
               </View>
             </View>
 
+            {/* Speed chip */}
             <TouchableOpacity onPress={tts.handleSpeedChange} style={styles.speedChip} activeOpacity={0.7}>
               <Text style={styles.speedChipText}>{SPEEDS[tts.speedIndex]}x</Text>
+            </TouchableOpacity>
+
+            {/* STOP — reinicia TTS, mismo estilo que speedChip */}
+            <TouchableOpacity onPress={tts.handleStop} style={styles.stopChip} activeOpacity={0.7}>
+              <Ionicons name="stop" size={12} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
           </View>
         </View>
       ) : null}
 
-      {/* Description */}
       {descriptionText ? (
         <View style={styles.descCard}>
           <View style={styles.descHeader}>
@@ -519,7 +500,8 @@ export function StepContent({
       {step.featuredBusiness ? <BusinessCard business={step.featuredBusiness} /> : null}
 
       {hasLocation && step.location ? (
-        <NearbyPlaces location={step.location} visible={confirmed || isCompleted} />
+        //<NearbyPlaces location={step.location} visible={confirmed || isCompleted} />
+        <div></div>
       ) : null}
 
       {isActive && !isCompleted ? (
@@ -540,8 +522,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 4,
   },
-
-  // Street View block (badge + embed stacked vertically)
   svBlock: {
     gap: 6,
   },
@@ -549,8 +529,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-
-  // Map/SV embed wrapper
   mapOuter: {
     position: 'relative',
     borderRadius: 11,
@@ -558,8 +536,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e1d8',
   },
-
-  // Badge (used both in svTagRow above and overlaid on static map)
   svTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -570,14 +546,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
-    // When used as absolute overlay (confirmed state):
-    position: undefined,
-  },
-  svTagAbsolute: {
-    position: 'absolute',
-    top: 7,
-    left: 8,
-    zIndex: 10,
   },
   svDot: {
     width: 5,
@@ -586,13 +554,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff4040',
   },
   svTagText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.9)',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-
   sectionLabel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -600,7 +567,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionLabelText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     color: '#b0a898',
     textTransform: 'uppercase',
@@ -612,7 +579,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#ede9e2',
   },
-
   chipsRow: {
     flexDirection: 'row',
     gap: 6,
@@ -634,7 +600,7 @@ const styles = StyleSheet.create({
     borderColor: ORANGE,
   },
   chipText: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '700',
     color: '#78716c',
     textAlign: 'center',
@@ -642,16 +608,12 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: ORANGE,
   },
-
-  // Directions animated container — map only, no overflow clipping issue
   directionsWrap: {
     borderRadius: 11,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#e5e1d8',
   },
-
-  // Start / Stop — outside animated container, always fully visible
   routeActions: {
     flexDirection: 'row',
   },
@@ -675,22 +637,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
-  stopRouteBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingVertical: 12,
-    backgroundColor: '#374151',
-    borderRadius: 10,
-  },
-  stopRouteBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-
   geoPop: {
     backgroundColor: '#fffbeb',
     borderWidth: 1.5,
@@ -717,54 +663,40 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   geoPopTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
     color: '#92400e',
   },
   geoPopSub: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#a16207',
     marginBottom: 5,
   },
-  geoPopBtns: {
-    flexDirection: 'row',
-    gap: 6,
-  },
+  // Botón "Sí" ocupa todo el ancho (sin flex: 1 de fila compartida)
   geoPopYes: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
     backgroundColor: ORANGE,
     borderRadius: 8,
-    paddingVertical: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
   },
   geoPopYesText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  geoPopNo: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#e5e1d8',
-    borderRadius: 8,
-    paddingVertical: 7,
-  },
-  geoPopNoText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78716c',
-  },
-
   playerCard: {
     backgroundColor: '#1c1917',
     borderRadius: 12,
     padding: 11,
+  },
+  playerCardDesktop: {
+    alignSelf: 'flex-start',
+    minWidth: 340,
   },
   playerRow: {
     flexDirection: 'row',
@@ -790,7 +722,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   playerTitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -816,12 +748,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   playerTimeActive: {
-    fontSize: 9,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.62)',
     fontVariant: ['tabular-nums'] as any,
   },
   playerTimeDim: {
-    fontSize: 9,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.28)',
     fontVariant: ['tabular-nums'] as any,
   },
@@ -835,11 +767,22 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   speedChipText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.5)',
   },
-
+  // STOP — mismo aspecto que speedChip pero solo icono
+  stopChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   descCard: {
     backgroundColor: '#faf9f6',
     borderRadius: 11,
@@ -854,7 +797,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   descHeaderText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     color: '#b0a898',
     textTransform: 'uppercase',
@@ -867,9 +810,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ece9e3',
   },
   descText: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#44403c',
-    lineHeight: 20,
+    lineHeight: 23,
   },
   readMoreBtn: {
     flexDirection: 'row',
@@ -878,17 +821,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   readMoreText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: ORANGE,
   },
-
   completeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
-    paddingVertical: 13,
+    paddingVertical: 14,
     backgroundColor: '#22c55e',
     borderRadius: 11,
     shadowColor: '#22c55e',
@@ -898,7 +840,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   completeBtnText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },

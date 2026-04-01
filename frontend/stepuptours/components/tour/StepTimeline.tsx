@@ -1,5 +1,4 @@
 // components/tour/StepTimeline.tsx
-// Vertical timeline with step circles and expandable content (animated)
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -9,15 +8,20 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  ScrollView,
+  Modal,
+  SafeAreaView,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { StepContent } from './StepContent';
 import type { TourStep } from '../../types';
 
-const GREEN = '#22C55E';
+const GREEN  = '#22C55E';
 const ORANGE = '#F59E0B';
-const GREY = '#D1D5DB';
+const GREY   = '#D1D5DB';
 
 type StepState = 'completed' | 'active' | 'pending';
 
@@ -26,22 +30,27 @@ interface StepTimelineProps {
   stepsCompleted: string[];
   onCompleteStep: (stepId: string) => void;
   langcode: string;
+  scrollViewRef?: React.RefObject<ScrollView>;
 }
 
 export function StepTimeline({
-  steps,
-  stepsCompleted,
-  onCompleteStep,
-  langcode,
-}: StepTimelineProps) {
+                               steps,
+                               stepsCompleted,
+                               onCompleteStep,
+                               langcode,
+                               scrollViewRef,
+                             }: StepTimelineProps) {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const isMobile = Platform.OS !== 'web' || width < 768;
 
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const [expandedSteps, setExpandedSteps]         = useState<Set<number>>(new Set());
+  const [modalStepIndex, setModalStepIndex]       = useState<number | null>(null);
 
-  // Animated values stored lazily by step index
-  const expandAnims = useRef<Map<number, Animated.Value>>(new Map());
-  const circleAnims = useRef<Map<number, Animated.Value>>(new Map());
+  const expandAnims  = useRef<Map<number, Animated.Value>>(new Map());
+  const circleAnims  = useRef<Map<number, Animated.Value>>(new Map());
+  const stepRowRefs  = useRef<Map<number, View | null>>(new Map());
 
   const getExpandAnim = (index: number): Animated.Value => {
     if (!expandAnims.current.has(index)) {
@@ -59,15 +68,10 @@ export function StepTimeline({
 
   const getStepState = (step: TourStep, index: number): StepState => {
     if (stepsCompleted.includes(step.id)) return 'completed';
-
     if (manualActiveIndex !== null) {
       return index === manualActiveIndex ? 'active' : 'pending';
     }
-
-    // Auto-detect: first non-completed step
-    const firstIncompleteIndex = steps.findIndex(
-      (s) => !stepsCompleted.includes(s.id),
-    );
+    const firstIncompleteIndex = steps.findIndex((s) => !stepsCompleted.includes(s.id));
     return index === firstIncompleteIndex ? 'active' : 'pending';
   };
 
@@ -81,14 +85,28 @@ export function StepTimeline({
   };
 
   const toggleStep = (index: number) => {
+    if (isMobile) {
+      // Mobile: open full-screen modal
+      setModalStepIndex(index);
+      if (!stepsCompleted.includes(steps[index].id)) {
+        setManualActiveIndex(index);
+      }
+      return;
+    }
+    // Web: existing inline expand/collapse logic
     const isCurrentlyOpen = expandedSteps.has(index);
-    const willOpen = !isCurrentlyOpen;
+    const willOpen        = !isCurrentlyOpen;
 
     setExpandedSteps((prev) => {
-      const next = new Set(prev);
-      if (isCurrentlyOpen) next.delete(index);
-      else next.add(index);
+      const next = new Set<number>();
+      // Collapse ALL others, only keep this one if opening
+      if (willOpen) next.add(index);
       return next;
+    });
+
+    // Animate close for every previously open step except current
+    expandedSteps.forEach((openIndex) => {
+      if (openIndex !== index) animateExpand(openIndex, false);
     });
 
     animateExpand(index, willOpen);
@@ -98,16 +116,27 @@ export function StepTimeline({
     }
   };
 
-  // Collapse + circle-pop when a step gets completed
+  const closeModal = () => {
+    setModalStepIndex(null);
+    setManualActiveIndex(null);
+    scrollViewRef?.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const handleModalComplete = (stepId: string) => {
+    onCompleteStep(stepId);
+    setModalStepIndex(null);
+    setManualActiveIndex(null);
+    scrollViewRef?.current?.scrollTo({ y: 0, animated: true });
+  };
+
   const prevCompletedCount = useRef(stepsCompleted.length);
 
   useEffect(() => {
     if (stepsCompleted.length > prevCompletedCount.current) {
-      const justCompletedId = stepsCompleted[stepsCompleted.length - 1];
+      const justCompletedId    = stepsCompleted[stepsCompleted.length - 1];
       const justCompletedIndex = steps.findIndex((s) => s.id === justCompletedId);
 
       if (justCompletedIndex >= 0) {
-        // Collapse the completed step
         setExpandedSteps((prev) => {
           const next = new Set(prev);
           next.delete(justCompletedIndex);
@@ -115,21 +144,28 @@ export function StepTimeline({
         });
         animateExpand(justCompletedIndex, false);
 
-        // Circle pop: scale 1 → 1.4 → 1
         const circleAnim = getCircleAnim(justCompletedIndex);
         Animated.sequence([
-          Animated.timing(circleAnim, {
-            toValue: 1.4,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.spring(circleAnim, {
-            toValue: 1,
-            friction: 3,
-            tension: 200,
-            useNativeDriver: true,
-          }),
+          Animated.timing(circleAnim, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+          Animated.spring(circleAnim, { toValue: 1, friction: 3, tension: 200, useNativeDriver: true }),
         ]).start();
+
+        // Scroll to the next step after the collapse animation finishes
+        const nextIndex = justCompletedIndex + 1;
+        if (nextIndex < steps.length && scrollViewRef?.current) {
+          setTimeout(() => {
+            const nextRef = stepRowRefs.current.get(nextIndex);
+            if (nextRef && scrollViewRef.current) {
+              nextRef.measureLayout(
+                scrollViewRef.current as any,
+                (_x: number, y: number) => {
+                  scrollViewRef.current!.scrollTo({ y: Math.max(0, y - 16), animated: true });
+                },
+                () => {},
+              );
+            }
+          }, 350); // wait for collapse animation to finish
+        }
       }
 
       setManualActiveIndex(null);
@@ -140,38 +176,38 @@ export function StepTimeline({
   const getStateColor = (state: StepState): string => {
     switch (state) {
       case 'completed': return GREEN;
-      case 'active': return ORANGE;
-      case 'pending': return GREY;
+      case 'active':    return ORANGE;
+      case 'pending':   return GREY;
     }
   };
 
   const getStatePill = (state: StepState): { label: string; bg: string; text: string } => {
     switch (state) {
-      case 'completed':
-        return { label: t('step.completed'), bg: '#DCFCE7', text: GREEN };
-      case 'active':
-        return { label: t('step.inProgress'), bg: '#FEF3C7', text: '#D97706' };
-      case 'pending':
-        return { label: t('step.pending'), bg: '#F3F4F6', text: '#6B7280' };
+      case 'completed': return { label: t('step.completed'),  bg: '#DCFCE7', text: GREEN      };
+      case 'active':    return { label: t('step.inProgress'), bg: '#FEF3C7', text: '#D97706'  };
+      case 'pending':   return { label: t('step.pending'),    bg: '#F3F4F6', text: '#6B7280'  };
     }
   };
 
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
-        const state = getStepState(step, index);
-        const color = getStateColor(state);
-        const pill = getStatePill(state);
+        const state      = getStepState(step, index);
+        const color      = getStateColor(state);
+        const pill       = getStatePill(state);
         const isExpanded = expandedSteps.has(index);
-        const isLast = index === steps.length - 1;
+        const isLast     = index === steps.length - 1;
         const expandAnim = getExpandAnim(index);
         const circleAnim = getCircleAnim(index);
 
         return (
-          <View key={step.id} style={styles.stepRow}>
+          <View
+            key={step.id}
+            style={styles.stepRow}
+            ref={(r) => stepRowRefs.current.set(index, r)}
+          >
             {/* Timeline column */}
             <View style={styles.timelineCol}>
-              {/* Circle with completion pop animation */}
               <Animated.View style={{ transform: [{ scale: circleAnim }] }}>
                 <View
                   style={[
@@ -183,26 +219,15 @@ export function StepTimeline({
                   {state === 'completed' ? (
                     <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   ) : (
-                    <Text
-                      style={[
-                        styles.circleNumber,
-                        { color: state === 'active' ? color : '#9CA3AF' },
-                      ]}
-                    >
+                    <Text style={[styles.circleNumber, { color: state === 'active' ? color : '#9CA3AF' }]}>
                       {index + 1}
                     </Text>
                   )}
                 </View>
               </Animated.View>
 
-              {/* Connecting line */}
               {!isLast && (
-                <View
-                  style={[
-                    styles.line,
-                    { backgroundColor: state === 'completed' ? GREEN : '#E5E7EB' },
-                  ]}
-                />
+                <View style={[styles.line, { backgroundColor: state === 'completed' ? GREEN : '#E5E7EB' }]} />
               )}
             </View>
 
@@ -212,7 +237,7 @@ export function StepTimeline({
                 style={[
                   styles.stepCard,
                   state === 'completed' && styles.stepCardCompleted,
-                  state === 'active' && styles.stepCardActive,
+                  state === 'active'    && styles.stepCardActive,
                 ]}
               >
                 <TouchableOpacity
@@ -222,38 +247,22 @@ export function StepTimeline({
                 >
                   <View style={styles.stepHeaderLeft}>
                     <Text
-                      style={[
-                        styles.stepTitle,
-                        state === 'completed' && styles.stepTitleCompleted,
-                      ]}
+                      style={[styles.stepTitle, state === 'completed' && styles.stepTitleCompleted]}
                       numberOfLines={isExpanded ? undefined : 1}
                     >
                       {step.title}
                     </Text>
                     <View style={[styles.pill, { backgroundColor: pill.bg }]}>
-                      <Text style={[styles.pillText, { color: pill.text }]}>
-                        {pill.label}
-                      </Text>
+                      <Text style={[styles.pillText, { color: pill.text }]}>{pill.label}</Text>
                     </View>
                   </View>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color="#9CA3AF"
-                  />
+                  <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#9CA3AF" />
                 </TouchableOpacity>
 
-                {/* Animated expand/collapse wrapper — always rendered */}
                 <Animated.View
                   style={{
-                    maxHeight: expandAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, 1200],
-                    }),
-                    opacity: expandAnim.interpolate({
-                      inputRange: [0, 0.4, 1],
-                      outputRange: [0, 0, 1],
-                    }),
+                    maxHeight: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1200] }),
+                    opacity:   expandAnim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0, 1] }),
                     overflow: 'hidden',
                   }}
                 >
@@ -271,6 +280,39 @@ export function StepTimeline({
           </View>
         );
       })}
+
+      {/* Full-screen step modal — mobile only */}
+      {isMobile && modalStepIndex !== null && (
+        <Modal
+          visible
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={closeModal}
+        >
+          <SafeAreaView style={styles.modalSafeArea}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalHeaderTitle} numberOfLines={2}>
+                {steps[modalStepIndex].title}
+              </Text>
+              <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            {/* Scrollable content */}
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+              <StepContent
+                step={steps[modalStepIndex]}
+                isCompleted={stepsCompleted.includes(steps[modalStepIndex].id)}
+                isActive={getStepState(steps[modalStepIndex], modalStepIndex) === 'active'}
+                isExpanded
+                onComplete={() => handleModalComplete(steps[modalStepIndex].id)}
+                langcode={langcode}
+              />
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -357,5 +399,41 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeaderTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginRight: 12,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 40,
   },
 });

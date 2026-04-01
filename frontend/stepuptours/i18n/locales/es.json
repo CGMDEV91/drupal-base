@@ -50,6 +50,8 @@
   "popup.donateLabel": "Apoya al guía",
   "popup.donateDefault": "1",
   "popup.goHome": "Volver al inicio",
+  "popup.supportGuide": "Apoyar al guía",
+  "popup.changeAmount": "Cambiar cantidad",
   "popup.alreadyCompleted": "¡Tour completado de nuevo!",
 
   "rating.prompt": "¿Te gustaría valorar este tour?",
@@ -429,5 +431,6 @@
   "step.nearby": "También cerca",
   "step.nearbyOsmBadge": "Datos OSM · Gratis",
   "step.locationView": "Vista del lugar",
+  "step.goToSite": "Ir al sitio",
   "step.howToGet": "Cómo llegar"
 }

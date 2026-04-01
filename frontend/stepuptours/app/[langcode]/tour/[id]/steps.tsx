@@ -21,6 +21,8 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToursStore } from '../../../../stores/tours.store';
 import { useAuthStore } from '../../../../stores/auth.store';
+import { getUserById } from '../../../../services/user.service';
+import type { User } from '../../../../types';
 import { StepTimeline } from '../../../../components/tour/StepTimeline';
 import { CompletionPopup } from '../../../../components/tour/CompletionPopup';
 import { TourOnboardingModal, ONBOARDING_STORAGE_KEY } from '../../../../components/tour/TourOnboardingModal';
@@ -47,9 +49,13 @@ export default function TourStepsScreen() {
   const [showCompletion, setShowCompletion] = useState(false);
   const [xpAwardedBefore, setXpAwardedBefore] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [guideUser, setGuideUser] = useState<User | null>(null);
 
   // Animated progress bar
   const progressAnim = useRef(new Animated.Value(0)).current;
+
+  // Ref for scroll-to-next-step
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Auth guard
   useEffect(() => {
@@ -68,6 +74,15 @@ export default function TourStepsScreen() {
       fetchTourDetail(id, user.id);
     }
   }, [id, user?.id]);
+
+  // Fetch guide user when tour data is available
+  useEffect(() => {
+    if (tour?.authorId) {
+      getUserById(tour.authorId)
+        .then(setGuideUser)
+        .catch(() => {}); // silent fail — guide card is optional
+    }
+  }, [tour?.authorId]);
 
   // Show onboarding on first visit (no completed steps and not dismissed before)
   useEffect(() => {
@@ -199,7 +214,7 @@ export default function TourStepsScreen() {
         />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Restart button */}
         {stepsCompleted.length > 0 && (
           <TouchableOpacity
@@ -218,6 +233,7 @@ export default function TourStepsScreen() {
           stepsCompleted={stepsCompleted}
           onCompleteStep={handleCompleteStep}
           langcode={langcode ?? 'en'}
+          scrollViewRef={scrollViewRef}
         />
       </ScrollView>
 
@@ -238,6 +254,10 @@ export default function TourStepsScreen() {
         onDonate={handleDonate}
         onClose={handleCloseCompletion}
         langcode={langcode ?? 'en'}
+        guideId={guideUser?.id}
+        guideName={guideUser?.username}
+        guideAvatar={guideUser?.avatar ?? null}
+        guideRoles={guideUser?.roles}
       />
     </View>
   );
@@ -247,6 +267,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as any } : {}),
   },
   loadingContainer: {
     flex: 1,

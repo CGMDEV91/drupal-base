@@ -1,7 +1,7 @@
 // hooks/useTTS.ts
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Animated } from 'react-native';
+import { Animated, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
@@ -78,9 +78,11 @@ export function useTTS(text: string, langcode: string): UseTTSReturn {
       de: 0.9,
       it: 0.9,
     };
-
     const base = baseRates[lang.slice(0, 2)] || 0.95;
-    return base * speed;
+    const rate = base * speed;
+    // On iOS, AVSpeechUtterance default rate is 0.5 (not 1.0).
+    // Scale down so the speech sounds natural instead of high-pitched.
+    return Platform.OS === 'ios' ? rate * 0.5 : rate;
   };
 
   // ── Text humanization ─────────────────────────────────────────────────────

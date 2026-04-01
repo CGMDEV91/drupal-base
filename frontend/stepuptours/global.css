@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Mobile viewport / overscroll fixes ─────────────────────────────────────
+   - `100vh` on Chrome Android = max viewport (address bar hidden). When the
+     address bar is visible the content overflows → infinite white space below.
+     `100dvh` (dynamic viewport height) tracks the *actual* visible height.
+   - `overscroll-behavior: none` prevents the rubber-band / bounce effect and
+     the "scroll past the footer" bleed on Chrome mobile.
+   Supported: Chrome 94+, Firefox 101+, Safari 15.4+. */
+html,
+body,
+#root {
+  height: 100dvh;
+  max-height: 100dvh;
+  overscroll-behavior: none;
+}
+
 /* ── Focus outline suppression ───────────────────────────────────────────── */
 *:focus,
 *:focus-visible {

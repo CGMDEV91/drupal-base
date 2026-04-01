@@ -7,6 +7,7 @@ import {
   Text,
   ScrollView,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import PageBanner from '../../components/layout/PageBanner';
@@ -244,6 +245,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+    ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as any } : {}),
   },
 
   // Scroll content: centred on desktop
