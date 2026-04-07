@@ -1,0 +1,18 @@
+uuid: d0cc6614-327b-449b-8a4c-ddaf81bc4b1b
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.professional_profile
+id: node.professional_profile.title
+field_name: title
+entity_type: node
+bundle: professional_profile
+label: Title
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

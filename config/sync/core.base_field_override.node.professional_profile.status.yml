@@ -1,0 +1,22 @@
+uuid: 9d214fee-e84a-4341-a6dc-d5f0c9e064af
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.professional_profile
+id: node.professional_profile.status
+field_name: status
+entity_type: node
+bundle: professional_profile
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

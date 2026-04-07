@@ -1,0 +1,20 @@
+uuid: c920a64a-f7ff-4706-b55d-f0bb94423847
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.professional_profile
+  module:
+    - path
+id: node.professional_profile.path
+field_name: path
+entity_type: node
+bundle: professional_profile
+label: 'URL alias'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: path

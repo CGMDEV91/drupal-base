@@ -1,0 +1,22 @@
+uuid: fb3f98c4-f786-476e-a739-43fc7def05c4
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_step
+id: node.tour_step.promote
+field_name: promote
+entity_type: node
+bundle: tour_step
+label: 'Promoted to front page'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

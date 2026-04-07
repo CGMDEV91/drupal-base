@@ -1,0 +1,22 @@
+uuid: eae831ca-1188-41c6-8c1a-63c0bd3fe81d
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription_payment
+id: node.subscription_payment.sticky
+field_name: sticky
+entity_type: node
+bundle: subscription_payment
+label: 'Sticky at top of lists'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

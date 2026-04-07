@@ -196,3 +196,47 @@ export async function isAuthenticated(): Promise<boolean> {
 export async function getCurrentUser(): Promise<User | null> {
   return sessionStorage.getUser();
 }
+
+// ── Google Auth ───────────────────────────────────────────────────────────────
+
+export async function loginWithGoogle(googleAccessToken: string, role?: 'professional'): Promise<AuthSession> {
+  let response: any;
+  try {
+    response = await axios.post(
+      `${BASE_URL}/api/auth/google`,
+      { access_token: googleAccessToken, role: role ?? null },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (err: any) {
+    throw new Error(extractErrorMessage(err, 'Google sign-in failed'));
+  }
+
+  const { token, username } = response.data;
+  // token is base64(username:derivedPassword) — ready to use as Basic Auth
+  const authHeader = `Basic ${token}`;
+
+  // Fetch full user profile
+  const users = await axios.get(
+    `${BASE_URL}/jsonapi/user/user?filter[name]=${encodeURIComponent(username)}&fields[user--user]=name,mail,field_public_name,field_experience_points,field_country,user_picture,created,preferred_langcode,langcode&include=field_country`,
+    { headers: { Accept: 'application/vnd.api+json', Authorization: authHeader } }
+  );
+  const rawUsers = users.data?.data ?? [];
+  if (!rawUsers.length) throw new Error('User not found after Google auth');
+
+  const roles = await fetchUserRoles(rawUsers[0].id, authHeader);
+  const rawUser = {
+    ...rawUsers[0].attributes,
+    id: rawUsers[0].id,
+    field_country: (() => {
+      const rel = rawUsers[0].relationships?.field_country?.data;
+      if (!rel) return null;
+      const inc = users.data?.included?.find((i: any) => i.id === rel.id);
+      return inc ? { id: inc.id, ...inc.attributes } : null;
+    })(),
+    roles,
+  };
+  const user = mapDrupalUser(rawUser);
+  const session: AuthSession = { token, tokenType: 'basic', user };
+  await sessionStorage.saveSession(session);
+  return session;
+}

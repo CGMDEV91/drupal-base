@@ -1,0 +1,18 @@
+uuid: 18230e94-b20b-4be4-8a0b-5434c51af51d
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.donation
+id: node.donation.created
+field_name: created
+entity_type: node
+bundle: donation
+label: 'Authored on'
+description: 'The date and time that the content was created.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: created

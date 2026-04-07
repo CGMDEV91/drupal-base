@@ -1,0 +1,18 @@
+uuid: 1478963b-5dd8-4fa0-9e93-cf972b946c16
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.title
+field_name: title
+entity_type: node
+bundle: tour_user_activity
+label: Title
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

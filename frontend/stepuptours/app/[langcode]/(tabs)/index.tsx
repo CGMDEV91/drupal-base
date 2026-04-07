@@ -569,6 +569,8 @@ export default function HomePage() {
         keyExtractor={(item) => item.id}
         numColumns={cols}
         key={`grid-${cols}`}
+        bounces={false}
+        overScrollMode="never"
         columnWrapperStyle={
           cols > 1
             ? {

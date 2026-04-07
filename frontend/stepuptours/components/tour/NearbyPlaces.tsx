@@ -9,10 +9,20 @@ import {
   Linking,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { GeoLocation } from '../../types';
+
+// ─── Mirrors — se lanzan en PARALELO, gana el primero que responda ────────────
+const OVERPASS_MIRRORS = [
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+const FETCH_TIMEOUT_MS = 10000;
 
 interface NearbyPlacesProps {
   location: GeoLocation;
@@ -20,15 +30,18 @@ interface NearbyPlacesProps {
 }
 
 interface OsmPlace {
-  id: number;
-  lat: number;
-  lon: number;
-  name: string;
-  type: string;
+  id:       number;
+  lat:      number;
+  lon:      number;
+  name:     string;
+  type:     string;
   distance: number;
+  city?:    string;
+  country?: string;
 }
 
-// Haversine distance in metres
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -36,71 +49,114 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): num
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 function buildQuery(lat: number, lon: number): string {
-  return `[out:json][timeout:10];(node(around:300,${lat},${lon})[name][amenity];node(around:300,${lat},${lon})[name][tourism];node(around:300,${lat},${lon})[name][shop];);out 8;`;
+  return `[out:json][timeout:8];(node(around:300,${lat},${lon})[name][amenity];node(around:300,${lat},${lon})[name][tourism];node(around:300,${lat},${lon})[name][shop];);out 8;`;
+}
+
+async function fetchFromMirror(mirror: string, query: string): Promise<any[]> {
+  const url = `${mirror}?data=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const elements = data.elements ?? [];
+    if (!Array.isArray(elements)) throw new Error('Invalid response');
+    return elements;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Lanza todos los mirrors en paralelo — devuelve el más rápido
+async function fetchWithRace(query: string): Promise<any[]> {
+  return Promise.any(
+    OVERPASS_MIRRORS.map((mirror) => fetchFromMirror(mirror, query))
+  );
+}
+
+function mapElements(elements: any[], lat: number, lon: number): OsmPlace[] {
+  return elements
+    .map((el) => ({
+      id:       el.id as number,
+      lat:      el.lat as number,
+      lon:      el.lon as number,
+      name:     (el.tags?.name as string) ?? '',
+      type:     (el.tags?.amenity || el.tags?.tourism || el.tags?.shop || 'place') as string,
+      distance: haversineM(lat, lon, el.lat, el.lon),
+      city:     (el.tags?.['addr:city'] || el.tags?.['addr:town'] || '') as string,
+      country:  (el.tags?.['addr:country'] || '') as string,
+    }))
+    .filter((p) => p.name)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 4);
 }
 
 function categoryIcon(type: string): keyof typeof Ionicons.glyphMap {
   const map: Record<string, keyof typeof Ionicons.glyphMap> = {
-    restaurant: 'restaurant-outline',
-    cafe: 'cafe-outline',
-    bar: 'wine-outline',
-    fast_food: 'fast-food-outline',
-    pharmacy: 'medical-outline',
-    hospital: 'medkit-outline',
-    bank: 'card-outline',
-    atm: 'cash-outline',
-    museum: 'library-outline',
-    hotel: 'bed-outline',
-    supermarket: 'cart-outline',
-    convenience: 'storefront-outline',
-    attraction: 'telescope-outline',
+    restaurant:       'restaurant-outline',
+    cafe:             'cafe-outline',
+    bar:              'wine-outline',
+    fast_food:        'fast-food-outline',
+    pharmacy:         'medical-outline',
+    hospital:         'medkit-outline',
+    bank:             'card-outline',
+    atm:              'cash-outline',
+    museum:           'library-outline',
+    hotel:            'bed-outline',
+    supermarket:      'cart-outline',
+    convenience:      'storefront-outline',
+    attraction:       'telescope-outline',
     place_of_worship: 'business-outline',
-    park: 'leaf-outline',
-    viewpoint: 'eye-outline',
-    artwork: 'color-palette-outline',
-    bakery: 'cafe-outline',
-    clothes: 'shirt-outline',
-    shoe_shop: 'footsteps-outline',
-    bookshop: 'book-outline',
+    park:             'leaf-outline',
+    viewpoint:        'eye-outline',
+    artwork:          'color-palette-outline',
+    bakery:           'cafe-outline',
+    clothes:          'shirt-outline',
+    shoe_shop:        'footsteps-outline',
+    bookshop:         'book-outline',
   };
   return map[type] ?? 'location-outline';
 }
 
 function categoryLabel(type: string): string {
   const labels: Record<string, string> = {
-    restaurant: 'Restaurant',
-    cafe: 'Café',
-    bar: 'Bar',
-    fast_food: 'Fast Food',
-    pharmacy: 'Pharmacy',
-    hospital: 'Hospital',
-    bank: 'Bank',
-    atm: 'ATM',
-    museum: 'Museum',
-    hotel: 'Hotel',
-    supermarket: 'Supermarket',
-    convenience: 'Shop',
-    attraction: 'Attraction',
+    restaurant:       'Restaurant',
+    cafe:             'Café',
+    bar:              'Bar',
+    fast_food:        'Fast Food',
+    pharmacy:         'Pharmacy',
+    hospital:         'Hospital',
+    bank:             'Bank',
+    atm:              'ATM',
+    museum:           'Museum',
+    hotel:            'Hotel',
+    supermarket:      'Supermarket',
+    convenience:      'Shop',
+    attraction:       'Attraction',
     place_of_worship: 'Monument',
-    park: 'Park',
-    viewpoint: 'Viewpoint',
-    artwork: 'Artwork',
-    bakery: 'Bakery',
-    clothes: 'Clothing',
-    bookshop: 'Bookshop',
+    park:             'Park',
+    viewpoint:        'Viewpoint',
+    artwork:          'Artwork',
+    bakery:           'Bakery',
+    clothes:          'Clothing',
+    bookshop:         'Bookshop',
   };
   return labels[type] ?? type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
 }
 
+// ─── Componente ───────────────────────────────────────────────────────────────
+
 export function NearbyPlaces({ location, visible }: NearbyPlacesProps) {
   const { t } = useTranslation();
-  const [places, setPlaces] = useState<OsmPlace[]>([]);
+  const [places,  setPlaces]  = useState<OsmPlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
@@ -110,55 +166,39 @@ export function NearbyPlaces({ location, visible }: NearbyPlacesProps) {
     setLoading(true);
 
     const query = buildQuery(location.lat, location.lon);
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
-    // Random stagger (0–3 s) to avoid simultaneous 429s when multiple steps are visible
-    const jitter = Math.random() * 3000;
-    const controller = new AbortController();
+    fetchWithRace(query)
+      .then((elements) => {
+        setPlaces(mapElements(elements, location.lat, location.lon));
+      })
+      .catch(() => {
+        // Todos los mirrors fallaron — silencioso, el componente no se muestra
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
-    const timer = setTimeout(() => {
-      fetch(url, { signal: controller.signal })
-        .then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then((data) => {
-          const elements: any[] = data.elements ?? [];
-          const mapped: OsmPlace[] = elements
-            .map((el) => ({
-              id: el.id as number,
-              lat: el.lat as number,
-              lon: el.lon as number,
-              name: (el.tags?.name as string) ?? '',
-              type: (el.tags?.amenity || el.tags?.tourism || el.tags?.shop || 'place') as string,
-              distance: haversineM(location.lat, location.lon, el.lat, el.lon),
-            }))
-            .filter((p) => p.name)
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, 4);
-          setPlaces(mapped);
-        })
-        .catch(() => {}) // silent fail — hides 429, network errors, etc.
-        .finally(() => setLoading(false));
-    }, jitter);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
+    // Sin cleanup que aborte — evita el "aborted without reason" en Strict Mode
   }, [visible, fetched, location.lat, location.lon]);
 
   if (!visible || (!loading && places.length === 0)) return null;
 
   const openGoogleMaps = (p: OsmPlace) => {
-    Linking.openURL(
-      `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`
-    ).catch(() => {});
+    const context    = [p.city, p.country].filter(Boolean).join(', ');
+    const searchTerm = context ? `${p.name}, ${context}` : p.name;
+    const query      = encodeURIComponent(searchTerm);
+
+    const url = Platform.select({
+      ios:     `maps://?q=${query}&ll=${p.lat},${p.lon}`,
+      android: `geo:${p.lat},${p.lon}?q=${query}`,
+      default: `https://www.google.com/maps/search/${query}/@${p.lat},${p.lon},18z`,
+    });
+
+    Linking.openURL(url!).catch(() => {});
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerLabel}>{t('step.nearby')}</Text>
         <View style={styles.headerLine} />
@@ -171,7 +211,7 @@ export function NearbyPlaces({ location, visible }: NearbyPlacesProps) {
       {loading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color="#9CA3AF" />
-          <Text style={styles.loadingText}>Buscando lugares cercanos...</Text>
+          <Text style={styles.loadingText}>{t('step.nearbyLoading')}</Text>
         </View>
       ) : (
         places.map((place, index) => (
@@ -185,9 +225,7 @@ export function NearbyPlaces({ location, visible }: NearbyPlacesProps) {
               <Ionicons name={categoryIcon(place.type)} size={16} color="#6B7280" />
             </View>
             <View style={styles.placeInfo}>
-              <Text style={styles.placeName} numberOfLines={1}>
-                {place.name}
-              </Text>
+              <Text style={styles.placeName} numberOfLines={1}>{place.name}</Text>
               <Text style={styles.placeType}>{categoryLabel(place.type)}</Text>
             </View>
             <View style={styles.placeRight}>
@@ -200,6 +238,8 @@ export function NearbyPlaces({ location, visible }: NearbyPlacesProps) {
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {

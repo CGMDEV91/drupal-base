@@ -249,6 +249,9 @@
   "auth.usernameInvalidChars": "Only letters, numbers and @ . - _ are allowed",
   "auth.publicName": "Display Name",
   "auth.publicNamePlaceholder": "How you'll appear to others",
+  "auth.continueWithGoogle": "Continue with Google",
+  "auth.orDivider": "or",
+  "auth.googleError": "Google sign-in failed. Please try again.",
 
   "card.favourite": "Add to Favourites",
   "card.unfavourite": "Remove from Favourites",
@@ -430,6 +433,7 @@
   "step.alreadyHere": "Are you at {{title}}?",
   "step.nearby": "Nearby",
   "step.nearbyOsmBadge": "OSM · Free data",
+  "step.nearbyLoading": "Finding nearby places...",
   "step.locationView": "Location view",
   "step.goToSite": "Go to site",
   "step.howToGet": "How to get there"

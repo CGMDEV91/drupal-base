@@ -1,0 +1,18 @@
+uuid: 80f71885-95ad-4755-b72d-44b9127911e6
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.created
+field_name: created
+entity_type: node
+bundle: tour_user_activity
+label: 'Authored on'
+description: 'The date and time that the content was created.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: created

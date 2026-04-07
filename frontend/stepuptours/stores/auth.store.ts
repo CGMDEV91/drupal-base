@@ -17,6 +17,7 @@ interface AuthState {
   // Actions
   signIn: (credentials: AuthCredentials) => Promise<void>;
   signUp: (data: { username: string; publicName?: string; email: string; password: string; role?: 'professional' }) => Promise<void>;
+  signInWithGoogle: (googleAccessToken: string, role?: 'professional') => Promise<void>;
   signOut: () => Promise<void>;
   restore: () => Promise<void>;
   clearError: () => void;
@@ -58,6 +59,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (err: any) {
       set({ isLoading: false, error: err.message ?? 'Error al registrarse' });
+    }
+  },
+
+  signInWithGoogle: async (googleAccessToken, role) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { loginWithGoogle } = await import('../services/auth.service');
+      const session = await loginWithGoogle(googleAccessToken, role);
+      set({ session, user: session.user, isLoading: false });
+      inactivityTracker.start(() => { get().signOut(); });
+    } catch (err: any) {
+      set({ isLoading: false, error: err.message ?? 'Google sign-in failed' });
     }
   },
 

@@ -249,6 +249,9 @@
   "auth.usernameInvalidChars": "Solo letras, números y @ . - _ están permitidos",
   "auth.publicName": "Nombre público",
   "auth.publicNamePlaceholder": "Cómo aparecerás a los demás",
+  "auth.continueWithGoogle": "Continuar con Google",
+  "auth.orDivider": "o",
+  "auth.googleError": "Error con Google. Inténtalo de nuevo.",
 
   "card.favourite": "Añadir a Favoritos",
   "card.unfavourite": "Quitar de Favoritos",
@@ -430,6 +433,7 @@
   "step.alreadyHere": "¿Ya estás en {{title}}?",
   "step.nearby": "También cerca",
   "step.nearbyOsmBadge": "Datos OSM · Gratis",
+  "step.nearbyLoading": "Buscando lugares cercanos...",
   "step.locationView": "Vista del lugar",
   "step.goToSite": "Ir al sitio",
   "step.howToGet": "Cómo llegar"

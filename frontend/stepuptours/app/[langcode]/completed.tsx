@@ -122,6 +122,8 @@ export default function CompletedScreen() {
       keyExtractor={(item) => item.activity.tourId}
       numColumns={cols}
       key={`completed-grid-${cols}`}
+      bounces={false}
+      overScrollMode="never"
       ListHeaderComponent={
         <View>
           <PageBanner

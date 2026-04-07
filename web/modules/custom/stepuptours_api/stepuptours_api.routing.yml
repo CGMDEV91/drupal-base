@@ -215,6 +215,16 @@ stepuptours_api.admin_donations_summary:
       - basic_auth
       - cookie
 
+stepuptours_api.tts:
+  path: '/api/tts'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\TtsController::synthesize'
+  methods: [POST, OPTIONS]
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
 stepuptours_api.subscription_session_status:
   path: '/api/subscription/session-status'
   defaults:
@@ -228,3 +238,21 @@ stepuptours_api.subscription_session_status:
     _auth:
       - basic_auth
       - cookie
+
+stepuptours_api.google_auth:
+  path: '/api/auth/google'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\GoogleAuthController::authenticate'
+    _title: 'Google Auth'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
+
+stepuptours_api.google_auth_options:
+  path: '/api/auth/google'
+  defaults:
+    _controller: '\Drupal\stepuptours_api\Controller\GoogleAuthController::options'
+    _title: 'Google Auth Options'
+  methods: [OPTIONS]
+  requirements:
+    _access: 'TRUE'

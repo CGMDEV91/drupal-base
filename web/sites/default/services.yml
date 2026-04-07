@@ -212,9 +212,11 @@ parameters:
       - 'http://localhost:19006'
       - 'http://localhost:3000'
       - 'https://eduardo-coelanaglyphic-existentialistically.ngrok-free.dev'
-      - '*'
+      - 'https://alison-visional-inez.ngrok-free.dev'
+      - 'https://stepuptours.pages.dev'
     exposedHeaders:
-      - true
+      - 'Authorization'
+      - 'Content-Type'
     maxAge: 1000
     supportsCredentials: true
 

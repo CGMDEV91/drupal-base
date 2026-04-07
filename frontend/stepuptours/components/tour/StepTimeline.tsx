@@ -263,7 +263,11 @@ export function StepTimeline({
                   style={{
                     maxHeight: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1200] }),
                     opacity:   expandAnim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0, 1] }),
-                    overflow: 'hidden',
+                    // 'hidden' clips during animation on native.
+                    // On web 'hidden' creates a scroll-capturing context that blocks
+                    // wheel events from reaching the parent ScrollView — use 'visible' instead.
+                    // opacity:0 hides overflow during the animation's early phase.
+                    overflow: Platform.OS === 'web' ? 'visible' : 'hidden',
                   }}
                 >
                   <StepContent

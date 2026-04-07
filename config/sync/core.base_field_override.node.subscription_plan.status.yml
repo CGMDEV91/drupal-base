@@ -1,0 +1,22 @@
+uuid: 6a692343-9be8-44d3-a271-5ece4386398b
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription_plan
+id: node.subscription_plan.status
+field_name: status
+entity_type: node
+bundle: subscription_plan
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

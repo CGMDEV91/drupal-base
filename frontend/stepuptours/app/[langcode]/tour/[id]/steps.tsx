@@ -183,21 +183,23 @@ export default function TourStepsScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.backButton}>
-          <BackButton color="#374151" bgColor="rgba(0,0,0,0.07)" fallbackRoute={`/${langcode}/tour/${id}`} />
+      {/* Header — full-width bar with absolute back button (matches PageBanner pattern) */}
+      <View style={styles.headerOuter}>
+        <View style={styles.backButtonAbs}>
+          <BackButton color="#374151" bgColor="#F3F4F6" fallbackRoute={`/${langcode}/tour/${id}`} />
         </View>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{tour.title}</Text>
-          <View style={styles.headerCityRow}>
-            <Ionicons name="location-outline" size={12} color="#9CA3AF" />
-            <Text style={styles.headerCity}>{tour.city?.name}</Text>
+        <View style={styles.header}>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{tour.title}</Text>
+            <View style={styles.headerCityRow}>
+              <Ionicons name="location-outline" size={12} color="#9CA3AF" />
+              <Text style={styles.headerCity}>{tour.city?.name}</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.headerProgress}>
-          <Text style={styles.progressPercent}>{Math.round((stepsCompleted.length / totalSteps) * 100)}%</Text>
-          <Text style={styles.progressFraction}>{stepsCompleted.length}/{totalSteps}</Text>
+          <View style={styles.headerProgress}>
+            <Text style={styles.progressPercent}>{Math.round((stepsCompleted.length / totalSteps) * 100)}%</Text>
+            <Text style={styles.progressFraction}>{stepsCompleted.length}/{totalSteps}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.progressBarBg}>
@@ -214,7 +216,7 @@ export default function TourStepsScreen() {
         />
       </View>
 
-      <ScrollView ref={scrollViewRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent} bounces={false} overScrollMode="never">
         {/* Restart button */}
         {stepsCompleted.length > 0 && (
           <TouchableOpacity
@@ -275,26 +277,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
+  headerOuter: {
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  backButtonAbs: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 16 : 48,
+    left: 16,
+    zIndex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Platform.OS === 'web' ? 16 : 48,
     paddingBottom: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
     maxWidth: CONTENT_MAX_WIDTH,
     alignSelf: 'center',
     width: '100%',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   headerInfo: {
     flex: 1,
-    marginLeft: 8,
+    paddingLeft: 44,
   },
   headerTitle: {
     fontSize: 16,

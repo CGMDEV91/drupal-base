@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Tour } from '../../types';
 import { StarRating } from './StarRating';
+import { imageHeaders } from '../../lib/drupal-client';
 
 interface TourCardProps {
   tour: Tour;
@@ -78,7 +79,7 @@ export function TourCard({
       {/* Image with overlays */}
       <View style={[styles.imageContainer, { height: imageHeight }]}>
         <Image
-          source={tour.image ? { uri: tour.image } : stableDefault}
+          source={tour.image ? { uri: tour.image, headers: imageHeaders } : stableDefault}
           style={styles.image}
           contentFit="cover"
           transition={200}

@@ -22,9 +22,11 @@ import { useToursStore } from '../../../stores/tours.store';
 import { useAuthStore } from '../../../stores/auth.store';
 import { StarRating } from '../../../components/tour/StarRating';
 import { BusinessCard } from '../../../components/tour/BusinessCard';
+import { HtmlText } from '../../../components/ui/HtmlText';
 import BackButton from '../../../components/layout/BackButton';
 import Footer from '../../../components/layout/Footer';
 import { LAYOUT } from '../../../styles/theme';
+import { imageHeaders } from '../../../lib/drupal-client';
 
 const AMBER = '#F59E0B';
 const BANNER_HEIGHT = 380;
@@ -106,7 +108,7 @@ export default function TourDetailScreen() {
     if (!user) {
       return {
         label: t('tour.start'),
-        onPress: () => openAuthModal('register'),
+        onPress: () => openAuthModal('login'),
       };
     }
 
@@ -186,11 +188,16 @@ export default function TourDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+        overScrollMode="never"
+      >
         {/* Banner */}
         <View style={styles.bannerContainer}>
           <Image
-            source={tour.image ? { uri: tour.image } : stableDefault}
+            source={tour.image ? { uri: tour.image, headers: imageHeaders } : stableDefault}
             style={styles.bannerImage}
             contentFit="cover"
             transition={300}
@@ -210,7 +217,7 @@ export default function TourDetailScreen() {
 
           {/* Back button */}
           <View style={styles.backButton}>
-            <BackButton color="#FFFFFF" fallbackRoute={`/${langcode}`} />
+            <BackButton color="#FFFFFF" bgColor="rgba(0,0,0,0.35)" size={41} fallbackRoute={`/${langcode}`} />
           </View>
 
           {/* Heart + Share icons */}
@@ -259,7 +266,7 @@ export default function TourDetailScreen() {
           {tour.description ? (
             <View style={styles.section}>
               <Text style={styles.sectionHeading}>{t('tour.aboutThisTour')}</Text>
-              <Text style={styles.description}>{tour.description}</Text>
+              <HtmlText html={tour.description} style={styles.description} />
             </View>
           ) : null}
 
@@ -399,10 +406,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 48,
     left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -417,8 +420,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   actionCircle: {
-    width: 42,
-    height: 42,
+    width: 41,
+    height: 41,
     borderRadius: 21,
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',

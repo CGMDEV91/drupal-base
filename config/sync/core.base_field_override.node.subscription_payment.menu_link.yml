@@ -1,0 +1,20 @@
+uuid: beabcd36-5d9d-4a04-afce-0ad4fb6c78ce
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription_payment
+id: node.subscription_payment.menu_link
+field_name: menu_link
+entity_type: node
+bundle: subscription_payment
+label: 'Menu link'
+description: 'Computed menu link for the node (only available during node saving).'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: default
+  handler_settings: {  }
+field_type: entity_reference

@@ -1,0 +1,22 @@
+uuid: 95d60b8c-7359-4add-8556-9a23331d1d1e
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription
+id: node.subscription.status
+field_name: status
+entity_type: node
+bundle: subscription
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

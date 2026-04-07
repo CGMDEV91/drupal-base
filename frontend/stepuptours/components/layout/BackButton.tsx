@@ -10,6 +10,8 @@ interface BackButtonProps {
   bgColor?: string;
   /** Fallback route when there is no navigation history (e.g. direct page load) */
   fallbackRoute?: string;
+  /** Circle diameter. Defaults to 36. */
+  size?: number;
 }
 
 export default function BackButton({
@@ -17,6 +19,7 @@ export default function BackButton({
   color = '#FFFFFF',
   bgColor = 'rgba(255,255,255,0.15)',
   fallbackRoute,
+  size = 36,
 }: BackButtonProps) {
   const router = useRouter();
 
@@ -36,19 +39,9 @@ export default function BackButton({
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
-      style={[styles.button, { backgroundColor: bgColor }]}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center' }}
     >
       <Ionicons name="arrow-back" size={20} color={color} />
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

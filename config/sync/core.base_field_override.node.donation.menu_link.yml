@@ -1,0 +1,20 @@
+uuid: b5c9bbe5-681b-4e11-ab98-7fbf29a3c305
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.donation
+id: node.donation.menu_link
+field_name: menu_link
+entity_type: node
+bundle: donation
+label: 'Menu link'
+description: 'Computed menu link for the node (only available during node saving).'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: default
+  handler_settings: {  }
+field_type: entity_reference

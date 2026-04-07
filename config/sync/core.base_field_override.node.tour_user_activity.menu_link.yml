@@ -1,0 +1,20 @@
+uuid: b8969055-032d-4f3e-ad46-13d111bb2caf
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.menu_link
+field_name: menu_link
+entity_type: node
+bundle: tour_user_activity
+label: 'Menu link'
+description: 'Computed menu link for the node (only available during node saving).'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: default
+  handler_settings: {  }
+field_type: entity_reference

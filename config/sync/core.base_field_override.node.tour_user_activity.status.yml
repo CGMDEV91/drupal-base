@@ -1,0 +1,22 @@
+uuid: 114fe7fa-732a-40a3-bf9f-54129cc7c2b5
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.status
+field_name: status
+entity_type: node
+bundle: tour_user_activity
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

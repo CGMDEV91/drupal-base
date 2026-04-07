@@ -1,12 +1,11 @@
 // components/layout/AuthModals.tsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   Modal,
-  Pressable,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
@@ -18,12 +17,28 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/auth.store';
+import { getGoogleAccessToken } from '../../services/googleAuth.service';
 
 interface Props {
   visible: 'login' | 'register' | null;
   onClose: () => void;
   onSwitch: (mode: 'login' | 'register') => void;
 }
+
+// ── Google "G" logo SVG ───────────────────────────────────────────────────────
+const GoogleLogo = () => (
+  // @ts-ignore
+  <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+    {/* @ts-ignore */}
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+    {/* @ts-ignore */}
+    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+    {/* @ts-ignore */}
+    <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+    {/* @ts-ignore */}
+    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+);
 
 // ── Campo de texto reutilizable ───────────────────────────────────────────────
 function Field({
@@ -94,12 +109,14 @@ function Field({
 }
 
 // ── Modal Login ───────────────────────────────────────────────────────────────
-function LoginModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean }) {
-  const { signIn, isLoading, error, clearError } = useAuthStore();
+function LoginModal({ onClose, onSwitch, fullscreen, desktopWeb }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean; desktopWeb?: boolean }) {
+  const { signIn, signInWithGoogle, isLoading, error, clearError } = useAuthStore();
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const passwordRef = useRef<RNTextInput>(null);
 
   const validate = () => {
@@ -117,8 +134,22 @@ function LoginModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; on
     if (!useAuthStore.getState().error) onClose();
   };
 
+  const handleGoogleAuth = async () => {
+    setGoogleError(null);
+    setGoogleLoading(true);
+    try {
+      const token = await getGoogleAccessToken();
+      await signInWithGoogle(token);
+      if (!useAuthStore.getState().error) onClose();
+    } catch (e: any) {
+      setGoogleError(e.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen]}>
+    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen, desktopWeb && modalStyles.sheetDesktopWeb as any]}>
       {/* Cabecera */}
       <View style={modalStyles.header}>
         <View>
@@ -137,6 +168,33 @@ function LoginModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; on
           <Text style={modalStyles.errorBannerText}>{error}</Text>
         </View>
       ) : null}
+
+      {/* Botón Google */}
+      <TouchableOpacity
+        style={modalStyles.googleBtn}
+        onPress={handleGoogleAuth}
+        disabled={googleLoading || isLoading}
+        activeOpacity={0.8}
+      >
+        {googleLoading ? (
+          <ActivityIndicator size="small" color="#374151" />
+        ) : (
+          <>
+            {Platform.OS === 'web' && <GoogleLogo />}
+            <Text style={modalStyles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+      {googleError ? (
+        <Text style={modalStyles.googleErrorText}>{googleError}</Text>
+      ) : null}
+
+      {/* Divider */}
+      <View style={modalStyles.dividerRow}>
+        <View style={modalStyles.dividerLine} />
+        <Text style={modalStyles.dividerText}>{t('auth.orDivider')}</Text>
+        <View style={modalStyles.dividerLine} />
+      </View>
 
       {/* Campos */}
       <Field
@@ -185,8 +243,8 @@ function LoginModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; on
 }
 
 // ── Modal Registro ────────────────────────────────────────────────────────────
-function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean }) {
-  const { signUp, isLoading, error, clearError } = useAuthStore();
+function RegisterModal({ onClose, onSwitch, fullscreen, desktopWeb }: { onClose: () => void; onSwitch: () => void; fullscreen?: boolean; desktopWeb?: boolean }) {
+  const { signUp, signInWithGoogle, isLoading, error, clearError } = useAuthStore();
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [publicName, setPublicName] = useState('');
@@ -197,6 +255,8 @@ function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void;
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string; publicName?: string; email?: string; password?: string; confirm?: string;
   }>({});
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const publicNameRef = useRef<RNTextInput>(null);
   const emailRef = useRef<RNTextInput>(null);
   const passwordRef = useRef<RNTextInput>(null);
@@ -231,8 +291,22 @@ function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void;
     if (!useAuthStore.getState().error) onClose();
   };
 
+  const handleGoogleAuth = async () => {
+    setGoogleError(null);
+    setGoogleLoading(true);
+    try {
+      const token = await getGoogleAccessToken();
+      await signInWithGoogle(token, role === 'professional' ? 'professional' : undefined);
+      if (!useAuthStore.getState().error) onClose();
+    } catch (e: any) {
+      setGoogleError(e.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen]}>
+    <View style={[modalStyles.sheet, fullscreen && modalStyles.sheetFullscreen, desktopWeb && modalStyles.sheetDesktopWeb as any]}>
       {/* Cabecera */}
       <View style={modalStyles.header}>
         <View>
@@ -287,6 +361,33 @@ function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void;
             <Text style={roleStyles.cardHint}>{t('auth.roleProfessionalHint')}</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Botón Google */}
+      <TouchableOpacity
+        style={modalStyles.googleBtn}
+        onPress={handleGoogleAuth}
+        disabled={googleLoading || isLoading}
+        activeOpacity={0.8}
+      >
+        {googleLoading ? (
+          <ActivityIndicator size="small" color="#374151" />
+        ) : (
+          <>
+            {Platform.OS === 'web' && <GoogleLogo />}
+            <Text style={modalStyles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+      {googleError ? (
+        <Text style={modalStyles.googleErrorText}>{googleError}</Text>
+      ) : null}
+
+      {/* Divider */}
+      <View style={modalStyles.dividerRow}>
+        <View style={modalStyles.dividerLine} />
+        <Text style={modalStyles.dividerText}>{t('auth.orDivider')}</Text>
+        <View style={modalStyles.dividerLine} />
       </View>
 
       {/* Campos */}
@@ -371,80 +472,99 @@ function RegisterModal({ onClose, onSwitch, fullscreen }: { onClose: () => void;
 // ── Componente principal ──────────────────────────────────────────────────────
 export function AuthModals({ visible, onClose, onSwitch }: Props) {
   const { clearError } = useAuthStore();
-  const { height, width } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Reset scroll to top whenever the modal switches between login ↔ register
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [visible]);
 
   const handleClose = () => {
     clearError();
     onClose();
   };
 
-  const loginModal = (
+  if (visible === null) return null;
+
+  const isDesktopWeb = Platform.OS === 'web' && !isMobile;
+
+  const loginContent = (
     <LoginModal
       onClose={handleClose}
       onSwitch={() => { clearError(); onSwitch('register'); }}
       fullscreen={isMobile}
+      desktopWeb={isDesktopWeb}
     />
   );
-  const registerModal = (
+  const registerContent = (
     <RegisterModal
       onClose={handleClose}
       onSwitch={() => { clearError(); onSwitch('login'); }}
       fullscreen={isMobile}
+      desktopWeb={isDesktopWeb}
     />
   );
 
+  // ── Desktop web: native divs with position:fixed ──────────────────────────
+  // Card and scroll container are merged into ONE div to avoid double scrollbar
+  // and prevent the scrollbar from breaking the border-radius corners.
+  if (isDesktopWeb) {
+    return (
+      // @ts-ignore
+      <div
+        onClick={handleClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 999,
+        }}
+      >
+        {/* @ts-ignore — single element: card shape + scroll container */}
+        <div
+          onClick={(e: any) => e.stopPropagation()}
+          className="auth-scroll"
+          style={{
+            width: '100%',
+            maxWidth: '440px',
+            maxHeight: '85vh',
+            borderRadius: '24px',
+            backgroundColor: '#fff',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+          }}
+        >
+          {visible === 'login' ? loginContent : registerContent}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Mobile: fullscreen Modal with ScrollView ──────────────────────────────
   return (
     <Modal
-      visible={visible !== null}
-      transparent
-      animationType={isMobile ? 'slide' : 'fade'}
+      visible={true}
+      transparent={false}
+      animationType="slide"
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        {isMobile ? (
-          // ── Mobile: fullscreen ──────────────────────────────────────────
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            style={{ flex: 1, backgroundColor: '#fff' }}
-            contentContainerStyle={{ flexGrow: 1 }}
-          >
-            {visible === 'login' ? loginModal : registerModal}
-          </ScrollView>
-        ) : (
-          // ── Desktop: centred card ───────────────────────────────────────
-          <Pressable
-            onPress={handleClose}
-            focusable={false}
-            style={{
-              flex: 1,
-              backgroundColor: 'rgba(0,0,0,0.45)',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: 20,
-            }}
-          >
-            <Pressable
-              style={{
-                width: '100%',
-                maxWidth: 440,
-                maxHeight: height * 0.9,
-                borderRadius: 24,
-                overflow: 'hidden',
-              }}
-              onPress={() => {}}
-            >
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-              >
-                {visible === 'login' ? loginModal : registerModal}
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        )}
+        <ScrollView
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1, backgroundColor: '#fff' }}
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          {visible === 'login' ? loginContent : registerContent}
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -465,6 +585,14 @@ const modalStyles = {
     flex: 1,
     paddingTop: Platform.OS === 'ios' ? 52 : 28,
   },
+  // On desktop web the outer div already has borderRadius + shadow; the inner
+  // View must NOT repeat them (prevents RN Web's overflow:hidden on radius
+  // from creating a second scroll context and double-scrollbar).
+  sheetDesktopWeb: {
+    borderRadius: 0,
+    boxShadow: 'none',
+    overflow: 'visible',
+  },
   header: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
@@ -476,6 +604,7 @@ const modalStyles = {
   closeBtn: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#F3F4F6', alignItems: 'center' as const, justifyContent: 'center' as const,
+    flexShrink: 0 as const,
   },
   errorBanner: {
     flexDirection: 'row' as const,
@@ -484,6 +613,46 @@ const modalStyles = {
     borderWidth: 1, borderColor: '#FECACA',
   },
   errorBannerText: { color: '#B91C1C', fontSize: 13, flex: 1 },
+  googleBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#374151',
+  },
+  googleErrorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    textAlign: 'center' as const,
+    marginBottom: 8,
+  },
+  dividerRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginVertical: 16,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '500' as const,
+  },
   btnPrimary: {
     backgroundColor: '#F59E0B',
     paddingVertical: 14, borderRadius: 14,

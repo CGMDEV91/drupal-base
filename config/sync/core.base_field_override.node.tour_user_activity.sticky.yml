@@ -1,0 +1,22 @@
+uuid: 90581ae3-3b84-4e6c-b630-d0ec088086aa
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.sticky
+field_name: sticky
+entity_type: node
+bundle: tour_user_activity
+label: 'Sticky at top of lists'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

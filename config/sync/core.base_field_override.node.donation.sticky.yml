@@ -1,0 +1,22 @@
+uuid: 16bc6083-c948-4179-89ea-f511d64a62e0
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.donation
+id: node.donation.sticky
+field_name: sticky
+entity_type: node
+bundle: donation
+label: 'Sticky at top of lists'
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

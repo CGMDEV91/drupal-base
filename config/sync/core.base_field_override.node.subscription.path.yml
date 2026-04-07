@@ -1,0 +1,20 @@
+uuid: 6bc32e09-82b5-43a2-a9d6-113772205d24
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription
+  module:
+    - path
+id: node.subscription.path
+field_name: path
+entity_type: node
+bundle: subscription
+label: 'URL alias'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: path

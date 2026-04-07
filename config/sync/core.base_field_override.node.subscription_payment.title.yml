@@ -1,0 +1,18 @@
+uuid: 356bfd83-bb0f-43b0-b8b0-c136b47d7575
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.subscription_payment
+id: node.subscription_payment.title
+field_name: title
+entity_type: node
+bundle: subscription_payment
+label: Title
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,18 @@
+uuid: f96a9c67-4f8f-4926-a0f1-4e15a1e4317e
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_step
+id: node.tour_step.created
+field_name: created
+entity_type: node
+bundle: tour_step
+label: 'Authored on'
+description: 'The date and time that the content was created.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: created

@@ -117,6 +117,8 @@ export default function FavouritesScreen() {
       keyExtractor={(item) => item.activity.tourId}
       numColumns={cols}
       key={`fav-grid-${cols}`}
+      bounces={false}
+      overScrollMode="never"
       ListHeaderComponent={
         <View>
           <PageBanner

@@ -1,0 +1,18 @@
+uuid: 80c49330-6922-441b-bd83-ffe3030078c5
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.professional_profile
+id: node.professional_profile.changed
+field_name: changed
+entity_type: node
+bundle: professional_profile
+label: Changed
+description: 'The time that the node was last edited.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: changed

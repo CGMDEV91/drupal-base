@@ -203,6 +203,7 @@ export async function getTourSteps(tourId: string): Promise<TourStep[]> {
         'field_location',
         'field_total_completed',
         'field_featured_business',
+        'langcode',
       ],
       'node--business': ['title', 'field_description', 'field_logo', 'field_website', 'field_phone', 'field_location', 'field_category'],
       'taxonomy_term--business_category': ['name'],

@@ -14,6 +14,8 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Business } from '../../types';
+import { imageHeaders } from '../../lib/drupal-client';
+import { stripHtmlText } from '../ui/HtmlText';
 
 interface BusinessCardProps {
   business: Business;
@@ -51,10 +53,11 @@ export function BusinessCard({ business }: BusinessCardProps) {
 
   const openUrl = (url: string) => Linking.openURL(url).catch(() => {});
 
+  const plainDescription = stripHtmlText(business.description);
   const truncated =
-    business.description.length > MAX_DESCRIPTION_LENGTH
-      ? `${business.description.slice(0, MAX_DESCRIPTION_LENGTH).trimEnd()}…`
-      : business.description;
+    plainDescription.length > MAX_DESCRIPTION_LENGTH
+      ? `${plainDescription.slice(0, MAX_DESCRIPTION_LENGTH).trimEnd()}…`
+      : plainDescription;
 
   const shimmerBg = shimmerAnim.interpolate({
     inputRange: [0, 1],
@@ -87,7 +90,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
       <View style={styles.body}>
         {business.logo ? (
           <Image
-            source={business.logo}
+            source={{ uri: business.logo as string, headers: imageHeaders }}
             style={styles.logo}
             contentFit="contain"
             transition={200}

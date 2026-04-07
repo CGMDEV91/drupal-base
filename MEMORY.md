@@ -875,3 +875,40 @@ El endpoint de roles en `auth.service.ts` usaba `?fields[user--user]=roles`, que
 - Probar edición de negocio con coordenadas: verificar que lat/lon llegan a Drupal correctamente y que se pueden limpiar (enviando null).
 - Verificar que el toast no interfiere con el contenido en mobile (bottom: 32 puede solapar con la barra de navegación del sistema en algunos dispositivos — considerar añadir `SafeAreaView` offset).
 - Las traducciones de `fr.json` y `de.json` siguen siendo `{}` — añadir cuando se activen esos idiomas.
+
+---
+
+## Sesión 2026-04-06
+
+**Resumen**: Implementación de Google OAuth en el frontend (web) y refactor completo del componente AuthModals con diseño Twitter/X-style para desktop, scrollbar thin en la tarjeta modal, y correcciones en global.css.
+
+**Trabajo realizado**:
+- `global.css`: Cambiado el selector `[role="button"]` a `*` para la regla `touch-action: pan-y`, de modo que el scroll funcione sobre cualquier elemento interactivo. Añadido el bloque `.auth-scroll` con scrollbar siempre visible (thin, 5px, color #D1D5DB) para el contenedor del modal de autenticación en desktop.
+- `services/googleAuth.service.ts` (nuevo): Carga Google Identity Services (GSI) de forma lazy via `<script>` inyectado en el DOM. Expone `getGoogleAccessToken()` que abre el popup OAuth de Google y retorna el `access_token`. Solo funciona en `Platform.OS === 'web'`. Usa `EXPO_PUBLIC_GOOGLE_CLIENT_ID` como variable de entorno.
+- `services/auth.service.ts`: Añadida la función exportada `loginWithGoogle(googleAccessToken, role?)`. Llama a `POST /api/auth/google` con el token de Google, recibe `{token, username}` (Basic Auth pre-codificado), obtiene el perfil completo del usuario vía JSON:API y roles vía `/api/me`, guarda la sesión.
+- `stores/auth.store.ts`: Añadida `signInWithGoogle` en la interface `AuthState` y su implementación. Usa dynamic import de `loginWithGoogle`. Arranca el `inactivityTracker` tras login exitoso.
+- `components/layout/AuthModals.tsx`: Reescritura completa con los siguientes cambios:
+  - En desktop (`Platform.OS === 'web' && !isMobile`): se renderiza fuera de `<Modal>` usando divs nativos con `position: fixed; zIndex: 999` y clase `auth-scroll`. Evita los problemas de `position: fixed` dentro de Modal en web.
+  - En mobile: `<Modal>` con `transparent={false}`, `animationType="slide"` y `KeyboardAvoidingView` + `ScrollView`.
+  - Ambos formularios tienen botón "Continue with Google" (SVG inline del logo de Google, 4 paths de colores) antes de los campos, separado por un divider "o".
+  - `LoginModal`: incluye link "Don't have an account? Register" después del submit.
+  - `RegisterModal`: NO tiene link a login (usuario cierra y hace clic en login desde la navbar). El selector de rol está antes del botón Google para que la selección afecte al flujo de Google.
+  - Estado local `googleLoading` y `googleError` en cada formulario por separado.
+  - Eliminado el estilo `orLoginLink` y la key `auth.orLogIn` (ya no se usa).
+- `i18n/locales/en.json`: Eliminado `auth.orLogIn`. Añadidos `auth.continueWithGoogle` ("Continue with Google"), `auth.orDivider` ("or"), `auth.googleError` ("Google sign-in failed. Please try again.").
+- `i18n/locales/es.json`: Eliminado `auth.orLogIn`. Añadidos `auth.continueWithGoogle` ("Continuar con Google"), `auth.orDivider` ("o"), `auth.googleError` ("Error con Google. Inténtalo de nuevo.").
+
+**Archivos modificados**:
+- `frontend/stepuptours/global.css`
+- `frontend/stepuptours/services/googleAuth.service.ts` (nuevo)
+- `frontend/stepuptours/services/auth.service.ts`
+- `frontend/stepuptours/stores/auth.store.ts`
+- `frontend/stepuptours/components/layout/AuthModals.tsx`
+- `frontend/stepuptours/i18n/locales/en.json`
+- `frontend/stepuptours/i18n/locales/es.json`
+
+**Pendiente / Próximos pasos**:
+- Configurar `EXPO_PUBLIC_GOOGLE_CLIENT_ID` en el `.env` del proyecto con el Client ID de Google Cloud Console (tipo "Web application", con el origen correcto en "Authorized JavaScript origins").
+- Implementar el endpoint Drupal `POST /api/auth/google` en un módulo custom que verifique el `access_token` contra la API de Google, cree o recupere el usuario y devuelva `{token, username}`.
+- Para native (iOS/Android): implementar Google Sign-In con `@react-native-google-signin/google-signin`. Actualmente `getGoogleAccessToken()` lanza error en plataformas no-web.
+- Las traducciones de `fr.json` y `de.json` siguen siendo `{}` — añadir las nuevas claves de auth cuando se activen esos idiomas.

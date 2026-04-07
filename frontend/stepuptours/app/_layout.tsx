@@ -1,10 +1,12 @@
 import "../global.css";
 import "../i18n";
 import { useEffect, useState } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import { PortalHost } from "@rn-primitives/portal";
 import { useAuthStore } from "../stores/auth.store";
 import { useLanguageStore } from "../stores/language.store";
+import { useFonts } from "expo-font";
+import { Ionicons } from "@expo/vector-icons";
 
 // ── Scroll overlay (solo web) ─────────────────────────────────────────────
 function setupScrollBehavior() {
@@ -87,11 +89,10 @@ function setupScrollBehavior() {
 }
 
 export default function RootLayout() {
+  useFonts({ ...Ionicons.font });
+
   const restore = useAuthStore((s) => s.restore);
   const fetchLanguages = useLanguageStore((s) => s.fetchLanguages);
-  const languages = useLanguageStore((s) => s.languages);
-  const router = useRouter();
-  const segments = useSegments();
   const [initialized, setInitialized] = useState(false);
 
   // Inicializar scroll behavior solo en web
@@ -106,13 +107,6 @@ export default function RootLayout() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!initialized || languages.length === 0) return;
-    const firstSegment = segments[0];
-    if (!firstSegment) {
-      router.replace("/en/");
-    }
-  }, [initialized, segments, languages]);
 
   return (
     <>

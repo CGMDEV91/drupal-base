@@ -1,0 +1,18 @@
+uuid: 2170c449-e412-46b9-9e99-92433e82ecc8
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.donation
+id: node.donation.title
+field_name: title
+entity_type: node
+bundle: donation
+label: Title
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

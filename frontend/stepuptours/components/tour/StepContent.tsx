@@ -8,23 +8,24 @@ import {
   StyleSheet,
   Animated,
   Platform,
-  Alert,
   Linking,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTTS } from '../../hooks/useTTS';
 import { BusinessCard } from './BusinessCard';
-import { NearbyPlaces } from './NearbyPlaces';
+// import { NearbyPlaces } from './NearbyPlaces';
+import { HtmlText, stripHtmlText } from '../ui/HtmlText';
 import type { TourStep } from '../../types';
 import { useWindowDimensions } from 'react-native';
 
-const ORANGE      = '#ea580c';
-const SPEEDS      = [0.75, 1, 1.25, 1.5, 2];
-const BAR_HEIGHTS = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6];
+const ORANGE        = '#ea580c';
+const SPEEDS        = [0.75, 1, 1.25, 1.5, 2];
+const BAR_HEIGHTS   = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6];
+const RIGHT_HEIGHTS = [6, 11, 5, 9, 12, 7];
 const PREVIEW_LINES = 4;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 function isGoogleMapsUrl(url: string): boolean {
   return (
@@ -61,7 +62,7 @@ interface EmbedProps {
 }
 
 function GoogleEmbed({ uri, height, interactive = false, onUnavailable }: EmbedProps) {
-  const wrapStyle = { height, overflow: 'hidden' as const };
+  const wrapStyle = { height, overflow: 'hidden' as const, position: 'relative' as const };
 
   if (Platform.OS === 'web') {
     return (
@@ -133,6 +134,81 @@ function formatTime(seconds: number): string {
 
 const MAP_HEIGHT = 220;
 
+// ─── Bloque de navegación (DRY — evita duplicar JSX) ─────────────────────────
+
+interface NavBlockProps {
+  step: TourStep;
+  selectedMode: string | null;
+  dirHeightAnim: Animated.Value;
+  directionsUrl: string | null;
+  onModeSelect: (mode: NavMode) => void;
+  onGoToSite: () => void;
+  t: (key: string) => string;
+}
+
+function NavBlock({
+                    step,
+                    selectedMode,
+                    dirHeightAnim,
+                    directionsUrl,
+                    onModeSelect,
+                    onGoToSite,
+                    t,
+                  }: NavBlockProps) {
+  if (!step.location) return null;
+
+  return (
+    <>
+      <View style={styles.sectionLabel}>
+        <Text style={styles.sectionLabelText}>{t('step.howToGet')}</Text>
+        <View style={styles.sectionLine} />
+      </View>
+
+      <View style={styles.chipsRow}>
+        {NAV_MODES.map((mode) => {
+          const active = selectedMode === mode.travelmode;
+          return (
+            <TouchableOpacity
+              key={mode.travelmode}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => onModeSelect(mode)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={mode.icon} size={17} color={active ? ORANGE : '#57534e'} />
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {t(mode.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Animated.View
+        style={[
+          styles.directionsWrap,
+          {
+            height:  dirHeightAnim,
+            opacity: dirHeightAnim.interpolate({ inputRange: [0, 80], outputRange: [0, 1] }),
+          },
+        ]}
+      >
+        {directionsUrl ? (
+          <GoogleEmbed uri={directionsUrl} height={MAP_HEIGHT} interactive={false} />
+        ) : null}
+      </Animated.View>
+
+      {selectedMode ? (
+        <View style={styles.routeActions}>
+          <TouchableOpacity style={styles.startRouteBtn} onPress={onGoToSite} activeOpacity={0.85}>
+            <Ionicons name="navigate" size={16} color="#ffffff" />
+            <Text style={styles.startRouteBtnText}>{t('step.goToSite')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StepContent({
@@ -148,31 +224,31 @@ export function StepContent({
   const [confirmed, setConfirmed]       = useState(false);
   const [expanded, setExpanded]         = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
-  const [routeActive, setRouteActive]   = useState(false);
   const [svAvailable, setSvAvailable]   = useState(true);
+
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  // Responsive font scale: base 375px → clamp 0.9–1.35
-  const fontScale = Math.min(Math.max(width / 375, 0.9), 1.35);
-  const fs = (size: number) => Math.round(size * fontScale);
 
   const dirHeightAnim = useRef(new Animated.Value(0)).current;
 
   const descriptionText = step.description ?? '';
+  const ttsText         = stripHtmlText(descriptionText);
   const ttsLangcode     = step.contentLangcode ?? langcode;
-  const tts             = useTTS(descriptionText, ttsLangcode);
+  const tts             = useTTS(ttsText, ttsLangcode);
   const isPlaying       = tts.playState === 'playing';
 
-  const waveAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0.4))).current;
+  const waveAnims = useRef([...BAR_HEIGHTS, ...RIGHT_HEIGHTS].map(() => new Animated.Value(0.4))).current;
   const waveLoops = useRef<Animated.CompositeAnimation[]>([]);
+
+  // ── Waveform animation ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (isPlaying) {
       waveLoops.current = waveAnims.map((anim, i) => {
         const loop = Animated.loop(
           Animated.sequence([
-            Animated.timing(anim, { toValue: 1,    duration: 280 + i * 35, useNativeDriver: true }),
-            Animated.timing(anim, { toValue: 0.25, duration: 280 + i * 35, useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 1,    duration: 280 + i * 35, useNativeDriver: USE_NATIVE_DRIVER }),
+            Animated.timing(anim, { toValue: 0.25, duration: 280 + i * 35, useNativeDriver: USE_NATIVE_DRIVER }),
           ])
         );
         loop.start();
@@ -185,27 +261,35 @@ export function StepContent({
     return () => waveLoops.current.forEach((l) => l.stop());
   }, [isPlaying]);
 
+  // ── Prefetch adelantado: en cuanto el step se expande ────────────────────
+  // Antes esperábamos a `confirmed`, ahora lo hacemos al abrir el acordeón,
+  // ganando varios segundos de ventaja antes de que el usuario pulse play.
+
   const prevExpandedRef = useRef(isExpanded);
   useEffect(() => {
-    if (prevExpandedRef.current && !isExpanded) tts.handleStop();
+    if (isExpanded && !prevExpandedRef.current) {
+      // Step recién abierto → lanzar prefetch inmediatamente
+      if (ttsText) tts.prefetch();
+    }
+    if (prevExpandedRef.current && !isExpanded) {
+      tts.handleStop();
+    }
     prevExpandedRef.current = isExpanded;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
-  useEffect(() => {
-    if (confirmed) tts.prefetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmed]);
+  // ── Reset al completar ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (isCompleted) {
       setConfirmed(false);
       setExpanded(false);
       setSelectedMode(null);
-      setRouteActive(false);
       dirHeightAnim.setValue(0);
     }
   }, [isCompleted]);
+
+  // ── URLs ──────────────────────────────────────────────────────────────────
 
   const hasLocation = !!step.location;
 
@@ -225,21 +309,20 @@ export function StepContent({
     ? `https://maps.google.com/maps?saddr=My+Location&daddr=${step.location.lat},${step.location.lon}&dirflg=${activeMode.dirflg}&output=embed`
     : null;
 
+  // ── Nav handlers ──────────────────────────────────────────────────────────
+
   const handleModeSelect = (mode: NavMode) => {
     if (selectedMode === mode.travelmode) {
-      setRouteActive(false);
       Animated.timing(dirHeightAnim, { toValue: 0, duration: 260, useNativeDriver: false }).start(
         () => setSelectedMode(null)
       );
     } else {
       setSelectedMode(mode.travelmode);
-      setRouteActive(false);
       Animated.timing(dirHeightAnim, { toValue: MAP_HEIGHT, duration: 320, useNativeDriver: false }).start();
     }
   };
 
   const resetNavState = () => {
-    setRouteActive(false);
     Animated.timing(dirHeightAnim, { toValue: 0, duration: 260, useNativeDriver: false }).start(
       () => setSelectedMode(null)
     );
@@ -248,7 +331,6 @@ export function StepContent({
   const handleGoToSite = async () => {
     if (!step.location || !activeMode) return;
     const { lat, lon } = step.location;
-
     const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=${activeMode.travelmode}`;
 
     if (Platform.OS === 'ios') {
@@ -264,7 +346,8 @@ export function StepContent({
     }
   };
 
-  // ─── Shared map block ────────────────────────────────────────────────────────
+  // ── Shared map block ──────────────────────────────────────────────────────
+
   const mapBlock = hasLocation && activeMapUrl ? (
     <View style={styles.svBlock}>
       <View style={styles.svTagRow}>
@@ -286,61 +369,23 @@ export function StepContent({
     </View>
   ) : null;
 
-  // ── ACTIVE ───────────────────────────────────────────────────────────────────
+  // ── ACTIVE (no confirmado) ────────────────────────────────────────────────
+
   if (!confirmed && !isCompleted) {
     return (
       <View style={styles.container}>
         {mapBlock}
 
         {hasLocation ? (
-          <>
-            <View style={styles.sectionLabel}>
-              <Text style={styles.sectionLabelText}>{t('step.howToGet')}</Text>
-              <View style={styles.sectionLine} />
-            </View>
-
-            <View style={styles.chipsRow}>
-              {NAV_MODES.map((mode) => {
-                const active = selectedMode === mode.travelmode;
-                return (
-                  <TouchableOpacity
-                    key={mode.travelmode}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => handleModeSelect(mode)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name={mode.icon} size={17} color={active ? ORANGE : '#57534e'} />
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {t(mode.labelKey)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Animated.View
-              style={[
-                styles.directionsWrap,
-                {
-                  height:  dirHeightAnim,
-                  opacity: dirHeightAnim.interpolate({ inputRange: [0, 80], outputRange: [0, 1] }),
-                },
-              ]}
-            >
-              {directionsUrl ? (
-                <GoogleEmbed uri={directionsUrl} height={MAP_HEIGHT} interactive={false} />
-              ) : null}
-            </Animated.View>
-
-            {selectedMode ? (
-              <View style={styles.routeActions}>
-                <TouchableOpacity style={styles.startRouteBtn} onPress={handleGoToSite} activeOpacity={0.85}>
-                  <Ionicons name="navigate" size={16} color="#ffffff" />
-                  <Text style={styles.startRouteBtnText}>{t('step.goToSite')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </>
+          <NavBlock
+            step={step}
+            selectedMode={selectedMode}
+            dirHeightAnim={dirHeightAnim}
+            directionsUrl={directionsUrl}
+            onModeSelect={handleModeSelect}
+            onGoToSite={handleGoToSite}
+            t={t}
+          />
         ) : null}
 
         {isActive && (
@@ -353,7 +398,6 @@ export function StepContent({
                 {t('step.alreadyHere', { title: step.title })}
               </Text>
               <Text style={styles.geoPopSub}>{t('step.confirmSubtitle')}</Text>
-              {/* Solo botón "Sí" — ocupa todo el ancho */}
               <TouchableOpacity
                 style={styles.geoPopYes}
                 onPress={() => {
@@ -372,59 +416,25 @@ export function StepContent({
     );
   }
 
-  // ── CONFIRMED / COMPLETED ────────────────────────────────────────────────────
+  // ── CONFIRMED / COMPLETED ─────────────────────────────────────────────────
+
   return (
     <View style={styles.container}>
       {mapBlock}
 
       {hasLocation ? (
-        <>
-          <View style={styles.sectionLabel}>
-            <Text style={styles.sectionLabelText}>{t('step.howToGet')}</Text>
-            <View style={styles.sectionLine} />
-          </View>
-          <View style={styles.chipsRow}>
-            {NAV_MODES.map((mode) => {
-              const active = selectedMode === mode.travelmode;
-              return (
-                <TouchableOpacity
-                  key={mode.travelmode}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => handleModeSelect(mode)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name={mode.icon} size={17} color={active ? ORANGE : '#57534e'} />
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {t(mode.labelKey)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Animated.View
-            style={[
-              styles.directionsWrap,
-              {
-                height:  dirHeightAnim,
-                opacity: dirHeightAnim.interpolate({ inputRange: [0, 80], outputRange: [0, 1] }),
-              },
-            ]}
-          >
-            {directionsUrl ? (
-              <GoogleEmbed uri={directionsUrl} height={MAP_HEIGHT} interactive={false} />
-            ) : null}
-          </Animated.View>
-          {selectedMode ? (
-            <View style={styles.routeActions}>
-              <TouchableOpacity style={styles.startRouteBtn} onPress={handleGoToSite} activeOpacity={0.85}>
-                <Ionicons name="navigate" size={16} color="#ffffff" />
-                <Text style={styles.startRouteBtnText}>{t('step.goToSite')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </>
+        <NavBlock
+          step={step}
+          selectedMode={selectedMode}
+          dirHeightAnim={dirHeightAnim}
+          directionsUrl={directionsUrl}
+          onModeSelect={handleModeSelect}
+          onGoToSite={handleGoToSite}
+          t={t}
+        />
       ) : null}
 
+      {/* ── Reproductor TTS ─────────────────────────────────────────────── */}
       {descriptionText ? (
         <View style={[styles.playerCard, isDesktop && styles.playerCardDesktop]}>
           <View style={styles.playerRow}>
@@ -446,7 +456,7 @@ export function StepContent({
                     style={[
                       styles.waveBar,
                       {
-                        height: BAR_HEIGHTS[i],
+                        height: BAR_HEIGHTS[i] ?? 8,
                         backgroundColor: isPlaying ? ORANGE : 'rgba(255,255,255,0.16)',
                         transform: [{ scaleY: anim }],
                       },
@@ -454,8 +464,18 @@ export function StepContent({
                   />
                 ))}
                 <View style={styles.waveDivider} />
-                {[6, 11, 5, 9, 12, 7].map((h, i) => (
-                  <View key={`r${i}`} style={[styles.waveBar, { height: h, backgroundColor: 'rgba(255,255,255,0.12)' }]} />
+                {RIGHT_HEIGHTS.map((h, i) => (
+                  <Animated.View
+                    key={`r${i}`}
+                    style={[
+                      styles.waveBar,
+                      {
+                        height: h,
+                        backgroundColor: isPlaying ? ORANGE : 'rgba(255,255,255,0.12)',
+                        transform: [{ scaleY: waveAnims[BAR_HEIGHTS.length + i] }],
+                      },
+                    ]}
+                  />
                 ))}
               </View>
               <View style={styles.playerTimes}>
@@ -464,12 +484,12 @@ export function StepContent({
               </View>
             </View>
 
-            {/* Speed chip */}
+            {/* Velocidad */}
             <TouchableOpacity onPress={tts.handleSpeedChange} style={styles.speedChip} activeOpacity={0.7}>
               <Text style={styles.speedChipText}>{SPEEDS[tts.speedIndex]}x</Text>
             </TouchableOpacity>
 
-            {/* STOP — reinicia TTS, mismo estilo que speedChip */}
+            {/* Stop */}
             <TouchableOpacity onPress={tts.handleStop} style={styles.stopChip} activeOpacity={0.7}>
               <Ionicons name="stop" size={12} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
@@ -477,17 +497,24 @@ export function StepContent({
         </View>
       ) : null}
 
+      {/* ── Descripción ─────────────────────────────────────────────────── */}
       {descriptionText ? (
         <View style={styles.descCard}>
           <View style={styles.descHeader}>
             <Text style={styles.descHeaderText}>{t('step.aboutStop')}</Text>
             <View style={styles.descHeaderLine} />
           </View>
-          <Text style={styles.descText} numberOfLines={expanded ? undefined : PREVIEW_LINES}>
-            {descriptionText}
-          </Text>
-          {descriptionText.length > 200 ? (
-            <TouchableOpacity style={styles.readMoreBtn} onPress={() => setExpanded((v) => !v)} activeOpacity={0.7}>
+          <HtmlText
+            html={descriptionText}
+            style={styles.descText}
+            numberOfLines={expanded ? undefined : PREVIEW_LINES}
+          />
+          {ttsText.length > 200 ? (
+            <TouchableOpacity
+              style={styles.readMoreBtn}
+              onPress={() => setExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
               <Ionicons name={expanded ? 'remove-outline' : 'add-outline'} size={11} color={ORANGE} />
               <Text style={styles.readMoreText}>
                 {expanded ? t('step.readLess') : t('step.readMore')}
@@ -499,10 +526,7 @@ export function StepContent({
 
       {step.featuredBusiness ? <BusinessCard business={step.featuredBusiness} /> : null}
 
-      {hasLocation && step.location ? (
-        //<NearbyPlaces location={step.location} visible={confirmed || isCompleted} />
-        <div></div>
-      ) : null}
+      {/* NearbyPlaces disabled — Overpass API too unreliable (504 timeouts) */}
 
       {isActive && !isCompleted ? (
         <TouchableOpacity style={styles.completeBtn} onPress={onComplete} activeOpacity={0.8}>
@@ -672,7 +696,6 @@ const styles = StyleSheet.create({
     color: '#a16207',
     marginBottom: 5,
   },
-  // Botón "Sí" ocupa todo el ancho (sin flex: 1 de fila compartida)
   geoPopYes: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -771,7 +794,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(255,255,255,0.5)',
   },
-  // STOP — mismo aspecto que speedChip pero solo icono
   stopChip: {
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -1,0 +1,18 @@
+uuid: 3b2b390a-d0ef-42fa-9226-f99ec36ad4bb
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.tour_user_activity
+id: node.tour_user_activity.changed
+field_name: changed
+entity_type: node
+bundle: tour_user_activity
+label: Changed
+description: 'The time that the node was last edited.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: changed

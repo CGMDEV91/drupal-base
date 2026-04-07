@@ -56,6 +56,14 @@ if (BASE_URL.includes('ngrok')) {
 
 const ngrokHeaders = BASE_URL.includes('ngrok') ? { 'ngrok-skip-browser-warning': '1' } : {};
 
+/**
+ * Headers to attach to expo-image `source.headers` when behind a ngrok tunnel.
+ * Forces expo-image to use fetch() instead of <img>, which skips ngrok's HTML
+ * interstitial page and allows the CORS nginx config to serve the file correctly.
+ * Empty on production (non-ngrok) — no overhead.
+ */
+export const imageHeaders: Record<string, string> = ngrokHeaders;
+
 const drupalClient: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}${JSON_API_PREFIX}`,
   headers: {
@@ -154,22 +162,20 @@ export function buildPage(page: number, limit: number): string {
 
 // ── Helpers de imagen ─────────────────────────────────────────────────────────
 
-const DRUPAL_DEFAULT_HOST = 'stepuptours.ddev.site';
-
 function resolveImageUrl(raw: any): string | null {
   const url = raw?.uri?.url ?? raw?.url ?? null;
   if (!url) return null;
   if (url.startsWith('http')) {
-    // When BASE_URL points to a different host (e.g. ngrok), rewrite
-    // absolute Drupal URLs so images are fetched through the active host.
+    // Always rewrite image URLs to use the current API host so they work
+    // regardless of whether Drupal returns ddev.site, localhost:PORT or any
+    // other internal host (e.g. when accessed via ngrok or a tunnel).
     try {
-      const currentHost = new URL(BASE_URL).host;
-      if (currentHost !== DRUPAL_DEFAULT_HOST) {
-        const parsed = new URL(url);
-        if (parsed.host === DRUPAL_DEFAULT_HOST) {
-          parsed.host = currentHost;
-          return parsed.toString();
-        }
+      const base = new URL(BASE_URL);
+      const parsed = new URL(url);
+      if (parsed.host !== base.host) {
+        parsed.protocol = base.protocol;
+        parsed.host = base.host;
+        return parsed.toString();
       }
     } catch { /* ignore malformed URLs */ }
     return url;

@@ -819,7 +819,20 @@ $settings['trusted_host_patterns'] = [
   '^localhost$',
   '^127\.0\.0\.1$',
   '.*\.ngrok-free\.dev$',
+  '.*\.ddev\.site$',
 ];
+
+// Reverse proxy support (ngrok / any tunnel in front of DDEV).
+// Allows Drupal to generate correct public URLs instead of localhost:PORT.
+if (!empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+  $settings['reverse_proxy'] = TRUE;
+  $settings['reverse_proxy_addresses'] = ['127.0.0.1', $_SERVER['REMOTE_ADDR']];
+  $settings['reverse_proxy_trusted_headers'] =
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO;
+}
 
 /**
  * The default settings for migration sources.
