@@ -15,15 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTTS } from '../../hooks/useTTS';
 import { BusinessCard } from './BusinessCard';
-// import { NearbyPlaces } from './NearbyPlaces';
 import { HtmlText, stripHtmlText } from '../ui/HtmlText';
 import type { TourStep } from '../../types';
 import { useWindowDimensions } from 'react-native';
 
 const ORANGE        = '#ea580c';
 const SPEEDS        = [0.75, 1, 1.25, 1.5, 2];
-const BAR_HEIGHTS   = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6];
-const RIGHT_HEIGHTS = [6, 11, 5, 9, 12, 7];
+const BAR_HEIGHTS = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6, 6, 11, 5, 9, 12, 7];
 const PREVIEW_LINES = 4;
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -108,6 +106,7 @@ interface StepContentProps {
   isExpanded: boolean;
   onComplete: () => void;
   langcode: string;
+  tourTitle?: string;
 }
 
 interface NavMode {
@@ -218,6 +217,7 @@ export function StepContent({
                               isExpanded,
                               onComplete,
                               langcode,
+                              tourTitle,
                             }: StepContentProps) {
   const { t } = useTranslation();
 
@@ -234,10 +234,10 @@ export function StepContent({
   const descriptionText = step.description ?? '';
   const ttsText         = stripHtmlText(descriptionText);
   const ttsLangcode     = step.contentLangcode ?? langcode;
-  const tts             = useTTS(ttsText, ttsLangcode);
+  const tts             = useTTS(ttsText, ttsLangcode, { tourTitle, stepTitle: step.title });
   const isPlaying       = tts.playState === 'playing';
 
-  const waveAnims = useRef([...BAR_HEIGHTS, ...RIGHT_HEIGHTS].map(() => new Animated.Value(0.4))).current;
+  const waveAnims = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0.4))).current;
   const waveLoops = useRef<Animated.CompositeAnimation[]>([]);
 
   // ── Waveform animation ────────────────────────────────────────────────────
@@ -265,10 +265,17 @@ export function StepContent({
   // Antes esperábamos a `confirmed`, ahora lo hacemos al abrir el acordeón,
   // ganando varios segundos de ventaja antes de que el usuario pulse play.
 
+  // Prefetch en cuanto el step es activo (antes de que el usuario lo abra),
+  // así el audio ya está pre-cargado cuando pulse play → primer click funciona.
+  useEffect(() => {
+    if (isActive && ttsText) tts.prefetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+
   const prevExpandedRef = useRef(isExpanded);
   useEffect(() => {
     if (isExpanded && !prevExpandedRef.current) {
-      // Step recién abierto → lanzar prefetch inmediatamente
+      // Step recién abierto → segundo prefetch por si acaso (ya tiene cache-hit)
       if (ttsText) tts.prefetch();
     }
     if (prevExpandedRef.current && !isExpanded) {
@@ -326,6 +333,22 @@ export function StepContent({
     Animated.timing(dirHeightAnim, { toValue: 0, duration: 260, useNativeDriver: false }).start(
       () => setSelectedMode(null)
     );
+  };
+
+  const openNearbyMaps = async (query: string) => {
+    if (!step.location) return;
+    const { lat, lon } = step.location;
+    const encodedQuery = encodeURIComponent(query);
+
+    if (Platform.OS === 'ios') {
+      const googleUrl = `comgooglemaps://?q=${encodedQuery}&center=${lat},${lon}`;
+      const canGm = await Linking.canOpenURL(googleUrl).catch(() => false);
+      Linking.openURL(canGm ? googleUrl : `maps://?q=${encodedQuery}&ll=${lat},${lon}`);
+    } else if (Platform.OS === 'android') {
+      Linking.openURL(`geo:${lat},${lon}?q=${encodedQuery}`);
+    } else {
+      Linking.openURL(`https://www.google.com/maps/search/${encodedQuery}/@${lat},${lon},16z`);
+    }
   };
 
   const handleGoToSite = async () => {
@@ -456,23 +479,9 @@ export function StepContent({
                     style={[
                       styles.waveBar,
                       {
-                        height: BAR_HEIGHTS[i] ?? 8,
+                        height: BAR_HEIGHTS[i],
                         backgroundColor: isPlaying ? ORANGE : 'rgba(255,255,255,0.16)',
                         transform: [{ scaleY: anim }],
-                      },
-                    ]}
-                  />
-                ))}
-                <View style={styles.waveDivider} />
-                {RIGHT_HEIGHTS.map((h, i) => (
-                  <Animated.View
-                    key={`r${i}`}
-                    style={[
-                      styles.waveBar,
-                      {
-                        height: h,
-                        backgroundColor: isPlaying ? ORANGE : 'rgba(255,255,255,0.12)',
-                        transform: [{ scaleY: waveAnims[BAR_HEIGHTS.length + i] }],
                       },
                     ]}
                   />
@@ -526,7 +535,28 @@ export function StepContent({
 
       {step.featuredBusiness ? <BusinessCard business={step.featuredBusiness} /> : null}
 
-      {/* NearbyPlaces disabled — Overpass API too unreliable (504 timeouts) */}
+      {hasLocation && step.location && (confirmed || isCompleted) ? (
+        <View style={styles.nearbyContainer}>
+          <Text style={styles.nearbyTitle}>{t('step.nearbyTitle')}</Text>
+          <View style={styles.nearbyChips}>
+            {[
+              { key: 'step.nearbyRestaurants', query: 'restaurants',        icon: 'restaurant-outline' },
+              { key: 'step.nearbyCafes',       query: 'cafes',              icon: 'cafe-outline' },
+              { key: 'step.nearbyAttractions', query: 'tourist attractions', icon: 'camera-outline' },
+            ].map(({ key, query, icon }) => (
+              <TouchableOpacity
+                key={key}
+                style={styles.nearbyChip}
+                onPress={() => openNearbyMaps(query)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name={icon as any} size={15} color={ORANGE} />
+                <Text style={styles.nearbyChipText}>{t(key)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       {isActive && !isCompleted ? (
         <TouchableOpacity style={styles.completeBtn} onPress={onComplete} activeOpacity={0.8}>
@@ -760,12 +790,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     transformOrigin: 'center',
   },
-  waveDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: 2,
-  },
   playerTimes: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -865,5 +889,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  nearbyContainer: {
+    marginTop: 6,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  nearbyTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  nearbyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  nearbyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF5EE',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#FDDBC8',
+  },
+  nearbyChipText: {
+    fontSize: 13,
+    color: ORANGE,
+    fontWeight: '500',
   },
 });

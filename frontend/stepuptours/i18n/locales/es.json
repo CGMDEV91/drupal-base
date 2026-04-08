@@ -431,9 +431,10 @@
   "step.readLess": "Leer menos",
   "step.notYet": "Aún no",
   "step.alreadyHere": "¿Ya estás en {{title}}?",
-  "step.nearby": "También cerca",
-  "step.nearbyOsmBadge": "Datos OSM · Gratis",
-  "step.nearbyLoading": "Buscando lugares cercanos...",
+  "step.nearbyTitle": "Cerca de aquí",
+  "step.nearbyRestaurants": "Restaurantes",
+  "step.nearbyCafes": "Cafeterías",
+  "step.nearbyAttractions": "Atracciones",
   "step.locationView": "Vista del lugar",
   "step.goToSite": "Ir al sitio",
   "step.howToGet": "Cómo llegar"

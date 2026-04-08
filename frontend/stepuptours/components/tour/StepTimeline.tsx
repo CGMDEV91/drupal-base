@@ -30,6 +30,7 @@ interface StepTimelineProps {
   stepsCompleted: string[];
   onCompleteStep: (stepId: string) => void;
   langcode: string;
+  tourTitle?: string;
   scrollViewRef?: React.RefObject<ScrollView>;
 }
 
@@ -38,6 +39,7 @@ export function StepTimeline({
                                stepsCompleted,
                                onCompleteStep,
                                langcode,
+                               tourTitle,
                                scrollViewRef,
                              }: StepTimelineProps) {
   const { t } = useTranslation();
@@ -277,6 +279,7 @@ export function StepTimeline({
                     isExpanded={isExpanded}
                     onComplete={() => onCompleteStep(step.id)}
                     langcode={langcode}
+                    tourTitle={tourTitle}
                   />
                 </Animated.View>
               </View>
@@ -312,6 +315,7 @@ export function StepTimeline({
                 isExpanded
                 onComplete={() => handleModalComplete(steps[modalStepIndex].id)}
                 langcode={langcode}
+                tourTitle={tourTitle}
               />
             </ScrollView>
           </SafeAreaView>

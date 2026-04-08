@@ -37,6 +37,7 @@ export default function TourStepsScreen() {
   const { t } = useTranslation();
 
   const user = useAuthStore((s) => s.user);
+  const isAuthLoading = useAuthStore((s) => s.isLoading);
   const {
     currentTour: tour,
     currentSteps: steps,
@@ -57,16 +58,8 @@ export default function TourStepsScreen() {
   // Ref for scroll-to-next-step
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Auth guard
-  useEffect(() => {
-    if (!user) {
-      Alert.alert(
-        t('auth.required'),
-        t('auth.signInPrompt'),
-        [{ text: 'OK', onPress: () => router.back() }],
-      );
-    }
-  }, [user]);
+  // Auth guard is handled by [langcode]/_layout.tsx which redirects to home
+  // when user is null after auth loading completes. Nothing to do here.
 
   // Load tour detail + activity on mount
   useEffect(() => {
@@ -163,7 +156,8 @@ export default function TourStepsScreen() {
     router.replace(`/${langcode}`);
   }, [langcode, router]);
 
-  if (!user) {
+  // While auth is restoring, show spinner. Once done, layout redirects if no user.
+  if (isAuthLoading || !user) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={AMBER} />
@@ -235,6 +229,7 @@ export default function TourStepsScreen() {
           stepsCompleted={stepsCompleted}
           onCompleteStep={handleCompleteStep}
           langcode={langcode ?? 'en'}
+          tourTitle={tour.title}
           scrollViewRef={scrollViewRef}
         />
       </ScrollView>

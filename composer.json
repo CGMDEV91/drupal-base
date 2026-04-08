@@ -30,7 +30,8 @@
         "drupal/jsonapi_extras": "^3.28",
         "drupal/token": "^1.17",
         "drush/drush": "^13.7",
-        "stripe/stripe-php": "^19.4"
+        "stripe/stripe-php": "^19.4",
+        "textalk/websocket": "^1.5"
     },
     "conflict": {
         "drupal/drupal": "*"

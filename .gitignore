@@ -12,6 +12,11 @@
 # Ignore paths that contain user-generated content.
 /web/sites/*/files
 /web/sites/*/private
+# Un-ignore TTS audio files (pre-generated, versioned for zero-cost deployment).
+# Git requires un-ignoring each intermediate directory before a subdirectory.
+!/web/sites/default/files
+/web/sites/default/files/*
+!/web/sites/default/files/tts
 
 # Ignore SimpleTest multi-site environment.
 /web/sites/simpletest
