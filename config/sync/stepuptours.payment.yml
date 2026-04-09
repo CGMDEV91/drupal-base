@@ -1,4 +1,0 @@
-stripe_secret_key: sk_test_PLACEHOLDER
-stripe_publishable_key: sk_test_PLACEHOLDER
-stripe_webhook_secret: sk_test_PLACEHOLDER
-platform_revenue_percentage: '20'

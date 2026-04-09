@@ -256,3 +256,11 @@ stepuptours_api.google_auth_options:
   methods: [OPTIONS]
   requirements:
     _access: 'TRUE'
+
+stepuptours_api.payment_settings:
+  path: '/admin/config/stepuptours/payment'
+  defaults:
+    _form: '\Drupal\stepuptours_api\Form\PaymentSettingsForm'
+    _title: 'Payment & Stripe Settings'
+  requirements:
+    _permission: 'administer site configuration'

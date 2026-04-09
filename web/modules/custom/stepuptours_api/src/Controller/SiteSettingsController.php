@@ -88,7 +88,7 @@ class SiteSettingsController extends ControllerBase {
     // Handle payment settings.
     if (isset($body['paymentSettings']) && is_array($body['paymentSettings'])) {
       $paymentConfig = \Drupal::service('config.factory')
-        ->getEditable('stepuptours.payment');
+        ->getEditable('stepuptours_api.payment');
 
       if (isset($body['paymentSettings']['platformRevenuePercentage'])) {
         $pct = max(0, min(100, (int) $body['paymentSettings']['platformRevenuePercentage']));
@@ -100,7 +100,7 @@ class SiteSettingsController extends ControllerBase {
     // Handle Stripe keys — never return secret values, only store them.
     if (isset($body['stripeSettings']) && is_array($body['stripeSettings'])) {
       $stripeConfig = \Drupal::service('config.factory')
-        ->getEditable('stepuptours.payment');
+        ->getEditable('stepuptours_api.payment');
 
       $pk = $body['stripeSettings']['publishableKey'] ?? '';
       if (!empty($pk) && str_starts_with($pk, 'pk_')) {
@@ -139,7 +139,7 @@ class SiteSettingsController extends ControllerBase {
       ];
     }
 
-    $paymentConfig = \Drupal::config('stepuptours.payment');
+    $paymentConfig = \Drupal::config('stepuptours_api.payment');
 
     $pk     = $paymentConfig->get('stripe_publishable_key') ?? '';
     $sk     = $paymentConfig->get('stripe_secret_key') ?? '';

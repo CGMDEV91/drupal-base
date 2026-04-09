@@ -1,0 +1,16 @@
+stepuptours_api.payment:
+  type: config_object
+  label: 'StepUp Tours Payment Settings'
+  mapping:
+    stripe_publishable_key:
+      type: string
+      label: 'Stripe Publishable Key'
+    stripe_secret_key:
+      type: string
+      label: 'Stripe Secret Key'
+    stripe_webhook_secret:
+      type: string
+      label: 'Stripe Webhook Secret'
+    platform_revenue_percentage:
+      type: integer
+      label: 'Platform Revenue Percentage'

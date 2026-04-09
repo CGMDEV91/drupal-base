@@ -1,0 +1,6 @@
+stepuptours_api.payment_settings:
+  title: 'Payment & Stripe Settings'
+  description: 'Configure Stripe keys and platform revenue split.'
+  route_name: stepuptours_api.payment_settings
+  parent: system.admin_config
+  weight: 99
