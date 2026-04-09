@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 64b4aa29-34fd-4519-9ab8-0a97b9127bf7
+  bundle: cities
+  default_langcode: en
+  depends:
+    d26d3048-5acd-4203-8c0f-de8035209bae: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Galway
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: d26d3048-5acd-4203-8c0f-de8035209bae

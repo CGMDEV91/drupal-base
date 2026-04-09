@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 75bdfadf-4539-4857-ba6e-e8c4e1057ca0
+  bundle: cities
+  default_langcode: en
+  depends:
+    a3de9f73-65ff-4fc3-b6e6-b3fba6482dab: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Vienna
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: a3de9f73-65ff-4fc3-b6e6-b3fba6482dab

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 847105b6-1ce8-42c4-8a03-dd91587910c2
+  bundle: cities
+  default_langcode: en
+  depends:
+    a6e351d6-dc5d-4bb0-911d-4565b6a90288: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Cologne
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: a6e351d6-dc5d-4bb0-911d-4565b6a90288

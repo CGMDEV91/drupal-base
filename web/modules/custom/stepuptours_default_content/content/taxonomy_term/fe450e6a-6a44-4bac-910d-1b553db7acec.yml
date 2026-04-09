@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: fe450e6a-6a44-4bac-910d-1b553db7acec
+  bundle: cities
+  default_langcode: en
+  depends:
+    9e4422d9-377a-4b4c-b7d5-fd7c6adf9b77: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Copenhagen
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 9e4422d9-377a-4b4c-b7d5-fd7c6adf9b77

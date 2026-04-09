@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 2b8b594f-136e-4a9c-8218-c71edd2e7626
+  bundle: cities
+  default_langcode: en
+  depends:
+    4c9a134b-c9ab-4c79-af86-59e9b64cf81d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Prague
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 4c9a134b-c9ab-4c79-af86-59e9b64cf81d

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: b30ca444-3ad1-4e81-85cc-3c953cb60262
+  bundle: cities
+  default_langcode: en
+  depends:
+    88c1761a-c19f-466e-8119-06e44a9a8ac0: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Thessaloniki
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 88c1761a-c19f-466e-8119-06e44a9a8ac0

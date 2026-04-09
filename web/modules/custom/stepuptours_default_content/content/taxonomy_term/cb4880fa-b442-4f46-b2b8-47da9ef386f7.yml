@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: cb4880fa-b442-4f46-b2b8-47da9ef386f7
+  bundle: cities
+  default_langcode: en
+  depends:
+    81828811-4116-45cd-be21-ded97b91d65c: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Tallinn
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 81828811-4116-45cd-be21-ded97b91d65c

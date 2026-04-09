@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: adfca59b-3d53-43ce-8068-a7f0df304a03
+  bundle: cities
+  default_langcode: en
+  depends:
+    303f162f-5eda-4f1b-9017-f1c24b3a8217: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Rotterdam
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 303f162f-5eda-4f1b-9017-f1c24b3a8217

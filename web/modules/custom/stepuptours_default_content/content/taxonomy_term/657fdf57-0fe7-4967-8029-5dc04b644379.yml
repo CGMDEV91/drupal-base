@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 657fdf57-0fe7-4967-8029-5dc04b644379
+  bundle: cities
+  default_langcode: en
+  depends:
+    0849e819-9654-417f-b2ea-b231e0a46582: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Turku
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 0849e819-9654-417f-b2ea-b231e0a46582

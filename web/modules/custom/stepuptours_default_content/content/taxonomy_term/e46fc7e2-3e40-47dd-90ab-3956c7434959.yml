@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: e46fc7e2-3e40-47dd-90ab-3956c7434959
+  bundle: cities
+  default_langcode: en
+  depends:
+    456c1c64-69ea-4f2e-adf8-bf17866a527c: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Sigulda
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 456c1c64-69ea-4f2e-adf8-bf17866a527c

@@ -1,0 +1,7 @@
+name: StepUp Tours Default content
+type: module
+description: Provides default content.
+package: Custom
+core_version_requirement: ^9 || ^10 || ^11
+dependencies:
+  - default_content:default_content

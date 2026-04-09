@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: b1005499-a432-40a1-a2ec-dd7bcae280c6
+  bundle: cities
+  default_langcode: en
+  depends:
+    eaaefd5e-a8f5-4fe2-8e41-5856a3e00f54: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Gozo
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: eaaefd5e-a8f5-4fe2-8e41-5856a3e00f54

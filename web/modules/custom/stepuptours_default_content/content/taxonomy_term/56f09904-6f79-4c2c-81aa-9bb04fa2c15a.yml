@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 56f09904-6f79-4c2c-81aa-9bb04fa2c15a
+  bundle: cities
+  default_langcode: en
+  depends:
+    a3de9f73-65ff-4fc3-b6e6-b3fba6482dab: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Graz
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: a3de9f73-65ff-4fc3-b6e6-b3fba6482dab

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 171d2d07-284f-41d5-8598-7e487bd87d0b
+  bundle: cities
+  default_langcode: en
+  depends:
+    d009ec6e-4665-43eb-9403-131e488cd1e4: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Venice
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: d009ec6e-4665-43eb-9403-131e488cd1e4

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 252a956f-fafc-45c8-81a3-6d4ebc4ccdb1
+  bundle: cities
+  default_langcode: en
+  depends:
+    68544cd3-1bd8-4d5c-98ce-60930c66afdf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Sintra
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 68544cd3-1bd8-4d5c-98ce-60930c66afdf

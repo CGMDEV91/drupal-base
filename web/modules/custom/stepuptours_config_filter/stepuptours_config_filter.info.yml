@@ -1,0 +1,7 @@
+name: 'StepUp Tours Config Filter'
+type: module
+description: 'StepUp Tours configuration filter module'
+core_version_requirement: ^9 || ^10 || ^11
+package: 'Custom'
+dependencies:
+  - drupal:config_filter

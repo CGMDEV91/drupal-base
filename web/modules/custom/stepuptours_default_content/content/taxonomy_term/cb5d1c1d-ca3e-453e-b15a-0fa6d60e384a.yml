@@ -1,0 +1,38 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: cb5d1c1d-ca3e-453e-b15a-0fa6d60e384a
+  bundle: countries
+  default_langcode: en
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Spain
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312028
+  field_country_code:
+    -
+      value: ES

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: d0707dd8-a5e7-4f65-8b51-3100cd122abf
+  bundle: cities
+  default_langcode: en
+  depends:
+    c9062bf0-ed7a-4c6c-bcf5-177906a917b5: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Sinaia
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: c9062bf0-ed7a-4c6c-bcf5-177906a917b5

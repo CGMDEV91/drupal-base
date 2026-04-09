@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: f6bd2db7-bec2-4c3e-a3fa-322486d2c892
+  bundle: cities
+  default_langcode: en
+  depends:
+    61511e2b-a476-4290-8758-e28730dea5f0: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Piran
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 61511e2b-a476-4290-8758-e28730dea5f0

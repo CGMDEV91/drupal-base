@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: f0b89eba-905d-4144-9795-957597a5877a
+  bundle: cities
+  default_langcode: en
+  depends:
+    24a244ee-5695-48e1-91d2-685cbdcbe50b: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Eger
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 24a244ee-5695-48e1-91d2-685cbdcbe50b

@@ -1,0 +1,40 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: a6a17b33-91bb-4eac-8b6a-8ed128ed2d25
+  bundle: cities
+  default_langcode: en
+  depends:
+    0a089364-9591-4170-9c69-cf3d2c686767: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Ghent
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1773312039
+  field_country:
+    -
+      entity: 0a089364-9591-4170-9c69-cf3d2c686767
