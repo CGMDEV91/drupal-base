@@ -1,0 +1,4 @@
+stripe_publishable_key: ''
+stripe_secret_key: ''
+stripe_webhook_secret: ''
+platform_revenue_percentage: 20
