@@ -22,7 +22,7 @@ class PaymentController extends ControllerBase {
       return $this->corsResponse(new JsonResponse(NULL, 204));
     }
 
-    $config = \Drupal::config('stepuptours.payment');
+    $config = \Drupal::config('stepuptours_api.payment');
     $publishableKey = $config->get('stripe_publishable_key') ?? '';
 
     return $this->corsResponse(new JsonResponse([
@@ -78,7 +78,7 @@ class PaymentController extends ControllerBase {
     }
 
     // Determine revenue split.
-    $paymentConfig = \Drupal::config('stepuptours.payment');
+    $paymentConfig = \Drupal::config('stepuptours_api.payment');
     $guideRoles = $guideUser->getRoles();
 
     if (in_array('administrator', $guideRoles, TRUE)) {
@@ -155,7 +155,7 @@ class PaymentController extends ControllerBase {
 
     $paymentIntentId = $body['paymentIntentId'];
 
-    $config    = \Drupal::config('stepuptours.payment');
+    $config    = \Drupal::config('stepuptours_api.payment');
     $secretKey = $config->get('stripe_secret_key') ?? '';
 
     if (empty($secretKey) || $secretKey === 'sk_test_PLACEHOLDER') {

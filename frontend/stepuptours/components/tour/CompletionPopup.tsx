@@ -223,7 +223,15 @@ function DonationCheckout({ tourId, amount, isDonationValid, onSuccess }: Donati
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [initError, setInitError] = useState('');
+  const [currentStripePromise, setCurrentStripePromise] = useState<Promise<any> | null>(null);
   const prevAmount = useRef('');
+
+  // Obtain fresh Stripe promise each time the form mounts
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setCurrentStripePromise(getStripePromise());
+    }
+  }, []);
 
   // Create the intent when the amount is valid and has changed
   useEffect(() => {
@@ -249,12 +257,12 @@ function DonationCheckout({ tourId, amount, isDonationValid, onSuccess }: Donati
     return <Text style={{ fontSize: 12, color: '#EF4444', textAlign: 'center' }}>{initError}</Text>;
   }
 
-  if (!clientSecret) {
+  if (!clientSecret || !currentStripePromise) {
     return <ActivityIndicator color={AMBER} style={{ marginVertical: 12 }} />;
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
+    <Elements stripe={currentStripePromise} options={{ clientSecret }}>
       <DonationCardForm
         tourId={tourId}
         amount={amount}
@@ -272,6 +280,19 @@ function DonationCardForm({ tourId, amount, isDonationValid, paymentIntentId, on
   const elements = useElements ? useElements() : null;
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Allow vertical scroll to pass through Stripe iframes on mobile web.
+  // Stripe sets touch-action:none on its iframes which traps scroll events.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const styleId = 'stripe-iframe-scroll-fix';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = '.__PrivateStripeElement iframe { touch-action: pan-y !important; }';
+    document.head.appendChild(style);
+    return () => { document.getElementById(styleId)?.remove(); };
+  }, []);
 
   const handlePay = async () => {
     if (!stripe || !elements || !isDonationValid) return;
@@ -305,17 +326,17 @@ function DonationCardForm({ tourId, amount, isDonationValid, paymentIntentId, on
 
   return (
     <View style={donationStyles.wrap}>
-      {/* PaymentElement — includes Apple Pay, Google Pay, card, etc. */}
-      <View style={donationStyles.cardWrap}>
-        <PaymentElement options={{ layout: 'tabs' }} />
-      </View>
-
       {error && (
         <View style={donationStyles.errorRow}>
           <Ionicons name="alert-circle" size={14} color="#EF4444" />
           <Text style={donationStyles.errorText}>{error}</Text>
         </View>
       )}
+
+      {/* PaymentElement — includes Apple Pay, Google Pay, card, etc. */}
+      <View style={donationStyles.cardWrap}>
+        <PaymentElement options={{ layout: 'tabs' }} />
+      </View>
 
       <View style={donationStyles.payRow}>
         <TouchableOpacity
@@ -365,9 +386,6 @@ interface CompletionPopupProps {
   guideRoles?: string[];
 }
 
-// Stripe promise initialised once at module level (web only)
-const stripePromise = Platform.OS === 'web' ? getStripePromise() : null;
-
 export function CompletionPopup({
   visible,
   tourName,
@@ -395,6 +413,9 @@ export function CompletionPopup({
   // Animated value for the Stripe form expand/collapse
   const paymentAnim = useRef(new Animated.Value(0)).current;
 
+  // Ref to scroll to top after payment success
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // Parse amount for validation
   const parsedAmount = parseFloat(donationAmount);
   const isDonationValid = !isNaN(parsedAmount) && parsedAmount > 0.5;
@@ -406,9 +427,8 @@ export function CompletionPopup({
 
   const handleDonationSuccess = (paidAmount: number) => {
     setDonationSuccess(true);
-    setTimeout(() => {
-      onDonate(paidAmount);
-    }, 2200);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    onDonate(paidAmount);
   };
 
   // Native-only donate (no Stripe Elements)
@@ -566,7 +586,7 @@ export function CompletionPopup({
                 style={{
                   maxHeight: paymentAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, 600],
+                    outputRange: [0, 3000],
                   }),
                   overflow: 'hidden',
                 }}
@@ -656,6 +676,7 @@ export function CompletionPopup({
           /* Mobile: full-screen card with ScrollView */
           <View style={[styles.card, styles.cardMobile]}>
             <ScrollView
+              ref={scrollViewRef}
               style={{ flex: 1 }}
               contentContainerStyle={{
                 paddingTop: 52,
@@ -669,9 +690,17 @@ export function CompletionPopup({
             </ScrollView>
           </View>
         ) : (
-          /* Desktop: centered card, no scroll, padding on card itself */
+          /* Desktop: centered card with internal scroll */
           <View style={[styles.card, styles.cardDesktop]}>
-            {cardContent}
+            <ScrollView
+              ref={scrollViewRef}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ padding: 28 }}
+              style={Platform.OS === 'web' ? { maxHeight: '85vh' } as any : undefined}
+            >
+              {cardContent}
+            </ScrollView>
           </View>
         )}
       </View>
@@ -779,7 +808,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     maxWidth: 460,
     width: '100%',
-    padding: 28,
   },
   cardMobile: {
     width: '100%',

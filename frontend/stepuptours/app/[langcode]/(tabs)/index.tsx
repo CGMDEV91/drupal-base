@@ -1,5 +1,6 @@
 // app/[langcode]/(tabs)/index.tsx
 import { useEffect, useCallback, useState, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -494,11 +495,16 @@ export default function HomePage() {
 
   const { user, openAuthModal } = useAuthStore();
 
-  useEffect(() => {
-    fetchTours();
-    fetchCountries();
-    fetchCities();
-  }, []);
+  // Reset filters and reload all tours every time the home tab gets focus
+  useFocusEffect(
+    useCallback(() => {
+      clearFilters();
+      setSearch('');
+      fetchTours({});
+      fetchCountries();
+      fetchCities();
+    }, []),
+  );
 
   useEffect(() => {
     if (user) fetchUserActivities(user.id);
@@ -807,7 +813,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: Platform.OS === 'web' ? 16 : 15,
     color: '#111827',
     paddingVertical: 0,
     ...Platform.select({

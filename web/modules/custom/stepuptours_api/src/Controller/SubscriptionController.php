@@ -80,7 +80,7 @@ class SubscriptionController extends ControllerBase {
       return $this->corsResponse(new JsonResponse(['error' => 'Free plans do not require payment'], 400));
     }
 
-    $config    = \Drupal::config('stepuptours.payment');
+    $config    = \Drupal::config('stepuptours_api.payment');
     $secretKey = $config->get('stripe_secret_key') ?? '';
 
     if (empty($secretKey) || $secretKey === 'sk_test_PLACEHOLDER') {
@@ -202,7 +202,7 @@ class SubscriptionController extends ControllerBase {
 
     $sessionId = $body['sessionId'];
 
-    $config    = \Drupal::config('stepuptours.payment');
+    $config    = \Drupal::config('stepuptours_api.payment');
     $secretKey = $config->get('stripe_secret_key') ?? '';
 
     if (empty($secretKey) || $secretKey === 'sk_test_PLACEHOLDER') {
@@ -268,7 +268,7 @@ class SubscriptionController extends ControllerBase {
     }
 
     $stripeSubId = $node->get('field_stripe_subscription_id')->value ?? '';
-    $config      = \Drupal::config('stepuptours.payment');
+    $config      = \Drupal::config('stepuptours_api.payment');
     $secretKey   = $config->get('stripe_secret_key') ?? '';
 
     if (!empty($stripeSubId) && !empty($secretKey) && $secretKey !== 'sk_test_PLACEHOLDER') {
@@ -330,7 +330,7 @@ class SubscriptionController extends ControllerBase {
     }
 
     $stripeSubId = $node->get('field_stripe_subscription_id')->value ?? '';
-    $config      = \Drupal::config('stepuptours.payment');
+    $config      = \Drupal::config('stepuptours_api.payment');
     $secretKey   = $config->get('stripe_secret_key') ?? '';
 
     if (!empty($stripeSubId) && !empty($secretKey) && $secretKey !== 'sk_test_PLACEHOLDER') {
@@ -390,7 +390,7 @@ class SubscriptionController extends ControllerBase {
     }
 
     $stripeSubId = $node->get('field_stripe_subscription_id')->value ?? '';
-    $config      = \Drupal::config('stepuptours.payment');
+    $config      = \Drupal::config('stepuptours_api.payment');
     $secretKey   = $config->get('stripe_secret_key') ?? '';
 
     if (!empty($stripeSubId) && !empty($secretKey) && $secretKey !== 'sk_test_PLACEHOLDER') {

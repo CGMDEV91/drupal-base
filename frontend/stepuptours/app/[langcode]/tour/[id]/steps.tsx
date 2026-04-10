@@ -145,10 +145,9 @@ export default function TourStepsScreen() {
 
   const handleDonate = useCallback(
     (_amount: number) => {
-      setShowCompletion(false);
-      router.replace(`/${langcode}`);
+      // Donation registered — user closes the popup manually via X or "Volver al inicio"
     },
-    [langcode, router],
+    [],
   );
 
   const handleCloseCompletion = useCallback(() => {
@@ -316,7 +315,7 @@ const styles = StyleSheet.create({
   },
   progressPercent: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#F59E0B',
   },
   progressFraction: {

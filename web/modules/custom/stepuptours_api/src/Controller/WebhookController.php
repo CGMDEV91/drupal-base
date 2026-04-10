@@ -34,7 +34,7 @@ class WebhookController extends ControllerBase {
     $payload   = $request->getContent();
     $sigHeader = $request->headers->get('Stripe-Signature', '');
 
-    $config        = \Drupal::config('stepuptours.payment');
+    $config        = \Drupal::config('stepuptours_api.payment');
     $webhookSecret = $config->get('stripe_webhook_secret') ?? '';
     $secretKey     = $config->get('stripe_secret_key') ?? '';
 

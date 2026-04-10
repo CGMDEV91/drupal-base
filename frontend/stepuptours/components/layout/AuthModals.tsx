@@ -85,7 +85,7 @@ function Field({
           blurOnSubmit={returnKeyType !== 'next'}
           style={{
             flex: 1,
-            fontSize: 14,
+            fontSize: Platform.OS === 'web' ? 16 : 14,
             color: '#111827',
             paddingVertical: Platform.OS === 'web' ? 12 : 10,
             ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),

@@ -2,12 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 export default function SubscriptionComplete() {
   const { session_id } = useLocalSearchParams<{ session_id: string }>();
   const router = useRouter();
   const pathname = usePathname();
   const langcode = pathname.split('/').filter(Boolean)[0] ?? 'es';
+  const { t } = useTranslation();
   const [countdown, setCountdown] = React.useState(5);
   const hasRedirected = useRef(false);
 
@@ -39,9 +41,9 @@ export default function SubscriptionComplete() {
     return (
       <View style={styles.centered}>
         <Ionicons name="alert-circle" size={64} color="#EF4444" />
-        <Text style={styles.title}>Sesión no encontrada</Text>
+        <Text style={styles.title}>{t('subscription.complete.sessionNotFound')}</Text>
         <TouchableOpacity style={styles.btn} onPress={goToDashboard}>
-          <Text style={styles.btnText}>Volver al dashboard</Text>
+          <Text style={styles.btnText}>{t('subscription.complete.backToDashboard')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -50,12 +52,10 @@ export default function SubscriptionComplete() {
   return (
     <View style={styles.centered}>
       <Ionicons name="checkmark-circle" size={64} color="#16A34A" />
-      <Text style={styles.title}>¡Pago completado!</Text>
-      <Text style={styles.text}>
-        Tu suscripción está siendo activada. Serás redirigido al dashboard en {countdown} segundos.
-      </Text>
+      <Text style={styles.title}>{t('subscription.complete.paymentComplete')}</Text>
+      <Text style={styles.text}>{t('subscription.complete.activating', { countdown })}</Text>
       <TouchableOpacity style={styles.btn} onPress={goToDashboard}>
-        <Text style={styles.btnText}>Ir al dashboard ahora</Text>
+        <Text style={styles.btnText}>{t('subscription.complete.goNow')}</Text>
       </TouchableOpacity>
     </View>
   );

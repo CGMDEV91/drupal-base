@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 10,
     paddingHorizontal: 12,
-    fontSize: 14,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     color: '#111827',
     backgroundColor: '#FAFAFA',
   },

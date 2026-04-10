@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
   },
   geoPopTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#92400e',
   },
   geoPopSub: {
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   },
   readMoreBtn: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: 4,
     alignSelf: 'flex-start',
   },
@@ -884,10 +884,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 8,
     elevation: 3,
+    marginTop: 6,
   },
   completeBtnText: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   nearbyContainer: {
