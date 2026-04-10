@@ -409,5 +409,10 @@
   "subscription.complete.backToDashboard": "Zurück zum Dashboard",
   "subscription.complete.paymentComplete": "Zahlung abgeschlossen!",
   "subscription.complete.activating": "Ihr Abonnement wird aktiviert. Sie werden in {{countdown}} Sekunden zum Dashboard weitergeleitet.",
-  "subscription.complete.goNow": "Jetzt zum Dashboard"
+  "subscription.complete.goNow": "Jetzt zum Dashboard",
+  "footer.quickLinks": "Schnelllinks",
+  "footer.contactInfo": "Kontaktinformationen",
+  "footer.allRights": "Alle Rechte vorbehalten.",
+  "footer.home": "Startseite",
+  "footer.termsOfUse": "Nutzungsbedingungen"
 }

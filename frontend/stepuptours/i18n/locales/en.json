@@ -8,7 +8,6 @@
   "nav.administration": "Administration",
   "nav.dashboard": "Dashboard",
   "nav.signout": "Sign Out",
-
   "tour.start": "Start Tour",
   "tour.continue": "Continue Tour",
   "tour.startAgain": "Start Again",
@@ -23,7 +22,6 @@
   "tour.totalPoints": "Total points",
   "tour.points": "points",
   "tour.share": "Share",
-
   "step.imHere": "I'm Here",
   "step.markCompleted": "Mark as Completed",
   "step.pending": "Pending",
@@ -39,7 +37,6 @@
   "step.tts.listen": "Listen to description",
   "step.description": "Description",
   "step.progress": "{{completed}} of {{total}} steps completed",
-
   "popup.congratulations": "Congratulations!",
   "popup.completedTourOf": "You've completed the tour of",
   "popup.tourCompleted": "You've completed {{tourName}}!",
@@ -53,11 +50,9 @@
   "popup.supportGuide": "Support the guide",
   "popup.changeAmount": "Change amount",
   "popup.alreadyCompleted": "Tour completed again!",
-
   "rating.prompt": "Would you like to rate this tour?",
   "rating.submit": "Submit Rating",
   "rating.skip": "Maybe Later",
-
   "filter.search": "Search",
   "filter.city": "City",
   "filter.country": "Country",
@@ -72,7 +67,6 @@
   "filter.apply": "Apply",
   "filter.selectCountry": "All countries",
   "filter.selectCity": "All cities",
-
   "ranking.title": "Ranking",
   "ranking.position": "#",
   "ranking.name": "Name",
@@ -82,16 +76,13 @@
   "ranking.score": "Score",
   "ranking.noResults": "No results yet. Be the first to complete a tour!",
   "ranking.empty": "No ranking data available",
-
   "completed.empty": "No completed tours yet",
-
   "contact.title": "Contact Us",
   "contact.email": "Your Email",
   "contact.subject": "Subject",
   "contact.message": "Message",
   "contact.send": "Send Message",
   "contact.success": "Your message has been sent successfully!",
-
   "admin.translations": "Translations",
   "admin.users": "Users",
   "admin.statistics": "Statistics",
@@ -105,13 +96,11 @@
   "admin.settings.error": "Error saving settings",
   "admin.translations.unsavedChanges": "{{count}} unsaved changes",
   "admin.translations.sourceReadOnly": "English is the source language (read-only)",
-
   "dashboard.myTours": "My Tours",
   "dashboard.createTour": "Create Tour",
   "dashboard.subscription": "Subscription",
   "dashboard.payments": "Payments",
   "dashboard.donations": "Donations",
-
   "dashboard.title": "Dashboard",
   "dashboard.tabs.tours": "My Tours",
   "dashboard.tabs.businesses": "Businesses",
@@ -155,7 +144,6 @@
   "dashboard.donations.amount": "Amount",
   "dashboard.donations.tour": "Tour",
   "dashboard.donations.empty": "No donations received yet",
-
   "subscription.monthly": "Monthly",
   "subscription.annual": "Annual",
   "subscription.minute": "Test (1 min)",
@@ -201,19 +189,15 @@
   "subscription.feature.steps": "{{n}} featured businesses per step",
   "subscription.feature.languages": "{{n}} languages per tour",
   "subscription.feature.featuredPerStep": "Featured businesses at step level",
-
   "footer.contact": "Contact",
   "footer.cookiePolicy": "Cookie Policy",
   "footer.privacyPolicy": "Privacy Policy",
-
   "cookie.banner.text": "We use cookies to improve your experience on our platform.",
   "cookie.banner.agree": "Accept",
   "cookie.banner.decline": "Decline",
   "cookie.banner.learnMore": "Learn more",
-
   "legal.cookiePolicy": "Cookie Policy",
   "legal.privacyPolicy": "Privacy Policy",
-
   "auth.loginRequired": "Please sign in to access this content",
   "auth.welcome": "Welcome back",
   "auth.loginSubtitle": "Sign in to your account",
@@ -252,15 +236,12 @@
   "auth.continueWithGoogle": "Continue with Google",
   "auth.orDivider": "or",
   "auth.googleError": "Google sign-in failed. Please try again.",
-
   "card.favourite": "Add to Favourites",
   "card.unfavourite": "Remove from Favourites",
-
   "business.directions": "Get Directions",
   "business.call": "Call",
   "business.website": "Website",
   "business.sponsored": "Sponsored",
-
   "onboarding.title": "How the tour works",
   "onboarding.subtitle": "Follow these simple steps to explore the tour",
   "onboarding.step1.title": "Navigate to the place",
@@ -271,11 +252,9 @@
   "onboarding.step3.desc": "Read the description, listen to the audio and explore local businesses.",
   "onboarding.dontShow": "Don't show this again",
   "onboarding.cta": "Let's go!",
-
   "step.confirmTitle": "Are you here?",
   "step.confirmSubtitle": "Confirm you've reached this stop to unlock the content.",
   "step.confirmYes": "Yes, I'm here",
-
   "donation.split.platform": "Platform",
   "donation.split.guide": "Guide",
   "donation.payWithCard": "Pay with card",
@@ -284,7 +263,6 @@
   "donation.error": "Payment failed. Please try again.",
   "donation.thankYou": "Thank you for your donation!",
   "donation.donated": "You donated {{amount}}€ to {{tour}}",
-
   "admin.tabs.businesses": "Businesses",
   "admin.tabs.donations": "Donations",
   "admin.donations.totalAmount": "Total Donations",
@@ -308,10 +286,8 @@
   "admin.settings.saveStripeKeys": "Save Stripe Keys",
   "admin.settings.stripeKeysNote": "Secret and webhook keys are write-only. Once saved they cannot be read back — only their configured status is shown.",
   "admin.settings.stripeDashboardHint": "Find your keys at dashboard.stripe.com → Developers → API keys",
-
   "admin.settings.tabs.general": "General",
   "admin.settings.tabs.stripe": "Stripe",
-
   "home.heroTitle": "Discover your next adventure",
   "home.searchPlaceholder": "Search tours...",
   "home.allCountries": "All",
@@ -321,7 +297,6 @@
   "home.subtitle": "Explore the world step by step",
   "home.featuredTours": "Featured Tours",
   "home.tours": "tours",
-
   "profile.title": "My Profile",
   "profile.stats": "Statistics",
   "profile.stats.toursCompleted": "Tours Completed",
@@ -339,7 +314,6 @@
   "profile.passwordMismatch": "Passwords do not match",
   "profile.selectLanguage": "Select language",
   "profile.selectCountry": "Select country",
-
   "favourites.subtitle": "Your saved tours",
   "completed.subtitle": "Tours you've explored",
   "ranking.subtitle": "The most active explorers",
@@ -370,9 +344,7 @@
   "admin.users.professional": "Professional",
   "admin.users.administrator": "Administrator",
   "admin.users.user": "User",
-
   "dashboard.subtitle": "Manage your tours and professional profile",
-
   "createTour.title": "Create Tour",
   "createTour.subtitle": "Build a new self-guided tour",
   "createTour.section.basicInfo": "Basic Information",
@@ -408,24 +380,19 @@
   "createTour.success.message": "Your tour has been saved as a draft",
   "createTour.error.title": "Error",
   "createTour.error.generic": "Could not save the tour. Please try again.",
-
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "common.error": "Error",
   "common.retry": "Retry",
-
   "toast.business_saved": "Business saved successfully",
   "toast.tour_saved": "Tour saved successfully",
-
   "createBusiness.field.language": "Language",
   "createBusiness.field.languageLocked": "Language (set at creation)",
   "createTour.field.languageLocked": "Language (set at creation)",
-
   "subscription.status.paid": "Paid",
   "subscription.status.failed": "Failed",
   "subscription.status.refunded": "Refunded",
   "subscription.alreadySubscribed": "You already have an active subscription.",
-
   "step.aboutStop": "About this stop",
   "step.readMore": "Read more",
   "step.readLess": "Read less",
@@ -438,10 +405,14 @@
   "step.locationView": "Location view",
   "step.goToSite": "Go to site",
   "step.howToGet": "How to get there",
-
   "subscription.complete.sessionNotFound": "Session not found",
   "subscription.complete.backToDashboard": "Back to dashboard",
   "subscription.complete.paymentComplete": "Payment completed!",
   "subscription.complete.activating": "Your subscription is being activated. You will be redirected to the dashboard in {{countdown}} seconds.",
-  "subscription.complete.goNow": "Go to dashboard now"
+  "subscription.complete.goNow": "Go to dashboard now",
+  "footer.quickLinks": "Quick Links",
+  "footer.contactInfo": "Contact Info",
+  "footer.allRights": "All rights reserved.",
+  "footer.home": "Home",
+  "footer.termsOfUse": "Terms of Use"
 }

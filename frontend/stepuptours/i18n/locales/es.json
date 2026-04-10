@@ -8,7 +8,6 @@
   "nav.administration": "Administración",
   "nav.dashboard": "Panel",
   "nav.signout": "Cerrar Sesión",
-
   "tour.start": "Iniciar Tour",
   "tour.continue": "Continuar Tour",
   "tour.startAgain": "Empezar de Nuevo",
@@ -23,7 +22,6 @@
   "tour.totalPoints": "Puntos totales",
   "tour.points": "puntos",
   "tour.share": "Compartir",
-
   "step.imHere": "Estoy Aquí",
   "step.markCompleted": "Marcar como Completado",
   "step.pending": "Pendiente",
@@ -39,7 +37,6 @@
   "step.tts.listen": "Escuchar descripción",
   "step.description": "Descripción",
   "step.progress": "{{completed}} de {{total}} pasos completados",
-
   "popup.congratulations": "¡Enhorabuena!",
   "popup.completedTourOf": "Has completado el tour de",
   "popup.tourCompleted": "¡Has completado {{tourName}}!",
@@ -53,11 +50,9 @@
   "popup.supportGuide": "Apoyar al guía",
   "popup.changeAmount": "Cambiar cantidad",
   "popup.alreadyCompleted": "¡Tour completado de nuevo!",
-
   "rating.prompt": "¿Te gustaría valorar este tour?",
   "rating.submit": "Enviar Valoración",
   "rating.skip": "Quizás Después",
-
   "filter.search": "Buscar",
   "filter.city": "Ciudad",
   "filter.country": "País",
@@ -72,7 +67,6 @@
   "filter.apply": "Aplicar",
   "filter.selectCountry": "Todos los países",
   "filter.selectCity": "Todas las ciudades",
-
   "ranking.title": "Ranking",
   "ranking.position": "#",
   "ranking.name": "Nombre",
@@ -82,16 +76,13 @@
   "ranking.score": "Puntuación",
   "ranking.noResults": "Aún no hay resultados. ¡Sé el primero en completar un tour!",
   "ranking.empty": "No hay datos de ranking disponibles",
-
   "completed.empty": "Aún no has completado ningún tour",
-
   "contact.title": "Contáctanos",
   "contact.email": "Tu Email",
   "contact.subject": "Asunto",
   "contact.message": "Mensaje",
   "contact.send": "Enviar Mensaje",
   "contact.success": "¡Tu mensaje ha sido enviado con éxito!",
-
   "admin.translations": "Traducciones",
   "admin.users": "Usuarios",
   "admin.statistics": "Estadísticas",
@@ -105,13 +96,11 @@
   "admin.settings.error": "Error al guardar configuración",
   "admin.translations.unsavedChanges": "{{count}} cambios sin guardar",
   "admin.translations.sourceReadOnly": "Inglés es el idioma fuente (solo lectura)",
-
   "dashboard.myTours": "Mis Tours",
   "dashboard.createTour": "Crear Tour",
   "dashboard.subscription": "Suscripción",
   "dashboard.payments": "Pagos",
   "dashboard.donations": "Donaciones",
-
   "dashboard.title": "Panel de Control",
   "dashboard.tabs.tours": "Mis Tours",
   "dashboard.tabs.businesses": "Negocios",
@@ -155,7 +144,6 @@
   "dashboard.donations.amount": "Cantidad",
   "dashboard.donations.tour": "Tour",
   "dashboard.donations.empty": "Aún no has recibido donaciones",
-
   "subscription.monthly": "Mensual",
   "subscription.annual": "Anual",
   "subscription.minute": "Test (1 min)",
@@ -201,19 +189,15 @@
   "subscription.feature.steps": "{{n}} negocios destacados por paso",
   "subscription.feature.languages": "{{n}} idiomas por tour",
   "subscription.feature.featuredPerStep": "Negocios destacados a nivel de paso",
-
   "footer.contact": "Contacto",
   "footer.cookiePolicy": "Política de Cookies",
   "footer.privacyPolicy": "Política de Privacidad",
-
   "cookie.banner.text": "Usamos cookies para mejorar tu experiencia en nuestra plataforma.",
   "cookie.banner.agree": "Aceptar",
   "cookie.banner.decline": "Rechazar",
   "cookie.banner.learnMore": "Saber más",
-
   "legal.cookiePolicy": "Política de Cookies",
   "legal.privacyPolicy": "Política de Privacidad",
-
   "auth.loginRequired": "Inicia sesión para acceder a este contenido",
   "auth.welcome": "Bienvenido de vuelta",
   "auth.loginSubtitle": "Inicia sesión en tu cuenta",
@@ -252,15 +236,12 @@
   "auth.continueWithGoogle": "Continuar con Google",
   "auth.orDivider": "o",
   "auth.googleError": "Error con Google. Inténtalo de nuevo.",
-
   "card.favourite": "Añadir a Favoritos",
   "card.unfavourite": "Quitar de Favoritos",
-
   "business.directions": "Cómo Llegar",
   "business.call": "Llamar",
   "business.website": "Web",
   "business.sponsored": "Patrocinado",
-
   "onboarding.title": "Cómo funciona el tour",
   "onboarding.subtitle": "Sigue estos sencillos pasos para explorar el tour",
   "onboarding.step1.title": "Navega al lugar",
@@ -271,11 +252,9 @@
   "onboarding.step3.desc": "Lee la descripción, escucha el audio y explora los negocios locales.",
   "onboarding.dontShow": "No mostrar de nuevo",
   "onboarding.cta": "¡Empecemos!",
-
   "step.confirmTitle": "¿Ya estás aquí?",
   "step.confirmSubtitle": "Confirma que has llegado a esta parada para desbloquear el contenido.",
   "step.confirmYes": "Sí, estoy aquí",
-
   "donation.split.platform": "Plataforma",
   "donation.split.guide": "Guía",
   "donation.payWithCard": "Pagar con tarjeta",
@@ -284,7 +263,6 @@
   "donation.error": "El pago falló. Inténtalo de nuevo.",
   "donation.thankYou": "¡Gracias por tu donación!",
   "donation.donated": "Has donado {{amount}}€ al tour {{tour}}",
-
   "admin.tabs.businesses": "Negocios",
   "admin.tabs.donations": "Donaciones",
   "admin.donations.totalAmount": "Total Donaciones",
@@ -308,10 +286,8 @@
   "admin.settings.saveStripeKeys": "Guardar claves de Stripe",
   "admin.settings.stripeKeysNote": "Las claves secreta y webhook son solo escritura. Una vez guardadas no se pueden leer de vuelta — solo se muestra su estado.",
   "admin.settings.stripeDashboardHint": "Encuentra tus claves en dashboard.stripe.com → Developers → API keys",
-
   "admin.settings.tabs.general": "General",
   "admin.settings.tabs.stripe": "Stripe",
-
   "home.heroTitle": "Descubre tu próxima aventura",
   "home.searchPlaceholder": "Buscar tours...",
   "home.allCountries": "Todos",
@@ -321,7 +297,6 @@
   "home.subtitle": "Explora el mundo paso a paso",
   "home.featuredTours": "Tours Destacados",
   "home.tours": "tours",
-
   "profile.title": "Mi Perfil",
   "profile.stats": "Estadísticas",
   "profile.stats.toursCompleted": "Tours Completados",
@@ -339,7 +314,6 @@
   "profile.passwordMismatch": "Las contraseñas no coinciden",
   "profile.selectLanguage": "Seleccionar idioma",
   "profile.selectCountry": "Seleccionar país",
-
   "favourites.subtitle": "Tus tours guardados",
   "completed.subtitle": "Tours que has explorado",
   "ranking.subtitle": "Los exploradores más activos",
@@ -370,9 +344,7 @@
   "admin.users.professional": "Profesional",
   "admin.users.administrator": "Administrador",
   "admin.users.user": "Usuario",
-
   "dashboard.subtitle": "Gestiona tus tours y perfil profesional",
-
   "createTour.title": "Crear Tour",
   "createTour.subtitle": "Crea un nuevo tour autoguiado",
   "createTour.section.basicInfo": "Información Básica",
@@ -408,24 +380,19 @@
   "createTour.success.message": "Tu tour ha sido guardado como borrador",
   "createTour.error.title": "Error",
   "createTour.error.generic": "No se pudo guardar el tour. Inténtalo de nuevo.",
-
   "common.cancel": "Cancelar",
   "common.delete": "Eliminar",
   "common.error": "Error",
   "common.retry": "Reintentar",
-
   "toast.business_saved": "Negocio guardado correctamente",
   "toast.tour_saved": "Tour guardado correctamente",
-
   "createBusiness.field.language": "Idioma",
   "createBusiness.field.languageLocked": "Idioma (establecido al crear)",
   "createTour.field.languageLocked": "Idioma (establecido al crear)",
-
   "subscription.status.paid": "Pagado",
   "subscription.status.failed": "Fallido",
   "subscription.status.refunded": "Devuelto",
   "subscription.alreadySubscribed": "Ya tienes una suscripción activa.",
-
   "step.aboutStop": "Sobre esta parada",
   "step.readMore": "Leer más",
   "step.readLess": "Leer menos",
@@ -437,5 +404,15 @@
   "step.nearbyAttractions": "Atracciones",
   "step.locationView": "Vista del lugar",
   "step.goToSite": "Ir al sitio",
-  "step.howToGet": "Cómo llegar"
+  "step.howToGet": "Cómo llegar",
+  "footer.quickLinks": "Enlaces Rápidos",
+  "footer.contactInfo": "Información de Contacto",
+  "footer.allRights": "Todos los derechos reservados.",
+  "footer.home": "Inicio",
+  "footer.termsOfUse": "Términos de Uso",
+  "subscription.complete.sessionNotFound": "Sesión no encontrada",
+  "subscription.complete.backToDashboard": "Volver al dashboard",
+  "subscription.complete.paymentComplete": "¡Pago completado!",
+  "subscription.complete.activating": "Tu suscripción está siendo activada. Serás redirigido al dashboard en {{countdown}} segundos.",
+  "subscription.complete.goNow": "Ir al dashboard ahora"
 }

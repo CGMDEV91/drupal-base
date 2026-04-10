@@ -409,5 +409,10 @@
   "subscription.complete.backToDashboard": "Retour au tableau de bord",
   "subscription.complete.paymentComplete": "Paiement effectué !",
   "subscription.complete.activating": "Votre abonnement est en cours d'activation. Vous serez redirigé vers le tableau de bord dans {{countdown}} secondes.",
-  "subscription.complete.goNow": "Aller au tableau de bord maintenant"
+  "subscription.complete.goNow": "Aller au tableau de bord maintenant",
+  "footer.quickLinks": "Liens Rapides",
+  "footer.contactInfo": "Informations de Contact",
+  "footer.allRights": "Tous droits réservés.",
+  "footer.home": "Accueil",
+  "footer.termsOfUse": "Conditions d'utilisation"
 }

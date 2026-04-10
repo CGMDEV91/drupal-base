@@ -78,15 +78,13 @@ export default function Footer() {
         {/* Col 2 — Quick links */}
         <View style={[styles.col, isDesktop && styles.colDesktop]}>
           <View style={styles.colHeader}>
-            <Text style={styles.colTitle}>
-              {lang === 'es' ? 'Enlaces Rápidos' : 'Quick Links'}
-            </Text>
+            <Text style={styles.colTitle}>{t('footer.quickLinks')}</Text>
             <View style={styles.colUnderline} />
           </View>
-          <FooterLink label={lang === 'es' ? 'Inicio' : 'Home'}         onPress={() => navigate(`/${lang}`)} />
-          <FooterLink label={lang === 'es' ? 'Ranking' : 'Ranking'}     onPress={() => navigate(`/${lang}/ranking`)} />
-          <FooterLink label={lang === 'es' ? 'Favoritos' : 'Favourites'} onPress={() => navigate(`/${lang}/favourites`)} />
-          <FooterLink label={lang === 'es' ? 'Completados' : 'Completed'} onPress={() => navigate(`/${lang}/completed`)} />
+          <FooterLink label={t('footer.home')}             onPress={() => navigate(`/${lang}`)} />
+          <FooterLink label={t('nav.ranking')}             onPress={() => navigate(`/${lang}/ranking`)} />
+          <FooterLink label={t('nav.favourites')}          onPress={() => navigate(`/${lang}/favourites`)} />
+          <FooterLink label={t('nav.completed')}           onPress={() => navigate(`/${lang}/completed`)} />
         </View>
 
         {/* Col 3 — Legal */}
@@ -104,7 +102,7 @@ export default function Footer() {
             onPress={() => navigate(`/${lang}/cookie-policy`)}
           />
           <FooterLink
-            label={lang === 'es' ? 'Términos de Uso' : 'Terms of Use'}
+            label={t('footer.termsOfUse')}
             onPress={() => navigate(`/${lang}/privacy-policy`)}
           />
           <FooterLink label={t('footer.contact')} onPress={openContactModal} />
@@ -113,9 +111,7 @@ export default function Footer() {
         {/* Col 4 — Contact info */}
         <View style={[styles.col, isDesktop && styles.colDesktop]}>
           <View style={styles.colHeader}>
-            <Text style={styles.colTitle}>
-              {lang === 'es' ? 'Información de Contacto' : 'Contact Info'}
-            </Text>
+            <Text style={styles.colTitle}>{t('footer.contactInfo')}</Text>
             <View style={styles.colUnderline} />
           </View>
 
@@ -134,7 +130,7 @@ export default function Footer() {
       {/* ── Bottom bar ── */}
       <View style={styles.bottomBar}>
         <Text style={styles.copyright}>
-          © {year} {settings.siteName}. {lang === 'es' ? 'Todos los derechos reservados.' : 'All rights reserved.'}
+          © {year} {settings.siteName}. {t('footer.allRights')}
         </Text>
         <View style={styles.bottomLinks}>
           <TouchableOpacity onPress={() => navigate(`/${lang}/privacy-policy`)}>
