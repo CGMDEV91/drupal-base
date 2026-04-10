@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   initialsText: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#ffffff',
   },
   info: {

@@ -87,12 +87,54 @@ const TOUR_CARD_FIELDS = {
 
 const TOUR_CARD_INCLUDE = ['field_image', 'field_city', 'field_country'];
 
+// ── Step count cache ──────────────────────────────────────────────────────────
+// Avoids a second API round-trip for counts that haven't changed.
+// Keyed by tourId; entries expire after 5 minutes.
+
+const STEP_COUNT_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+interface StepCountEntry {
+  count: number;
+  expiresAt: number;
+}
+
+const stepCountCache = new Map<string, StepCountEntry>();
+
+function getCachedStepCounts(tourIds: string[]): {
+  cached: Record<string, number>;
+  missing: string[];
+} {
+  const now = Date.now();
+  const cached: Record<string, number> = {};
+  const missing: string[] = [];
+
+  for (const id of tourIds) {
+    const entry = stepCountCache.get(id);
+    if (entry && entry.expiresAt > now) {
+      cached[id] = entry.count;
+    } else {
+      missing.push(id);
+    }
+  }
+  return { cached, missing };
+}
+
+function setCachedStepCounts(counts: Record<string, number>): void {
+  const expiresAt = Date.now() + STEP_COUNT_CACHE_TTL;
+  for (const [id, count] of Object.entries(counts)) {
+    stepCountCache.set(id, { count, expiresAt });
+  }
+}
+
 // ── Batch step count helper ───────────────────────────────────────────────────
 
 async function batchGetStepCounts(tourIds: string[]): Promise<Record<string, number>> {
   if (tourIds.length === 0) return {};
 
-  const filterParts = tourIds.map(
+  const { cached, missing } = getCachedStepCounts(tourIds);
+  if (missing.length === 0) return cached;
+
+  const filterParts = missing.map(
     (id, i) =>
       `filter[tid][condition][path]=field_tour.id` +
       `&filter[tid][condition][operator]=IN` +
@@ -110,16 +152,18 @@ async function batchGetStepCounts(tourIds: string[]): Promise<Record<string, num
     const { data } = await drupalGetRaw('/node/tour_step', params);
     const steps = Array.isArray(data) ? data : data ? [data] : [];
 
-    const counts: Record<string, number> = {};
+    const fetched: Record<string, number> = {};
+    // Initialise to 0 for every missing ID so tours with no steps are also cached
+    for (const id of missing) fetched[id] = 0;
     for (const step of steps) {
       const tourId = (step as any).field_tour?.id;
-      if (tourId) {
-        counts[tourId] = (counts[tourId] ?? 0) + 1;
-      }
+      if (tourId) fetched[tourId] = (fetched[tourId] ?? 0) + 1;
     }
-    return counts;
+
+    setCachedStepCounts(fetched);
+    return { ...cached, ...fetched };
   } catch {
-    return {};
+    return cached; // Return whatever we had cached on error
   }
 }
 

@@ -1,6 +1,6 @@
 // components/tour/StepContent.tsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -59,24 +59,55 @@ interface EmbedProps {
   onUnavailable?: () => void;
 }
 
+// Web-only inner component so hooks are always called unconditionally.
+function WebGoogleEmbed({ uri, height, interactive = false, onUnavailable }: EmbedProps) {
+  // When Street View fails (503), the iframe still loads but shows an error state.
+  // We can't inspect cross-origin iframe content, but we CAN detect whether the
+  // user ever interacted with it: clicking/dragging in the iframe steals focus
+  // from the parent window, firing a `blur` event.
+  // If no interaction occurs within SV_WEB_TIMEOUT ms, we assume it failed.
+  // Only applies when `onUnavailable` is provided (Street View mode).
+  const SV_WEB_TIMEOUT = 7_000;
+
+  React.useEffect(() => {
+    if (!onUnavailable) return; // No-op for static/directions embeds
+
+    let interacted = false;
+    const onBlur = () => { interacted = true; };
+    window.addEventListener('blur', onBlur);
+
+    const timer = setTimeout(() => {
+      if (!interacted) onUnavailable();
+    }, SV_WEB_TIMEOUT);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [uri]); // Re-arm when URI changes (retry gives a fresh URI key)
+
+  const wrapStyle = { height, overflow: 'hidden' as const, position: 'relative' as const };
+  return (
+    <View style={wrapStyle}>
+      {/* @ts-ignore */}
+      <iframe
+        src={uri}
+        style={{ width: '100%', height: '100%', border: 'none', pointerEvents: interactive ? 'auto' : 'none' }}
+        loading="lazy"
+        allowFullScreen
+        allow="accelerometer *; gyroscope *; geolocation *; fullscreen *; xr-spatial-tracking *"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+      {!interactive && <View style={StyleSheet.absoluteFill} />}
+    </View>
+  );
+}
+
 function GoogleEmbed({ uri, height, interactive = false, onUnavailable }: EmbedProps) {
   const wrapStyle = { height, overflow: 'hidden' as const, position: 'relative' as const };
 
   if (Platform.OS === 'web') {
-    return (
-      <View style={wrapStyle}>
-        {/* @ts-ignore */}
-        <iframe
-          src={uri}
-          style={{ width: '100%', height: '100%', border: 'none', pointerEvents: interactive ? 'auto' : 'none' }}
-          loading="lazy"
-          allowFullScreen
-          allow="accelerometer *; gyroscope *; geolocation *; fullscreen *; xr-spatial-tracking *"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-        {!interactive && <View style={StyleSheet.absoluteFill} />}
-      </View>
-    );
+    return <WebGoogleEmbed uri={uri} height={height} interactive={interactive} onUnavailable={onUnavailable} />;
   }
 
   return (
@@ -225,6 +256,10 @@ export function StepContent({
   const [expanded, setExpanded]         = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [svAvailable, setSvAvailable]   = useState(true);
+  // svKey forces a full remount of GoogleEmbed on each retry attempt.
+  const [svKey, setSvKey]               = useState(0);
+  const svRetriesRef                    = useRef(0);
+  const MAX_SV_RETRIES                  = 1; // retry once, then fall back to static map
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -284,6 +319,20 @@ export function StepContent({
     prevExpandedRef.current = isExpanded;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
+
+  // ── Street View retry / fallback ─────────────────────────────────────────
+  // Called by GoogleEmbed when Street View is unavailable (503, no coverage…).
+  // We retry once (re-mounting the embed) before falling back to static map.
+
+  const handleSvUnavailable = useCallback(() => {
+    if (svRetriesRef.current < MAX_SV_RETRIES) {
+      svRetriesRef.current += 1;
+      setSvKey((k) => k + 1); // triggers GoogleEmbed remount → fresh iframe/WebView
+    } else {
+      svRetriesRef.current = 0;
+      setSvAvailable(false);
+    }
+  }, []);
 
   // ── Reset al completar ────────────────────────────────────────────────────
 
@@ -383,10 +432,11 @@ export function StepContent({
       </View>
       <View style={styles.mapOuter}>
         <GoogleEmbed
+          key={svKey}
           uri={activeMapUrl}
           height={activeMapH}
           interactive={svAvailable}
-          onUnavailable={svAvailable ? () => setSvAvailable(false) : undefined}
+          onUnavailable={svAvailable ? handleSvUnavailable : undefined}
         />
       </View>
     </View>

@@ -21,6 +21,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useToursStore } from '../../../stores/tours.store';
 import { useAuthStore } from '../../../stores/auth.store';
+import { useLanguageStore } from '../../../stores/language.store';
 import { TourCard } from '../../../components/tour/TourCard';
 import { Ionicons } from '@expo/vector-icons';
 import type { TourFilters } from '../../../types';
@@ -494,17 +495,39 @@ export default function HomePage() {
   } = useToursStore();
 
   const { user, openAuthModal } = useAuthStore();
+  const currentLanguageId = useLanguageStore((s) => s.currentLanguage?.id);
 
-  // Reset filters and reload all tours every time the home tab gets focus
+  // ── Fetch coordination ───────────────────────────────────────────────────────
+  // isFocusedRef: tracks whether this screen is currently in focus (no re-render).
+  // focusGeneration: increments on each real focus event, acting as a trigger
+  //   for useEffect so it can react to tab-refocus without useFocusEffect deps.
+  const isFocusedRef = useRef(false);
+  const [focusGeneration, setFocusGeneration] = useState(0);
+
+  // Empty deps → callback never changes → useFocusEffect only fires on actual
+  // focus/blur events, NEVER on language or state changes.
+  // This is the key to preventing double-fetches.
   useFocusEffect(
     useCallback(() => {
-      clearFilters();
-      setSearch('');
-      fetchTours({});
-      fetchCountries();
-      fetchCities();
+      isFocusedRef.current = true;
+      setFocusGeneration((g) => g + 1);
+      return () => { isFocusedRef.current = false; };
     }, []),
   );
+
+  // Single consolidated fetch effect.
+  // Triggers on: (1) tab focus (focusGeneration↑), (2) language synced/changed
+  // (currentLanguageId), (3) URL langcode change.
+  // Guards: screen must be focused AND language must match the URL langcode.
+  useEffect(() => {
+    if (!isFocusedRef.current) return;
+    if (!currentLanguageId || currentLanguageId !== langcode) return;
+    clearFilters();
+    setSearch('');
+    fetchTours({});
+    fetchCountries();
+    fetchCities();
+  }, [currentLanguageId, langcode, focusGeneration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user) fetchUserActivities(user.id);
@@ -589,7 +612,7 @@ export default function HomePage() {
               }
             : undefined
         }
-        contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 0, paddingBottom: 0 }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         refreshControl={
@@ -666,9 +689,11 @@ export default function HomePage() {
             )}
 
             {/* ── TOUR COUNT PILL ── */}
-            {!isLoading && tours.length > 0 && (
+            {/* Shown whenever there are tours (loading or not) so the pill never
+                causes a layout shift that pushes cards down after first paint. */}
+            {tours.length > 0 && (
               <View style={[styles.countPillRow, { paddingHorizontal: PADDING }]}>
-                <View style={styles.countPill}>
+                <View style={[styles.countPill, isLoading && { opacity: 0.4 }]}>
                   <Text style={styles.countPillText}>{tours.length} {t('home.tours')}</Text>
                 </View>
               </View>
@@ -1134,11 +1159,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
     gap: 14,
   },
   emptyTitle: { fontSize: 16, color: '#6B7280', fontWeight: '500' },
-  loadingState: { paddingVertical: 60, alignItems: 'center' },
+  loadingState: { flex: 1, paddingVertical: 60, alignItems: 'center', justifyContent: 'center' },
 });
