@@ -32,19 +32,33 @@ export default function Footer() {
   const lang = langcode ?? 'en';
 
   const [settings, setSettings] = useState<SiteSettings>({
-    siteName: 'StepUp Tours',
+    siteName:  'StepUp Tours',
     siteEmail: 'info@stepuptours.com',
-    slogan: 'Explore the world step by step',
-    address: 'Madrid, España',
-    phone: '',
+    slogan:    t('home.subtitle'),   // fallback si Drupal devuelve slogan vacío
+    address:   '',
+    phone:     '',
   });
 
   useEffect(() => {
     const base = process.env.EXPO_PUBLIC_API_URL ?? '';
-    fetch(`${base}/api/site-settings`)
+    fetch(`${base}/api/site-settings`, {
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
+    })
       .then(r => r.json())
-      .then((data: SiteSettings) => setSettings(data))
-      .catch(() => {/* keep defaults */});
+      .then((data) => {
+        setSettings(prev => ({
+          siteName:  data.siteName  || prev.siteName,
+          siteEmail: data.siteEmail || prev.siteEmail,
+          slogan:    data.slogan    || prev.slogan,
+          address:   data.address   || '',
+          phone:     data.phone     || '',
+        }));
+      })
+      .catch((err) => {
+        console.error('Site settings fetch error:', err);
+      });
   }, []);
 
   const year = new Date().getFullYear();
@@ -114,15 +128,8 @@ export default function Footer() {
             <Text style={styles.colTitle}>{t('footer.contactInfo')}</Text>
             <View style={styles.colUnderline} />
           </View>
-
-          {!!settings.address && (
-            <ContactItem icon="location-outline" text={settings.address} />
-          )}
           {!!settings.siteEmail && (
             <ContactItem icon="mail-outline" text={settings.siteEmail} />
-          )}
-          {!!settings.phone && (
-            <ContactItem icon="call-outline" text={settings.phone} />
           )}
         </View>
       </View>
