@@ -437,5 +437,11 @@
   "step.nearbyAttractions": "Attractions",
   "step.locationView": "Location view",
   "step.goToSite": "Go to site",
-  "step.howToGet": "How to get there"
+  "step.howToGet": "How to get there",
+
+  "subscription.complete.sessionNotFound": "Session not found",
+  "subscription.complete.backToDashboard": "Back to dashboard",
+  "subscription.complete.paymentComplete": "Payment completed!",
+  "subscription.complete.activating": "Your subscription is being activated. You will be redirected to the dashboard in {{countdown}} seconds.",
+  "subscription.complete.goNow": "Go to dashboard now"
 }
