@@ -103,3 +103,4 @@
 .qodo/
 .idea
 .claude/settings.local.json
+.claude
