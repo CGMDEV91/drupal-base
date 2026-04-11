@@ -38,6 +38,7 @@ class TtsController extends ControllerBase {
     'ca' => 'ca-ES-EnricNeural',
     'eu' => 'eu-ES-AnderNeural',
     'ko' => 'ko-KR-InJoonNeural',
+    'el' => 'el-GR-NestorasNeural',
   ];
 
   public function __construct(private readonly FileSystemInterface $fileSystem) {}
@@ -52,14 +53,19 @@ class TtsController extends ControllerBase {
     }
 
     $data      = json_decode($request->getContent(), TRUE);
-    $text      = trim((string) ($data['text']      ?? ''));
+    $rawText   = trim((string) ($data['text']      ?? ''));
     $langcode  = strtolower(trim((string) ($data['langcode']  ?? 'en')));
     $tourTitle = trim((string) ($data['tourTitle'] ?? ''));
     $stepTitle = trim((string) ($data['stepTitle'] ?? ''));
 
-    if ($text === '') {
+    if ($rawText === '') {
       return $this->corsResponse(new Response('Missing text', 400));
     }
+
+    // Normalise whitespace/newlines before synthesis and cache-key generation.
+    // Double newlines become ". " so edge-tts treats them as sentence endings
+    // rather than paragraph gaps, eliminating unnatural pauses mid-narration.
+    $text = $this->preprocessText($rawText);
 
     $hash      = substr(hash('sha256', $langcode . ':' . $text), 0, 16);
     $lang      = strtoupper(substr($langcode, 0, 2));
@@ -186,6 +192,17 @@ class TtsController extends ControllerBase {
 
   private function resolveVoice(string $langcode): string {
     return self::VOICES[substr($langcode, 0, 2)] ?? self::VOICES['en'];
+  }
+
+  private function preprocessText(string $text): string {
+    // 2+ consecutive newlines/CRs → ". " so edge-tts treats them as sentence
+    // endings rather than paragraph gaps (which introduce perceptible pauses).
+    $text = preg_replace('/[\r\n]{2,}/', '. ', $text);
+    // Remaining single \n/\r → space (e.g. stripped <br> tags).
+    $text = preg_replace('/[\r\n]/', ' ', $text);
+    // Collapse runs of 2+ spaces into one.
+    $text = preg_replace('/ {2,}/', ' ', $text);
+    return trim($text);
   }
 
   private function corsResponse(Response $response): Response {

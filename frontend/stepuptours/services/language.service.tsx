@@ -26,6 +26,7 @@ const NATIVE_NAMES: Record<string, string> = {
   ar: 'العربية',
   ca: 'Català',
   eu: 'Euskara',
+  el: 'Ελληνικά',
 };
 
 export function getLanguageNativeName(
@@ -75,6 +76,7 @@ export async function getAvailableLanguages(): Promise<Language[]> {
       { id: 'fr', name: 'Français', direction: 'ltr', isDefault: false },
       { id: 'it', name: 'Italiano', direction: 'ltr', isDefault: false },
       { id: 'de', name: 'Deutsch', direction: 'ltr', isDefault: false },
+      { id: 'el', name: 'Ελληνικά', direction: 'ltr', isDefault: false },
     ];
   }
 }
@@ -96,6 +98,7 @@ export function langCodeToCountryCode(langCode: string): string {
     ar: 'SA',
     ca: 'ES',
     eu: 'ES',
+    el: 'GR',
   };
 
   return map[langCode] ?? 'US';

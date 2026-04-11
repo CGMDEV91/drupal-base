@@ -503,6 +503,7 @@ export default function HomePage() {
   //   for useEffect so it can react to tab-refocus without useFocusEffect deps.
   const isFocusedRef = useRef(false);
   const [focusGeneration, setFocusGeneration] = useState(0);
+  const loadingMoreRef = useRef(false);
 
   // Empty deps → callback never changes → useFocusEffect only fires on actual
   // focus/blur events, NEVER on language or state changes.
@@ -524,6 +525,7 @@ export default function HomePage() {
     if (!currentLanguageId || currentLanguageId !== langcode) return;
     clearFilters();
     setSearch('');
+    loadingMoreRef.current = false;
     fetchTours({});
     fetchCountries();
     fetchCities();
@@ -544,13 +546,20 @@ export default function HomePage() {
       : (gridWidth - PADDING * 2 - GAP * (cols - 1)) / cols;
 
   const loadMore = useCallback(() => {
-    if (!hasMore || isLoading) return;
-    fetchTours({ page: (filters.page ?? 1) + 1 }, true);
-  }, [hasMore, isLoading, filters.page]);
+    if (!hasMore || isLoading || loadingMoreRef.current || tours.length === 0) return;
+    loadingMoreRef.current = true;
+    fetchTours({ page: (filters.page ?? 1) + 1 }, true).finally(() => {
+      loadingMoreRef.current = false;
+    });
+  }, [hasMore, isLoading, filters.page, tours.length]);
 
-  const onRefresh = useCallback(() => fetchTours({ page: 1 }), []);
+  const onRefresh = useCallback(() => {
+    loadingMoreRef.current = false;
+    return fetchTours({ page: 1 });
+  }, []);
 
   const onSearch = () => {
+    loadingMoreRef.current = false;
     setFilters({ search });
     fetchTours({ search, page: 1 });
   };
@@ -559,23 +568,27 @@ export default function HomePage() {
     const next = country ? { country, city: undefined } : { country: undefined, city: undefined };
     setFilters(next);
     fetchCities(country ?? undefined);
+    loadingMoreRef.current = false;
     fetchTours({ ...filters, ...next, page: 1 });
   };
 
   const handleCitySelect = (city: string | null) => {
     const next = { city: city ?? undefined };
     setFilters(next);
+    loadingMoreRef.current = false;
     fetchTours({ ...filters, ...next, page: 1 });
   };
 
   const handleSortSelect = (sort: TourFilters['sort']) => {
     setFilters({ sort });
+    loadingMoreRef.current = false;
     fetchTours({ ...filters, sort, page: 1 });
   };
 
   const handleClear = () => {
     clearFilters();
     setSearch('');
+    loadingMoreRef.current = false;
     fetchTours({});
   };
 
@@ -588,6 +601,7 @@ export default function HomePage() {
     };
     setFilters(next);
     if (country) fetchCities(country);
+    loadingMoreRef.current = false;
     fetchTours({ ...filters, ...next });
   };
 
@@ -614,7 +628,7 @@ export default function HomePage() {
         }
         contentContainerStyle={{ flexGrow: 1, paddingTop: 0, paddingBottom: 0 }}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.3}
         refreshControl={
           <RefreshControl
             refreshing={isLoading && tours.length > 0}
@@ -655,7 +669,7 @@ export default function HomePage() {
                   />
                   {search.length > 0 && (
                     <TouchableOpacity
-                      onPress={() => { setSearch(''); clearFilters(); fetchTours(); }}
+                      onPress={() => { setSearch(''); clearFilters(); loadingMoreRef.current = false; fetchTours(); }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Ionicons name="close-circle" size={18} color="#C4C9D4" />
@@ -727,7 +741,7 @@ export default function HomePage() {
             <View style={styles.emptyState}>
               <Ionicons name="map-outline" size={48} color="#D1D5DB" />
               <Text style={styles.emptyTitle}>{t('home.noTours')}</Text>
-              <TouchableOpacity style={styles.btnPrimary} onPress={() => { clearFilters(); fetchTours(); }}>
+              <TouchableOpacity style={styles.btnPrimary} onPress={() => { clearFilters(); loadingMoreRef.current = false; fetchTours(); }}>
                 <Text style={styles.btnPrimaryText}>{t('home.allCountries')}</Text>
               </TouchableOpacity>
             </View>

@@ -1,0 +1,65 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 97227b03-1189-4da6-9ff3-45d68147220d
+  bundle: subscription_plan
+  default_langcode: en
+default:
+  revision_uid:
+    -
+      target_id: 1
+  status:
+    -
+      value: true
+  uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Monthly Premium'
+  created:
+    -
+      value: 1775817319
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  field_active:
+    -
+      value: true
+  field_auto_renewal_available:
+    -
+      value: true
+  field_billing_cycle:
+    -
+      value: month
+  field_featured_per_step:
+    -
+      value: true
+  field_max_featured_detail:
+    -
+      value: 1
+  field_max_featured_steps:
+    -
+      value: 1
+  field_max_languages:
+    -
+      value: 5
+  field_plan_type:
+    -
+      value: premium
+  field_price:
+    -
+      value: '9.99'
