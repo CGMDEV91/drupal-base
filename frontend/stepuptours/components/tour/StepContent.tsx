@@ -25,6 +25,10 @@ const BAR_HEIGHTS = [5, 10, 7, 13, 6, 11, 8, 14, 5, 9, 12, 7, 10, 6, 6, 11, 5, 9
 const PREVIEW_LINES = 4;
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
+// Idiomas sin soporte en el servicio TTS del servidor.
+// Para estos se oculta el player y se muestra un aviso.
+const NO_TTS_LANGS = new Set(['el']);
+
 function isGoogleMapsUrl(url: string): boolean {
   return (
     url.startsWith('about:') ||
@@ -507,8 +511,13 @@ export function StepContent({
         />
       ) : null}
 
-      {/* ── Reproductor TTS ─────────────────────────────────────────────── */}
-      {descriptionText ? (
+      {/* ── Reproductor TTS / Warning sin soporte ───────────────────────── */}
+      {descriptionText && NO_TTS_LANGS.has(langcode) ? (
+        <View style={styles.ttsWarning}>
+          <Ionicons name="information-circle-outline" size={16} color="#664d03" />
+          <Text style={styles.ttsWarningText}>{t('step.ttsUnavailable')}</Text>
+        </View>
+      ) : descriptionText ? (
         <View style={[styles.playerCard, isDesktop && styles.playerCardDesktop]}>
           <View style={styles.playerRow}>
             {/* Play / Pause */}
@@ -555,6 +564,7 @@ export function StepContent({
           </View>
         </View>
       ) : null}
+
 
       {/* ── Descripción ─────────────────────────────────────────────────── */}
       {descriptionText ? (
@@ -975,5 +985,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: ORANGE,
     fontWeight: '500',
+  },
+  ttsWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#fff3cd',
+    borderWidth: 1,
+    borderColor: '#ffc107',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  ttsWarningText: {
+    fontSize: 13,
+    color: '#664d03',
+    flex: 1,
+    lineHeight: 19,
   },
 });

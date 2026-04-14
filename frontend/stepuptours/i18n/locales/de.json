@@ -393,6 +393,7 @@
   "subscription.status.failed": "Fehlgeschlagen",
   "subscription.status.refunded": "Erstattet",
   "subscription.alreadySubscribed": "Sie haben bereits ein aktives Abonnement.",
+  "step.ttsUnavailable": "Der Audioguide ist in dieser Sprache noch nicht verfügbar.",
   "step.aboutStop": "Über diesen Stopp",
   "step.readMore": "Mehr lesen",
   "step.readLess": "Weniger lesen",

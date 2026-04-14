@@ -52,7 +52,14 @@ class TtsController extends ControllerBase {
       return $this->corsResponse(new Response('', 204));
     }
 
-    $data      = json_decode($request->getContent(), TRUE);
+    // Decodificar el body forzando UTF-8 válido.
+    $raw  = $request->getContent();
+    $data = json_decode($raw, TRUE);
+
+    if (!is_array($data)) {
+      return $this->corsResponse(new Response('Invalid JSON body', 400));
+    }
+
     $rawText   = trim((string) ($data['text']      ?? ''));
     $langcode  = strtolower(trim((string) ($data['langcode']  ?? 'en')));
     $tourTitle = trim((string) ($data['tourTitle'] ?? ''));
@@ -60,6 +67,12 @@ class TtsController extends ControllerBase {
 
     if ($rawText === '') {
       return $this->corsResponse(new Response('Missing text', 400));
+    }
+
+    // Rechazar texto con encoding inválido (evita corrupción silenciosa en
+    // idiomas no-latinos como griego, árabe, japonés, etc.).
+    if (!mb_check_encoding($rawText, 'UTF-8')) {
+      return $this->corsResponse(new Response('Text is not valid UTF-8', 400));
     }
 
     // Normalise whitespace/newlines before synthesis and cache-key generation.
@@ -92,27 +105,79 @@ class TtsController extends ControllerBase {
     if ($bin !== NULL) {
       $voice  = $this->resolveVoice($langcode);
       $tmpOut = tempnam(sys_get_temp_dir(), 'tts_') . '.mp3';
+      $tmpTxt = tempnam(sys_get_temp_dir(), 'tts_txt_');
+
+      // Escribir el texto en un fichero temporal para evitar cualquier problema
+      // de encoding en los argumentos de shell con caracteres multibyte
+      // (griego, árabe, chino, etc.).
+      file_put_contents($tmpTxt, $text, LOCK_EX);
+
+      // Verificar que el fichero temporal se escribió correctamente y contiene
+      // exactamente el texto esperado (detecta fallos de disco/permisos).
+      $written = file_get_contents($tmpTxt);
+      if ($written !== $text) {
+        @unlink($tmpTxt);
+        \Drupal::logger('stepuptours_tts')->error(
+          'TTS: failed to write temp text file for langcode @lang',
+          ['@lang' => $langcode],
+        );
+        // Fall through to Railway fallback.
+        goto railway;
+      }
 
       $cmd = sprintf(
-        '%s --voice %s --text %s --write-media %s 2>&1',
+        'PYTHONIOENCODING=utf-8 LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 %s --voice %s --text-file %s --write-media %s',
         escapeshellarg($bin),
         escapeshellarg($voice),
-        escapeshellarg($text),
+        escapeshellarg($tmpTxt),
         escapeshellarg($tmpOut),
       );
 
-      exec($cmd, $cmdOutput, $exitCode);
+      // Usar proc_open en lugar de exec() para garantizar que esperamos a que
+      // el proceso hijo termine de escribir y cerrar el fichero MP3 antes de
+      // continuar. exec() puede retornar antes de que el proceso hijo haya
+      // volcado todos los buffers, lo que produce ficheros con padding LAME
+      // (bloques de "UUUUU...") al final.
+      $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+      ];
+      $process  = proc_open($cmd, $descriptors, $pipes);
+      $exitCode = -1;
+      $stderr   = '';
 
-      if ($exitCode === 0 && file_exists($tmpOut) && filesize($tmpOut) > 0) {
+      if (is_resource($process)) {
+        fclose($pipes[0]);
+        // Leer stderr antes de proc_close para evitar deadlock en buffers.
+        $stderr   = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process); // bloquea hasta que el proceso termina
+      }
+
+      @unlink($tmpTxt);
+
+      // Tamaño mínimo razonable: 5 KB. Un fichero menor casi seguro está
+      // corrupto o vacío. Los bloques "UUUUU..." de LAME indican que el proceso
+      // se interrumpió antes de cerrar el MP3 correctamente.
+      $fileSize = (file_exists($tmpOut) ? filesize($tmpOut) : 0);
+
+      if ($exitCode === 0 && $fileSize > 5000) {
         rename($tmpOut, $cacheRealDir . "/{$filename}");
         return $this->urlResponse($filename);
       }
 
       @unlink($tmpOut);
+      \Drupal::logger('stepuptours_tts')->error(
+        'edge-tts failed: exit=@exit size=@size stderr=@err',
+        ['@exit' => $exitCode, '@size' => $fileSize, '@err' => $stderr],
+      );
       // Fall through to Railway fallback.
     }
 
     // ── 3b. Railway microservice fallback ─────────────────────────────────────
+    railway:
     $railwayUrl = getenv('STEPUPTOURS_TTS_RAILWAY_URL') ?: '';
     if ($railwayUrl === '') {
       return $this->corsResponse(new Response(
@@ -122,13 +187,13 @@ class TtsController extends ControllerBase {
     }
 
     $endpoint = rtrim($railwayUrl, '/') . '/tts';
-    $payload  = json_encode(['text' => $text, 'langcode' => $langcode]);
+    $payload  = json_encode(['text' => $text, 'langcode' => $langcode], JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
       CURLOPT_POST           => TRUE,
       CURLOPT_POSTFIELDS     => $payload,
-      CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+      CURLOPT_HTTPHEADER     => ['Content-Type: application/json; charset=utf-8'],
       CURLOPT_RETURNTRANSFER => TRUE,
       CURLOPT_TIMEOUT        => 90,
     ]);
@@ -162,11 +227,21 @@ class TtsController extends ControllerBase {
 
   private function slugify(string $str): string {
     $str = strip_tags($str);
-    $str = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $str) ?: $str;
-    $str = strtolower($str);
-    $str = preg_replace('/[^a-z0-9]+/', '-', $str);
-    $str = trim($str, '-');
-    return substr($str, 0, 30);
+    // Intentar transliteración ASCII (funciona bien para latín, cirílico, etc.)
+    $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $str) ?: '';
+    $ascii = strtolower($ascii);
+    $ascii = preg_replace('/[^a-z0-9]+/', '-', $ascii);
+    $ascii = trim($ascii, '-');
+    $ascii = substr($ascii, 0, 30);
+
+    // Si el resultado es demasiado corto (texto no transliterable: griego,
+    // árabe, chino, coreano, japonés...), usar un hash corto del original
+    // en lugar de un slug inútil tipo "u-u-u-".
+    if (strlen($ascii) < 4) {
+      return substr(hash('sha256', mb_strtolower(trim($str))), 0, 12);
+    }
+
+    return $ascii;
   }
 
   private function buildPrefix(string $tourTitle, string $stepTitle): string {
@@ -180,11 +255,11 @@ class TtsController extends ControllerBase {
       return trim($out[0]);
     }
     foreach ([
-      '/home/carlos/.local/bin/edge-tts',
-      '/root/.local/bin/edge-tts',
-      '/usr/local/bin/edge-tts',
-      '/usr/bin/edge-tts',
-    ] as $path) {
+               '/home/carlos/.local/bin/edge-tts',
+               '/root/.local/bin/edge-tts',
+               '/usr/local/bin/edge-tts',
+               '/usr/bin/edge-tts',
+             ] as $path) {
       if (is_executable($path)) return $path;
     }
     return NULL;

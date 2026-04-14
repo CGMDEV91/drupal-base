@@ -29,6 +29,7 @@ VOICES = {
     'ca': 'ca-ES-EnricNeural',
     'eu': 'eu-ES-AnderNeural',
     'ko': 'ko-KR-InJoonNeural',
+    'el' => 'el-GR-NestorasNeural',
 }
 
 DEFAULT_VOICE = 'en-US-GuyNeural'
