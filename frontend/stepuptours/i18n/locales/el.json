@@ -35,6 +35,7 @@
   "step.tts.pause": "Παύση",
   "step.tts.stop": "Διακοπή",
   "step.tts.listen": "Ακούστε την περιγραφή",
+  "step.ttsUnavailable": "Ο ηχητικός οδηγός δεν είναι ακόμη διαθέσιμος σε αυτήν τη γλώσσα.",
   "step.description": "Περιγραφή",
   "step.progress": "{{completed}} από {{total}} στάσεις ολοκληρώθηκαν",
   "popup.congratulations": "Συγχαρητήρια!",

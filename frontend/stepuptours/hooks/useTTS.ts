@@ -10,6 +10,9 @@ const SPEEDS   = [0.75, 1, 1.25, 1.5, 2];
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 const TTS_BASE = process.env.EXPO_PUBLIC_TTS_URL  ?? '';
 
+// Langcodes without TTS support — no network calls will be made for these.
+const NO_TTS_LANGS = new Set(['el']);
+
 // ── In-memory URL cache ───────────────────────────────────────────────────────
 
 const urlCache = new Map<string, string>();
@@ -214,8 +217,11 @@ export function useTTS(text: string, langcode: string, meta?: TtsMeta): UseTTSRe
   // ── Get URI ───────────────────────────────────────────────────────────────
   // Checks cache first, then reuses any in-flight promise (shared with prefetch)
   // to avoid making two concurrent requests to Drupal/Railway.
+  // Bails out immediately for unsupported langcodes — no network call is made.
 
   const getUri = useCallback(async (): Promise<string> => {
+    if (NO_TTS_LANGS.has(langcode)) throw new Error(`TTS not supported for language: ${langcode}`);
+
     if (urlCache.has(key)) return urlCache.get(key)!;
 
     if (inflightRef.current) return inflightRef.current;
@@ -230,6 +236,9 @@ export function useTTS(text: string, langcode: string, meta?: TtsMeta): UseTTSRe
   // ── Prefetch ──────────────────────────────────────────────────────────────
 
   const prefetch = useCallback(() => {
+    // Never make a network request for unsupported langcodes.
+    if (NO_TTS_LANGS.has(langcode)) return;
+
     if (urlCache.has(key) || prefetchingRef.current) return;
     prefetchingRef.current = true;
 
@@ -245,7 +254,7 @@ export function useTTS(text: string, langcode: string, meta?: TtsMeta): UseTTSRe
       })
       .catch(() => {})
       .finally(() => { prefetchingRef.current = false; });
-  }, [key, getUri]);
+  }, [key, getUri, langcode]);
 
   // ── Web helpers ───────────────────────────────────────────────────────────
 
@@ -310,6 +319,9 @@ export function useTTS(text: string, langcode: string, meta?: TtsMeta): UseTTSRe
   // ── Play / Pause ──────────────────────────────────────────────────────────
 
   const handlePlayPause = useCallback(async () => {
+    // Never attempt playback for unsupported langcodes.
+    if (NO_TTS_LANGS.has(langcode)) return;
+
     if (playStateRef.current === 'loading') return;
 
     if (Platform.OS === 'web') {
@@ -386,7 +398,7 @@ export function useTTS(text: string, langcode: string, meta?: TtsMeta): UseTTSRe
       await unloadSound();
       setPlayStateSync('idle');
     }
-  }, [attachWebListeners, loadAndPlayNative, loadAndPlayWeb, setPlayStateSync, startProgressPolling, stopInterval, unloadSound]);
+  }, [attachWebListeners, langcode, loadAndPlayNative, loadAndPlayWeb, setPlayStateSync, startProgressPolling, stopInterval, unloadSound]);
 
   // ── Speed change ──────────────────────────────────────────────────────────
 
