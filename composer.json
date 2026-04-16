@@ -122,6 +122,6 @@
                 "      composer remove drupal/core-project-message"
             ]
         },
-        "enable-patching": "true"
+        "enable-patching": true
     }
 }
