@@ -214,6 +214,7 @@ parameters:
       - 'https://eduardo-coelanaglyphic-existentialistically.ngrok-free.dev'
       - 'https://alison-visional-inez.ngrok-free.dev'
       - 'https://stepuptours.pages.dev'
+      - 'https://stepuptours-frontend.carlos-gonzalez-mujica.workers.dev'
     exposedHeaders:
       - 'Authorization'
       - 'Content-Type'

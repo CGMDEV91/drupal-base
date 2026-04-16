@@ -10,10 +10,12 @@ url:
     fr: fr
     de: de
     it: it
+    el: el
   domains:
     en: ''
     es: ''
     fr: ''
     de: ''
     it: ''
+    el: ''
 selected_langcode: site_default

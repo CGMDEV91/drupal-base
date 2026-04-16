@@ -1,0 +1,47 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: e5b7302b-e39e-4949-b787-f62ba62c7efd
+  bundle: currency
+  default_langcode: en
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: 'US Dollar'
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1775726141
+  field_currency_code:
+    -
+      value: USD
+  field_guide_revenue:
+    -
+      value: '80.00'
+  field_payment_reference:
+    -
+      value: usd
+  field_platform_revenue:
+    -
+      value: '20.00'

@@ -1,0 +1,47 @@
+_meta:
+  version: '1.0'
+  entity_type: taxonomy_term
+  uuid: 64335cc3-d7c5-4d23-9cd5-6fa56d282ed5
+  bundle: currency
+  default_langcode: en
+default:
+  status:
+    -
+      value: true
+  name:
+    -
+      value: Euro
+  weight:
+    -
+      value: 0
+  parent:
+    -
+      target_id: 0
+  path:
+    -
+      alias: ''
+      langcode: en
+  content_translation_source:
+    -
+      value: und
+  content_translation_outdated:
+    -
+      value: false
+  content_translation_uid:
+    -
+      target_id: 0
+  content_translation_created:
+    -
+      value: 1775726141
+  field_currency_code:
+    -
+      value: EUR
+  field_guide_revenue:
+    -
+      value: '80.00'
+  field_payment_reference:
+    -
+      value: eur
+  field_platform_revenue:
+    -
+      value: '20.00'
